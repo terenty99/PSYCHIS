@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk ls *)",
+      "Bash(dir *)",
+      "Bash(xargs grep -l -i \"todo\\\\|fixme\\\\|fix me\\\\|issue\\\\|hack\")",
+      "Bash(rtk find *)"
+    ]
+  }
+}
