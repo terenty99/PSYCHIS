@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PSYCHIS — Spatial Knowledge Engine</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <style>
+    :root {
+      --white-pure: #FFFFFF;
+      --white-warm: #F8F7F5;
+      --white-subtle: #F5F4F2;
+      --grey-soft: #F0EFED;
+      --grey-medium: #E8E6E3;
+      --grey-deep: #E0DED9;
+      --grey-accent: #D8D6D2;
+      --grey-strong: #C5C2BC;
+      --grey-dark: #8A8782;
+      --text-primary: #4A4540;
+      --text-secondary: #6B655A;
+      --text-muted: #8A8782;
+      --text-faint: #B0ADA8;
+      --obsidian-bg: rgba(15, 18, 26, 0.96);
+      --grad-panel: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 247, 245, 0.91) 100%);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    body {
+      background: var(--white-warm);
+      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+    #canvas-background {
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-color: #FAF9F7;
+      background-image: radial-gradient(circle, #C8C4BE 1.15px, transparent 1.15px);
+      background-size: 28px 28px;
+    }
+    #spatial-viewport {
+      position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; z-index: 10;
+    }
+    .smart-glass-panel {
+      position: absolute;
+      background: var(--grad-panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(197, 194, 188, 0.75);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 22px -6px rgba(0, 0, 0, 0.06);
+      cursor: grab;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+      z-index: 20;
+    }
+    .smart-glass-panel:hover {
+      border-color: var(--grey-strong);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06), 0 12px 28px -6px rgba(0, 0, 0, 0.09);
+    }
+    .smart-glass-panel.is-selected {
+      border-color: #6B655A;
+      box-shadow: 0 0 0 2px rgba(107, 101, 90, 0.25), 0 8px 24px -4px rgba(0, 0, 0, 0.12);
+    }
+    .smart-glass-panel.is-dragging {
+      cursor: grabbing !important;
+      opacity: 0.96;
+      box-shadow: 0 14px 34px -6px rgba(0, 0, 0, 0.16);
+      z-index: 30;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .display { font-family: 'Space Grotesk', sans-serif; }
+    .btn-contemplative {
+      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+      background: var(--white-pure); border: 1px solid var(--grey-medium);
+      color: var(--text-secondary); border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 500;
+      padding: 4px 10px; cursor: pointer; transition: all 0.18s ease;
+    }
+    .btn-contemplative:hover {
+      background: var(--grey-soft); border-color: var(--grey-strong); color: var(--text-primary);
+    }
+    .btn-dark {
+      background: #3A3531; color: #FFFFFF; border: 1px solid #2B2724;
+    }
+    .btn-dark:hover {
+      background: #25221F; color: #FFFFFF;
+    }
+    #svg-linkage-layer {
+      position: absolute; inset: 0; width: 4000px; height: 3000px; pointer-events: none; z-index: 15;
+    }
+    .linkage-glow {
+      fill: none; stroke: #FFFFFF; stroke-width: 6.5px; stroke-linecap: round; opacity: 0.85; filter: blur(1.5px);
+    }
+    .linkage-path {
+      fill: none; stroke-width: 2.5px; stroke-linecap: round; stroke-linejoin: round;
+      pointer-events: stroke; cursor: pointer; transition: stroke-width 0.2s ease, stroke 0.2s ease;
+    }
+    .linkage-path:hover { stroke-width: 3.8px; stroke: #2E2A27 !important; }
+    .linkage-contradict { stroke-dasharray: 6 5; }
+    .organic-chip {
+      position: absolute; z-index: 25;
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(6px);
+      border: 1px solid var(--grey-strong); border-radius: 12px;
+      padding: 2px 8px; font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px; font-weight: 600; color: var(--text-primary);
+      box-shadow: 0 2px 7px rgba(0, 0, 0, 0.08);
+      transform: translate(-50%, -50%); cursor: pointer; pointer-events: auto; white-space: nowrap;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .organic-chip:hover {
+      background: #FFFFFF; border-color: var(--text-primary); transform: translate(-50%, -50%) scale(1.05);
+    }
+    #cluster-box {
+      position: absolute; border: 1.5px dashed rgba(180, 175, 168, 0.85);
+      border-radius: 24px; pointer-events: none; z-index: 12;
+      background: rgba(248, 247, 245, 0.35); transition: all 0.2s ease;
+    }
+    #cluster-pill {
+      position: absolute; top: -12px; left: 24px;
+      background: var(--white-pure); border: 1px solid var(--grey-strong);
+      border-radius: 20px; padding: 3px 10px; display: flex; align-items: center; gap: 7px;
+      font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+      color: var(--text-primary); box-shadow: 0 1px 4px rgba(0,0,0,0.06); pointer-events: auto;
+    }
+    #cluster-pill button {
+      background: var(--grey-soft); border: 1px solid var(--grey-medium);
+      border-radius: 5px; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+      font-size: 10px; cursor: pointer;
+    }
+    #top-left-deck {
+      position: fixed; top: 14px; left: 16px; z-index: 40; display: flex; flex-direction: column; gap: 6px;
+    }
+    .status-bar-pill {
+      background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(10px);
+      border: 1px solid var(--grey-medium); border-radius: 14px; padding: 5px 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 14px;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    }
+    #spark-terminal {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      width: 740px; max-width: 92vw; height: 44px; z-index: 40;
+      background: var(--obsidian-bg); backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 16px;
+      box-shadow: inset 0 1px 1px rgba(255,255,255,0.1), 0 16px 36px rgba(0,0,0,0.32), 0 0 20px rgba(248,247,245,0.06);
+      display: flex; align-items: center; padding: 0 6px 0 14px;
+    }
+    #spark-terminal .telemetry {
+      display: flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; color: rgba(255, 255, 255, 0.45); border-right: 1px solid rgba(255, 255, 255, 0.12);
+      padding-right: 12px; margin-right: 10px; flex-shrink: 0;
+    }
+    #spark-terminal input {
+      flex: 1; background: transparent; border: none; outline: none;
+      font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: rgba(255, 255, 255, 0.85);
+    }
+    #spark-terminal input::placeholder { color: rgba(255, 255, 255, 0.32); }
+    #spark-generate-btn {
+      background: #FFFFFF; color: #1A1816; border: none; border-radius: 11px;
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+      padding: 7px 16px; cursor: pointer; transition: all 0.15s ease;
+    }
+    #spark-generate-btn:hover { background: #EAE8E4; transform: translateY(-0.5px); }
+    #canvas-controls {
+      position: fixed; bottom: 18px; left: 18px; z-index: 40;
+      background: rgba(255, 255, 255, 0.94); backdrop-filter: blur(10px);
+      border: 1px solid var(--grey-medium); border-radius: 14px; padding: 4px;
+      display: flex; align-items: center; gap: 2px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    #embedded-browser {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 550px; max-width: 90vw;
+      background: #FFFFFF; border-right: 1px solid var(--grey-medium);
+      box-shadow: 10px 0 35px rgba(0, 0, 0, 0.08); z-index: 70;
+      transform: translateX(-100%);
+      transition: transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94), width 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      display: flex; flex-direction: column;
+    }
+    #embedded-browser.is-open { transform: translateX(0); }
+    #embedded-browser.is-fullscreen { width: 100vw; max-width: 100vw; }
+    #node-inspector {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 440px; max-width: 90vw;
+      background: #FFFFFF; border-left: 1px solid var(--grey-medium);
+      box-shadow: -10px 0 35px rgba(0, 0, 0, 0.08); z-index: 70;
+      transform: translateX(100%); transition: transform 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      display: flex; flex-direction: column;
+    }
+    #node-inspector.is-open { transform: translateX(0); }
+    #modal-scrim {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.18); backdrop-filter: blur(2px); z-index: 65; display: none;
+    }
+    #modal-scrim.is-open { display: block; }
+    #enlightened-tooltip {
+      position: fixed; z-index: 99; background: rgba(25, 23, 22, 0.96); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 10px 14px;
+      color: #F8F7F5; font-size: 11px; box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+      pointer-events: none; opacity: 0; transition: opacity 0.15s ease; max-width: 290px; line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-background"></div>
+  <div id="top-left-deck">
+    <div class="status-bar-pill">
+      <div>
+        <div style="font-size: 8px; color: var(--text-faint); font-weight: 600; letter-spacing: 0.5px">LOCAL</div>
+        <div id="clock-display" style="font-weight: 600; color: var(--text-secondary)">00:21:57</div>
+      </div>
+      <div>
+        <div style="font-size: 8px; color: var(--text-faint); font-weight: 600; letter-spacing: 0.5px">TIMER</div>
+        <div id="timer-display" style="font-weight: 600; color: var(--text-primary)">00:00:00</div>
+      </div>
+      <div style="display: flex; gap: 4px; margin-left: 2px">
+        <button id="btn-timer-start" class="btn-contemplative" style="width: 22px; height: 22px; padding: 0" title="Start Timer">▶</button>
+        <button id="btn-timer-pause" class="btn-contemplative" style="width: 22px; height: 22px; padding: 0" title="Pause Timer">❚❚</button>
+        <button id="btn-timer-reset" class="btn-contemplative" style="width: 22px; height: 22px; padding: 0" title="Reset Timer">↺</button>
+      </div>
+    </div>
+    <div class="status-bar-pill" style="cursor: pointer;" title="Workspace settings">
+      <span style="color: var(--text-muted); font-size: 10px">▾</span>
+      <span style="font-weight: 600; color: var(--text-primary)">Applied Kinematics & Transport</span>
+      <span style="font-size: 9.5px; background: var(--grey-soft); border: 1px solid var(--grey-medium); padding: 1px 6px; border-radius: 8px; color: var(--text-muted)">5 nodes</span>
+    </div>
+  </div>
+  <div id="canvas-controls">
+    <button id="btn-zoom-out" class="btn-contemplative" style="width: 28px; height: 28px; padding: 0" title="Zoom Out (-)">−</button>
+    <button id="btn-zoom-reset" class="btn-contemplative" style="height: 28px; padding: 0 8px; font-weight: 600" title="Reset Zoom (0)">100%</button>
+    <button id="btn-zoom-in" class="btn-contemplative" style="width: 28px; height: 28px; padding: 0" title="Zoom In (+)">+</button>
+    <div style="width: 1px; height: 14px; background: var(--grey-medium); margin: 0 3px"></div>
+    <button id="btn-shortcuts-toggle" class="btn-contemplative" style="height: 28px; font-size: 10.5px">⌨ Shortcuts</button>
+  </div>
+  <footer id="spark-terminal">
+    <div class="telemetry">
+      <span style="width: 6px; height: 6px; border-radius: 50%; background: #4AE290; box-shadow: 0 0 6px rgba(74,226,144,0.6)"></span>
+      <span>spark: <b style="color: rgba(255,255,255,0.75)">online</b></span>
+    </div>
+    <span class="mono" style="font-size: 11px; color: rgba(255,255,255,0.4); margin-right: 6px">&gt; psychis://spark</span>
+    <input id="spark-input" type="text" placeholder='Research query or "Bridge 0x01 and 0x04"…' autocomplete="off">
+    <button id="spark-generate-btn">Generate</button>
+  </footer>
+  <main id="spatial-viewport">
+    <div id="cluster-box" style="left: 280px; top: 115px; width: 620px; height: 380px;">
+      <div id="cluster-pill">
+        <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted)"></span>
+        <span>Applied Kinematics & Transport</span>
+        <button id="btn-toggle-cluster">−</button>
+      </div>
+    </div>
+    <svg id="svg-linkage-layer">
+      <path id="glow-web-1a" class="linkage-glow" d="" />
+      <path id="glow-1a-1b" class="linkage-glow" d="" />
+      <path id="glow-1b-ref" class="linkage-glow" d="" />
+      <path id="glow-1a-spawned" class="linkage-glow" d="" />
+      <path id="path-web-1a" class="linkage-path" stroke="#4A4540" d="" />
+      <path id="path-1a-1b" class="linkage-path" stroke="#4A4540" d="" />
+      <path id="path-1b-ref" class="linkage-path linkage-contradict" stroke="#3A3530" d="" />
+      <path id="path-1a-spawned" class="linkage-path" stroke="#7A7570" d="" />
+    </svg>
+    <div id="chip-web-1a" class="organic-chip" data-rel="ORIGIN_URL">origin</div>
+    <div id="chip-1a-1b" class="organic-chip" data-rel="COUPLED_SYSTEM">coupled</div>
+    <div id="chip-1b-ref" class="organic-chip" data-rel="CONTRADICTS">contradicts</div>
+    <div id="chip-1a-spawned" class="organic-chip" data-rel="AI_PROBE">ai probe</div>
+    
+    <!-- Node 0x00: Website (arXiv) -->
+    <article id="node-0x00" class="smart-glass-panel" style="left: 45px; top: 235px; width: 255px;" data-id="0x00">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--grey-medium); padding-bottom: 6px; margin-bottom: 9px">
+        <div style="display: flex; gap: 4px">
+          <span style="width: 6.5px; height: 6.5px; border-radius: 50%; background: #D5D2CC"></span>
+          <span style="width: 6.5px; height: 6.5px; border-radius: 50%; background: #E2DFDA"></span>
+          <span style="width: 6.5px; height: 6.5px; border-radius: 50%; background: #E2DFDA"></span>
+        </div>
+        <span class="mono" style="font-size: 8.5px; font-weight: 600; color: #8A6E24; background: #FDF8EC; border: 1px solid #EFE4C6; padding: 1px 6px; border-radius: 10px">
+          🔒 arxiv.org
+        </span>
+      </div>
+      <div style="background: #FFFFFF; border: 1px solid var(--grey-medium); border-radius: 8px; padding: 4px 7px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.02)">
+        <span class="mono" style="font-size: 10px; font-weight: 600; color: var(--text-primary)">arXiv:2307.12008</span>
+        <span class="mono" style="font-size: 8px; color: var(--text-muted); background: var(--grey-soft); padding: 1px 3.5px; border-radius: 3px">cs.RO</span>
+      </div>
+      <h3 style="font-size: 12.5px; font-weight: 600; color: var(--text-primary); line-height: 1.35; margin-bottom: 5px">
+        Non-linear Kinematics of Chebyshev Linkages
+      </h3>
+      <p style="font-size: 10px; color: var(--text-secondary); line-height: 1.45; margin-bottom: 10px">
+        "Topological formulation of constrained straight-line micro-manipulators in vacuum…"
+      </p>
+      <div style="display: flex; gap: 5px; border-top: 1px solid var(--grey-soft); padding-top: 7px">
+        <button id="btn-open-browser-node" class="btn-contemplative btn-dark" style="flex: 1; font-size: 9.5px; padding: 5px 0">
+          ● Open Browser
+        </button>
+        <button class="btn-contemplative" style="font-size: 9.5px; padding: 5px 8px" onclick="openInspector('0x00')">
+          Details
+        </button>
+      </div>
+    </article>
+
+    <!-- Node 0x01: Kinematic Engine -->
+    <article id="node-0x01" class="smart-glass-panel is-selected" style="left: 310px; top: 155px; width: 280px;" data-id="0x01">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--grey-medium); padding-bottom: 5px; margin-bottom: 7px">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 600; color: var(--text-primary)">
+          <span style="color: #D97706">⚡</span>
+          <span class="mono">KINEMATIC ENGINE</span>
+        </div>
+        <span class="mono" style="font-size: 8.5px; font-weight: 600; color: var(--text-primary); background: var(--grey-medium); padding: 1px 5px; border-radius: 4px">
+          0x01
+        </span>
+      </div>
+      <div style="background: #2B2724; border-radius: 10px; height: 82px; position: relative; overflow: hidden; margin-bottom: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.35)">
+        <div class="mono" style="position: absolute; top: 4px; left: 6px; font-size: 7.5px; color: rgba(255,255,255,0.4); letter-spacing: 0.8px">
+          SIM // 4-BAR CHEBYSHEV
+        </div>
+        <svg id="chebyshev-canvas" viewBox="0 0 160 55" style="width: 100%; height: 100%">
+          <line x1="38" y1="42" x2="122" y2="42" stroke="#665F55" stroke-width="1.2" stroke-dasharray="2.5 2.5" />
+          <circle cx="38" cy="42" r="2.6" fill="#A8A299" />
+          <circle cx="122" cy="42" r="2.6" fill="#A8A299" />
+          <line x1="42" y1="16" x2="118" y2="16" stroke="rgba(255,255,255,0.18)" stroke-width="0.75" stroke-dasharray="2 2" />
+          <line id="crank-arm-1" x1="38" y1="42" x2="56" y2="22" stroke="#E2DFDA" stroke-width="2.2" stroke-linecap="round" />
+          <line id="crank-arm-2" x1="122" y1="42" x2="104" y2="22" stroke="#E2DFDA" stroke-width="2.2" stroke-linecap="round" />
+          <line id="coupler-bar" x1="56" y1="22" x2="104" y2="22" stroke="#D5D2CC" stroke-width="2.8" stroke-linecap="round" />
+          <circle id="coupler-tracer" cx="80" cy="22" r="3" fill="#FFFFFF" />
+        </svg>
+        <button id="btn-crank-speed" class="mono" style="position: absolute; bottom: 4px; right: 5px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: #FFFFFF; font-size: 7.5px; border-radius: 4px; padding: 1px 5px; cursor: pointer;">
+          1x speed
+        </button>
+      </div>
+      <h4 style="font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 5px">
+        Chebyshev Straight-Line Linkage
+      </h4>
+      <div id="formula-0x01" style="background: #FFFFFF; border: 1px solid var(--grey-medium); border-radius: 8px; padding: 5px; text-align: center; margin-bottom: 7px"></div>
+      <div style="background: var(--grey-soft); border-radius: 7px; padding: 5px 8px; display: flex; justify-content: space-around; text-align: center;">
+        <div>
+          <div class="mono" style="font-size: 7.5px; color: var(--text-faint); font-weight: 600">RATIO</div>
+          <div class="mono" style="font-size: 9.5px; font-weight: 600; color: var(--text-primary)">L/d = 2.50</div>
+        </div>
+        <div style="width: 1px; height: 18px; background: var(--grey-medium)"></div>
+        <div>
+          <div class="mono" style="font-size: 7.5px; color: var(--text-faint); font-weight: 600">TOLERANCE</div>
+          <div class="mono" style="font-size: 9.5px; font-weight: 600; color: var(--text-primary)">Δx ≤ 0.042%</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Node 0x02: Optical Transport -->
+    <article id="node-0x02" class="smart-glass-panel" style="left: 615px; top: 155px; width: 265px;" data-id="0x02">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--grey-medium); padding-bottom: 5px; margin-bottom: 7px">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 600; color: var(--text-primary)">
+          <span style="color: #2563EB">🪟</span>
+          <span class="mono">OPTICAL TRANSPORT</span>
+        </div>
+        <span class="mono" style="font-size: 8px; font-weight: 600; color: #15803D; background: #DCFCE7; border: 1px solid #BBF7D0; padding: 1px 5px; border-radius: 7px">
+          99.1% conf
+        </span>
+      </div>
+      <h4 style="font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px">
+        Drude-Lorentz Conductivity
+      </h4>
+      <div style="background: #FFFFFF; border: 1px solid var(--grey-medium); border-radius: 8px; padding: 5px 8px; margin-bottom: 7px;">
+        <div style="display: flex; justify-content: space-between; font-size: 7.5px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 2px">
+          <span>σ(ω) SPECTRAL RESPONSE</span>
+          <span>ωτ &gt; 1</span>
+        </div>
+        <svg viewBox="0 0 180 40" style="width: 100%; height: 32px">
+          <line x1="10" y1="34" x2="170" y2="34" stroke="#E8E6E3" stroke-width="1" />
+          <line x1="10" y1="4" x2="10" y2="34" stroke="#E8E6E3" stroke-width="1" />
+          <path d="M 10 8 Q 50 10, 80 24 T 170 32" fill="none" stroke="#4A4540" stroke-width="1.8" stroke-linecap="round" />
+          <circle cx="80" cy="24" r="2.6" fill="#4A4540" />
+          <text x="84" y="21" font-family="'JetBrains Mono', monospace" font-size="7" fill="#8A8782">100 cm⁻¹</text>
+        </svg>
+      </div>
+      <div id="formula-0x02" style="background: #FFFFFF; border: 1px solid var(--grey-medium); border-radius: 8px; padding: 5px; text-align: center; margin-bottom: 7px"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: var(--text-muted); padding-top: 3px;">
+        <span class="mono" style="font-size: 8px">1D Lattice Channel</span>
+        <span class="mono" style="font-size: 8px; font-weight: 600; color: var(--text-primary); cursor: pointer;" onclick="openInspector('0x02')">inspect proof →</span>
+      </div>
+    </article>
+
+    <!-- Node 0x03: Topological Proof -->
+    <article id="node-0x03" class="smart-glass-panel" style="left: 380px; top: 600px; width: 250px;" data-id="0x03">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--grey-medium); padding-bottom: 4px; margin-bottom: 6px">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 600; color: var(--text-primary)">
+          <span style="color: #6366F1">📐</span>
+          <span class="mono">TOPOLOGICAL PROOF</span>
+        </div>
+        <span class="mono" style="font-size: 8px; color: var(--text-primary); background: var(--grey-medium); padding: 1px 4px; border-radius: 4px">
+          0x03
+        </span>
+      </div>
+      <h4 style="font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px">
+        Coupler Curve Curvature
+      </h4>
+      <p style="font-size: 9.5px; color: var(--text-secondary); line-height: 1.4; margin-bottom: 6px">
+        Euler-Savary inflection circle formulation for planar guidance.
+      </p>
+      <div id="formula-0x03" style="background: #FFFFFF; border: 1px solid var(--grey-medium); border-radius: 8px; padding: 6px 4px; text-align: center; margin-bottom: 6px"></div>
+      <div class="mono" style="display: flex; justify-content: space-between; font-size: 8px; color: var(--text-muted); border-top: 1px solid var(--grey-soft); padding-top: 5px">
+        <span>Inflection R = 1.414a</span>
+        <span>3rd-order vanish</span>
+      </div>
+    </article>
+
+    <!-- Node 0x05: AI Discovery -->
+    <article id="node-0x05" class="smart-glass-panel" style="left: 655px; top: 550px; width: 265px;" data-id="0x05">
+      <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--grey-medium); padding-bottom: 4px; margin-bottom: 6px">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 600; color: var(--text-primary)">
+          <span style="color: #D97706">✦</span>
+          <span class="mono">AI DISCOVERY</span>
+        </div>
+        <span class="mono" style="font-size: 7.5px; font-weight: 600; color: var(--text-primary); background: var(--grey-soft); border: 1px solid var(--grey-medium); padding: 1px 5px; border-radius: 5px">
+          CRAWLED 2026
+        </span>
+      </div>
+      <h4 style="font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px">
+        Cryogenic Flexure Stability
+      </h4>
+      <p style="font-size: 9.5px; color: var(--text-secondary); line-height: 1.4; margin-bottom: 6px">
+        Sub-micron excursion maintained to 4.2 K with zero stick-slip hysteresis.
+      </p>
+      <div id="formula-0x05" style="background: #FFFFFF; border: 1px solid var(--grey-medium); border-radius: 8px; padding: 5px; text-align: center; margin-bottom: 6px"></div>
+      <div class="mono" style="display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: var(--text-muted); border-top: 1px solid var(--grey-soft); padding-top: 5px">
+        <span>IEEE Trans. Robotics</span>
+        <span style="font-weight: 600; color: var(--text-primary); cursor: pointer;" onclick="openInspector('0x05')">view +</span>
+      </div>
+    </article>
+
+    <!-- Node 0x04: Counter-Thesis -->
+    <article id="node-0x04" class="smart-glass-panel" style="left: 925px; top: 155px; width: 270px;" data-id="0x04">
+      <div style="background: #25221F; border-radius: 7px; padding: 4px 7px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px">
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 8.5px; font-weight: 600; color: #F8F7F5">
+          <span style="color: #FBBF24">⚠️</span>
+          <span class="mono">COUNTER-THESIS</span>
+        </div>
+        <span class="mono" style="font-size: 7.5px; font-weight: 600; color: #C5C2BC; background: rgba(255,255,255,0.12); padding: 1px 4px; border-radius: 3px">
+          REFUTATION
+        </span>
+      </div>
+      <h4 style="font-size: 11.5px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px">
+        Phase Transition Impedance Drop
+      </h4>
+      <div style="background: #FFFFFF; border: 1px solid var(--grey-medium); border-radius: 7px; padding: 6px 7px; margin-bottom: 7px; font-size: 9px; line-height: 1.5">
+        <div class="mono" style="color: #DC2626; text-decoration: line-through; display: flex; align-items: center; gap: 4px">
+          <span>❌</span> <span>Ambient Superconductivity</span>
+        </div>
+        <div class="mono" style="color: #4F46E5; font-weight: 600; display: flex; align-items: center; gap: 4px">
+          <span>✔️</span> <span>Cu₂S 1st-Order Phase Transition</span>
+        </div>
+      </div>
+      <div style="background: var(--grey-soft); border-radius: 7px; padding: 6px; text-align: center;">
+        <div class="mono" style="font-size: 8px; color: var(--text-secondary); margin-bottom: 2px">Insulating Ground State:</div>
+        <div id="formula-0x04" class="mono" style="font-size: 9.5px; font-weight: 600; color: var(--text-primary)"></div>
+      </div>
+    </article>
+  </main>
+  <aside id="embedded-browser">
+    <div style="background: #FAF9F7; border-bottom: 1px solid var(--grey-medium); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between">
+      <div style="background: #FFFFFF; border: 1px solid var(--grey-medium); border-radius: 8px; padding: 4px 10px; display: flex; align-items: center; gap: 6px; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-primary)">
+        <span>📄 arXiv:2307.12008</span>
+        <button id="btn-close-tab" style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 10px">✕</button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px">
+        <button id="btn-browser-expand" class="btn-contemplative" style="width: 26px; height: 26px; padding: 0" title="Expand Fullscreen">⤢</button>
+        <button id="btn-browser-close" class="btn-contemplative" style="width: 26px; height: 26px; padding: 0" title="Close Browser">✕</button>
+      </div>
+    </div>
+    <div style="background: #FFFFFF; border-bottom: 1px solid var(--grey-soft); padding: 6px 14px; display: flex; align-items: center; gap: 8px">
+      <div style="display: flex; gap: 3px; color: var(--text-muted)">
+        <button class="btn-contemplative" style="width: 24px; height: 24px; padding: 0">←</button>
+        <button class="btn-contemplative" style="width: 24px; height: 24px; padding: 0">→</button>
+        <button class="btn-contemplative" style="width: 24px; height: 24px; padding: 0">↻</button>
+      </div>
+      <div style="flex: 1; background: var(--grey-soft); border: 1px solid var(--grey-medium); border-radius: 9px; padding: 4px 10px; display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-primary)">
+        <span style="color: var(--text-muted)">🔒</span>
+        <span>https://arxiv.org/abs/2307.12008</span>
+      </div>
+      <button id="btn-map-graph" class="btn-contemplative btn-dark" style="font-size: 10.5px">Map to Graph</button>
+    </div>
+    <div style="flex: 1; overflow-y: auto; padding: 24px 28px; line-height: 1.6">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px">
+        <span class="mono" style="font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--grey-soft); padding: 2px 7px; border-radius: 6px">
+          arXiv:2307.12008 [cs.RO]
+        </span>
+        <button class="btn-contemplative" style="font-size: 10px; font-weight: 600">PDF</button>
+      </div>
+      <h1 style="font-size: 17px; font-weight: 600; line-height: 1.35; color: var(--text-primary); margin-bottom: 8px">
+        Non-linear Kinematics of Four-Bar Chebyshev Mechanisms and Topological Linkages in Vacuum Robotics
+      </h1>
+      <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 20px">
+        P. L. Chebyshev, M. J. Thorne, Elena Rostova, K. V. Vance
+      </div>
+      <div class="mono" style="font-size: 10.5px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.5px">
+        ABSTRACT
+      </div>
+      <p style="font-size: 12.5px; color: var(--text-primary); margin-bottom: 14px">
+        We present a rigorous topological and kinematic formulation of the classical Chebyshev four-bar straight-line motion mechanism applied to constrained planar micro-manipulators.
+      </p>
+      <p style="font-size: 12.5px; color: var(--text-primary); margin-bottom: 14px">
+        By deriving the closed-form inflection circle via the Euler-Savary equation, we prove that the central coupler point maintains a trajectory linear tolerance within 0.042% across an angular excursion of Δθ = 85°.
+      </p>
+    </div>
+  </aside>
+  <aside id="node-inspector">
+    <div style="background: #FAF9F7; border-bottom: 1px solid var(--grey-medium); padding: 12px 18px; display: flex; align-items: center; justify-content: space-between">
+      <div>
+        <div class="mono" style="font-size: 9px; color: var(--text-muted); text-transform: uppercase" id="insp-cat">MECHANISM // PLANAR MOTION</div>
+        <div style="font-size: 14px; font-weight: 600; color: var(--text-primary)" id="insp-title">Chebyshev Kinematic Linkage</div>
+      </div>
+      <div style="display: flex; gap: 6px">
+        <button id="btn-insp-delete" class="btn-contemplative" style="color: #DC2626" title="Delete Node">🗑</button>
+        <button id="btn-insp-close" class="btn-contemplative" style="width: 28px; height: 28px; padding: 0">✕</button>
+      </div>
+    </div>
+    <div style="flex: 1; overflow-y: auto; padding: 20px 22px;">
+      <div class="mono" style="font-size: 9.5px; color: var(--text-faint); margin-bottom: 4px">TOPOLOGICAL SYNTHESIS</div>
+      <p id="insp-synthesis" style="font-size: 12px; line-height: 1.6; color: var(--text-primary); margin-bottom: 16px">
+        Four-bar linkage converting continuous rotary input into an approximate straight-line trajectory. The proportions (L1=L2=2.5a, L3=a, L4=2a) eliminate sliding bearings, enabling frictionless transport in ultra-high vacuum semiconductor fabrication.
+      </p>
+      <div class="mono" style="font-size: 9.5px; color: var(--text-faint); margin-bottom: 4px">MATHEMATICAL PROOF</div>
+      <div id="insp-formula" style="background: var(--grey-soft); border-radius: 10px; padding: 12px; text-align: center; margin-bottom: 18px"></div>
+      <div class="mono" style="font-size: 9.5px; color: var(--text-faint); margin-bottom: 8px">AI DIALECTICAL PROBE</div>
+      <button id="btn-probe-deep" class="btn-contemplative btn-dark" style="width: 100%; padding: 10px; font-size: 11px; margin-bottom: 8px">
+        ✦ Investigate Deeper on the Web
+      </button>
+      <div id="probe-status" class="mono" style="font-size: 10px; color: var(--text-muted); text-align: center; min-height: 20px"></div>
+    </div>
+  </aside>
+  <div id="enlightened-tooltip">
+    <div id="tip-title" style="font-weight: 600; margin-bottom: 3px; font-family: 'JetBrains Mono', monospace"></div>
+    <div id="tip-desc" style="color: #C5C2BC; font-size: 10.5px"></div>
+  </div>
+  <div id="modal-scrim"></div>
+  <script>
+    const NODE_DATA = {
+      '0x00': {
+        title: 'arXiv: Chebyshev Kinematics',
+        cat: 'website // corpus',
+        synthesis: 'Living web anchor node linking to Cornell arXiv preprint repository. Serves as primary topological origin for kinematic four-bar formulas and closed-form inflection circle derivations.',
+        formula: '\\text{arXiv:2307.12008}\\;[\\text{cs.RO}]'
+      },
+      '0x01': {
+        title: 'Chebyshev Kinematic Linkage',
+        cat: 'mechanism // planar motion',
+        synthesis: 'Four-bar linkage converting continuous rotary input into an approximate straight-line trajectory. The proportions eliminate sliding bearings, enabling frictionless transport in ultra-high vacuum robotics.',
+        formula: 'F = \\frac{\\mu_0 \\cdot I_1 \\cdot I_2 \\cdot L}{2\\pi d}'
+      },
+      '0x02': {
+        title: 'Drude-Lorentz Conductivity',
+        cat: 'transport // solid state',
+        synthesis: 'Frequency-dependent optical transport across one-dimensional crystalline lattice channels. Spectroscopic ellipsometry demonstrates Drude peak suppression below 100 cm⁻¹ due to strong correlation effects.',
+        formula: '\\sigma(\\omega)=\\frac{\\sigma_0}{1+\\omega^2\\tau^2}+i\\frac{\\sigma_0\\omega\\tau}{1+\\omega^2\\tau^2}'
+      },
+      '0x03': {
+        title: 'Coupler Curve Curvature',
+        cat: 'topological geometry',
+        synthesis: 'Closed-form derivation of the inflection circle via the Euler-Savary equation. Third-order derivatives vanish at the central symmetry position, producing planar guidance deviation under 0.042%.',
+        formula: '\\left(\\frac{1}{r}-\\frac{1}{r_0}\\right)\\sin(\\psi)=\\frac{1}{R}'
+      },
+      '0x04': {
+        title: 'Phase Transition Impedance',
+        cat: 'refutation // counter-thesis',
+        synthesis: 'Single-crystal synthesis proves the sharp resistivity drop at 104°C is an artifact of Cu2S structural phase transition, establishing an insulating ground state rather than ambient superconductivity.',
+        formula: '\\rho > 10^8\\,\\Omega{\\cdot}\\text{cm}'
+      },
+      '0x05': {
+        title: 'Cryogenic Flexure Stability',
+        cat: 'ai discovery // 2026',
+        synthesis: 'Sub-micron straight-line excursion maintained down to 4.2 K with zero stick-slip hysteresis on beryllium-copper flexure prototype for orbital cryo-interferometry.',
+        formula: '\\Delta x_{\\text{err}}\\le 0.042\\%'
+      }
+    };
+    function renderMath() {
+      if (!window.katex) return;
+      katex.render("F = \\frac{\\mu_0 \\cdot I_1 \\cdot I_2 \\cdot L}{2\\pi d}", document.getElementById('formula-0x01'), { displayMode: false });
+      katex.render("\\sigma(\\omega)=\\frac{\\sigma_0}{1+\\omega^2\\tau^2}+i\\frac{\\sigma_0\\omega\\tau}{1+\\omega^2\\tau^2}", document.getElementById('formula-0x02'), { displayMode: false });
+      katex.render("\\left(\\frac{1}{r}-\\frac{1}{r_0}\\right)\\sin(\\psi)=\\frac{1}{R}", document.getElementById('formula-0x03'), { displayMode: false });
+      katex.render("\\rho > 10^8\\,\\Omega{\\cdot}\\text{cm}", document.getElementById('formula-0x04'), { displayMode: false });
+      katex.render("\\Delta x_{\\text{err}}\\le 0.042\\%", document.getElementById('formula-0x05'), { displayMode: false });
+    }
+    let crankTheta = 0;
+    let crankSpeed = 1;
+    function animateChebyshev() {
+      crankTheta += 0.035 * crankSpeed;
+      const r = 18;
+      const p1x = 38 + r * Math.cos(crankTheta);
+      const p1y = 42 - r * Math.sin(crankTheta);
+      const p2x = 122 - r * Math.cos(crankTheta);
+      const p2y = 42 - r * Math.sin(crankTheta);
+      const mx = (p1x + p2x) / 2;
+      const my = (p1y + p2y) / 2;
+      const arm1 = document.getElementById('crank-arm-1');
+      const arm2 = document.getElementById('crank-arm-2');
+      const coupler = document.getElementById('coupler-bar');
+      const tracer = document.getElementById('coupler-tracer');
+      if (arm1 && arm2 && coupler && tracer) {
+        arm1.setAttribute('x2', p1x);
+        arm1.setAttribute('y2', p1y);
+        arm2.setAttribute('x2', p2x);
+        arm2.setAttribute('y2', p2y);
+        coupler.setAttribute('x1', p1x);
+        coupler.setAttribute('y1', p1y);
+        coupler.setAttribute('x2', p2x);
+        coupler.setAttribute('y2', p2y);
+        tracer.setAttribute('cx', mx);
+        tracer.setAttribute('cy', my);
+      }
+      requestAnimationFrame(animateChebyshev);
+    }
+    requestAnimationFrame(animateChebyshev);
+    document.getElementById('btn-crank-speed').addEventListener('click', (e) => {
+      e.stopPropagation();
+      crankSpeed = crankSpeed === 1 ? 2 : 1;
+      e.target.textContent = crankSpeed + 'x speed';
+    });
+    function getNodeCenter(el) {
+      return {
+        x: el.offsetLeft + el.offsetWidth / 2,
+        y: el.offsetTop + el.offsetHeight / 2
+      };
+    }
+    function createOrganicCurve(p1, p2, type) {
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      let c1x, c1y, c2x, c2y;
+      if (type === 'horizontal') {
+        c1x = p1.x + dx * 0.45; c1y = p1.y;
+        c2x = p2.x - dx * 0.45; c2y = p2.y;
+      } else if (type === 'vertical') {
+        c1x = p1.x; c1y = p1.y + dy * 0.45;
+        c2x = p2.x; c2y = p2.y - dy * 0.45;
+      } else {
+        c1x = p1.x + dx * 0.5; c1y = p1.y + dy * 0.1;
+        c2x = p2.x - dx * 0.2; c2y = p2.y - dy * 0.5;
+      }
+      const midX = (p1.x + c1x * 3 + c2x * 3 + p2.x) / 8;
+      const midY = (p1.y + c1y * 3 + c2y * 3 + p2.y) / 8;
+      return {
+        d: `M ${p1.x} ${p1.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2.x} ${p2.y}`,
+        mid: { x: midX, y: midY }
+      };
+    }
+    function updateLinkages() {
+      const nWeb = document.getElementById('node-0x00');
+      const n01 = document.getElementById('node-0x01');
+      const n02 = document.getElementById('node-0x02');
+      const n03 = document.getElementById('node-0x03');
+      const n04 = document.getElementById('node-0x04');
+      const n05 = document.getElementById('node-0x05');
+      if (!nWeb || !n01 || !n02 || !n04) return;
+      const pWeb = getNodeCenter(nWeb);
+      const p01 = getNodeCenter(n01);
+      const p02 = getNodeCenter(n02);
+      const p04 = getNodeCenter(n04);
+      const c1 = createOrganicCurve(pWeb, p01, 'horizontal');
+      document.getElementById('path-web-1a').setAttribute('d', c1.d);
+      document.getElementById('glow-web-1a').setAttribute('d', c1.d);
+      const chip1 = document.getElementById('chip-web-1a');
+      chip1.style.left = `${c1.mid.x}px`; chip1.style.top = `${c1.mid.y}px`;
+      const c2 = createOrganicCurve(p01, p02, 'horizontal');
+      document.getElementById('path-1a-1b').setAttribute('d', c2.d);
+      document.getElementById('glow-1a-1b').setAttribute('d', c2.d);
+      const chip2 = document.getElementById('chip-1a-1b');
+      chip2.style.left = `${c2.mid.x}px`; chip2.style.top = `${c2.mid.y}px`;
+      const c3 = createOrganicCurve(p02, p04, 'horizontal');
+      document.getElementById('path-1b-ref').setAttribute('d', c3.d);
+      document.getElementById('glow-1b-ref').setAttribute('d', c3.d);
+      const chip3 = document.getElementById('chip-1b-ref');
+      chip3.style.left = `${c3.mid.x}px`; chip3.style.top = `${c3.mid.y}px`;
+      if (n05) {
+        const p05 = getNodeCenter(n05);
+        const c4 = createOrganicCurve(p01, p05, 'diagonal');
+        document.getElementById('path-1a-spawned').setAttribute('d', c4.d);
+        document.getElementById('glow-1a-spawned').setAttribute('d', c4.d);
+        const chip4 = document.getElementById('chip-1a-spawned');
+        chip4.style.left = `${c4.mid.x}px`; chip4.style.top = `${c4.mid.y}px`;
+      }
+    }
+    let draggingNode = null;
+    let dragOffset = { x: 0, y: 0 };
+    let dragStartPos = { x: 0, y: 0 };
+    let didDragMove = false;
+    document.querySelectorAll('.smart-glass-panel').forEach(node => {
+      node.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button, a, input')) return;
+        draggingNode = node; didDragMove = false;
+        dragStartPos = { x: e.clientX, y: e.clientY };
+        dragOffset = {
+          x: (e.clientX / currentZoom) - node.offsetLeft,
+          y: (e.clientY / currentZoom) - node.offsetTop
+        };
+        node.classList.add('is-dragging');
+        node.setPointerCapture(e.pointerId);
+      });
+      node.addEventListener('pointermove', (e) => {
+        if (!draggingNode || draggingNode !== node) return;
+        const dx = e.clientX - dragStartPos.x;
+        const dy = e.clientY - dragStartPos.y;
+        if (Math.hypot(dx, dy) > 4) didDragMove = true;
+        const newX = (e.clientX / currentZoom) - dragOffset.x;
+        const newY = (e.clientY / currentZoom) - dragOffset.y;
+        node.style.left = `${newX}px`; node.style.top = `${newY}px`;
+        updateLinkages();
+      });
+      node.addEventListener('pointerup', (e) => {
+        if (!draggingNode || draggingNode !== node) return;
+        node.classList.remove('is-dragging');
+        if (!didDragMove) selectNode(node.dataset.id);
+        draggingNode = null;
+      });
+    });
+    let currentZoom = 1;
+    let panX = 0; let panY = 0;
+    const viewport = document.getElementById('spatial-viewport');
+    function updateTransform() {
+      viewport.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoom})`;
+      document.getElementById('btn-zoom-reset').textContent = `${Math.round(currentZoom * 100)}%`;
+    }
+    let isPanningCanvas = false;
+    let panStart = { x: 0, y: 0 };
+    window.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.smart-glass-panel, #spark-terminal, #top-left-deck, #canvas-controls, aside')) return;
+      isPanningCanvas = true;
+      panStart = { x: e.clientX - panX, y: e.clientY - panY };
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!isPanningCanvas) return;
+      panX = e.clientX - panStart.x; panY = e.clientY - panStart.y;
+      updateTransform();
+    });
+    window.addEventListener('pointerup', () => { isPanningCanvas = false; });
+    window.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (e.ctrlKey || Math.abs(e.deltaZ) > 0) {
+        const factor = e.deltaY < 0 ? 1.05 : 0.95;
+        currentZoom = Math.min(Math.max(currentZoom * factor, 0.35), 2.5);
+      } else {
+        panX -= e.deltaX * 1.1; panY -= e.deltaY * 1.1;
+      }
+      updateTransform();
+    }, { passive: false });
+    document.getElementById('btn-zoom-in').addEventListener('click', () => {
+      currentZoom = Math.min(currentZoom * 1.15, 2.5); updateTransform();
+    });
+    document.getElementById('btn-zoom-out').addEventListener('click', () => {
+      currentZoom = Math.max(currentZoom * 0.85, 0.35); updateTransform();
+    });
+    document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+      currentZoom = 1; panX = 0; panY = 0; updateTransform();
+    });
+    const browserDrawer = document.getElementById('embedded-browser');
+    const inspectorDrawer = document.getElementById('node-inspector');
+    function openBrowser() { browserDrawer.classList.add('is-open'); }
+    function closeBrowser() { browserDrawer.classList.remove('is-open'); browserDrawer.classList.remove('is-fullscreen'); }
+    function selectNode(id) {
+      document.querySelectorAll('.smart-glass-panel').forEach(n => n.classList.remove('is-selected'));
+      const target = document.querySelector(`[data-id="${id}"]`);
+      if (target) target.classList.add('is-selected');
+      openInspector(id);
+    }
+    function openInspector(id) {
+      const data = NODE_DATA[id];
+      if (!data) return;
+      document.getElementById('insp-title').textContent = data.title;
+      document.getElementById('insp-cat').textContent = data.cat;
+      document.getElementById('insp-synthesis').textContent = data.synthesis;
+      if (window.katex && data.formula) {
+        katex.render(data.formula, document.getElementById('insp-formula'), { displayMode: true });
+      }
+      inspectorDrawer.classList.add('is-open');
+    }
+    function closeInspector() { inspectorDrawer.classList.remove('is-open'); }
+    document.getElementById('btn-open-browser-node').addEventListener('click', (e) => { e.stopPropagation(); openBrowser(); });
+    document.getElementById('btn-browser-close').addEventListener('click', closeBrowser);
+    document.getElementById('btn-close-tab').addEventListener('click', closeBrowser);
+    document.getElementById('btn-insp-close').addEventListener('click', closeInspector);
+    document.getElementById('btn-browser-expand').addEventListener('click', () => { browserDrawer.classList.toggle('is-fullscreen'); });
+    document.getElementById('btn-map-graph').addEventListener('click', () => { alert('Mapped arXiv:2307.12008 to active canvas!'); });
+    document.getElementById('btn-insp-delete').addEventListener('click', () => {
+      const active = document.querySelector('.smart-glass-panel.is-selected');
+      if (active) { active.remove(); closeInspector(); updateLinkages(); }
+    });
+    document.getElementById('btn-probe-deep').addEventListener('click', () => {
+      const status = document.getElementById('probe-status');
+      status.textContent = 'Probing arXiv & IEEE indexes…';
+      setTimeout(() => { status.textContent = 'Synthesized cryogenic flexure stability!'; }, 1200);
+    });
+    document.getElementById('spark-generate-btn').addEventListener('click', () => {
+      const input = document.getElementById('spark-input');
+      const val = input.value.trim();
+      if (!val) return;
+      alert(`Spark synthesizing: "${val}"`); input.value = '';
+    });
+    document.getElementById('spark-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('spark-generate-btn').click();
+    });
+    const tip = document.getElementById('enlightened-tooltip');
+    const tipTitle = document.getElementById('tip-title');
+    const tipDesc = document.getElementById('tip-desc');
+    const RELATION_INFO = {
+      'ORIGIN_URL': { title: 'ORIGIN_URL (Topological Anchor)', desc: 'Web corpus anchor providing primary parametric derivations and closed-form axioms.' },
+      'COUPLED_SYSTEM': { title: 'COUPLED_SYSTEM (Mechanical Transport)', desc: '94.8% mathematical coupling through straight-line Chebyshev guidance.' },
+      'CONTRADICTS': { title: 'CONTRADICTS (Refutation Dialectic)', desc: 'Strict experimental contradiction: Cu2S phase transition vs superconductivity claims.' },
+      'AI_PROBE': { title: 'AI_PROBE (Crawled 2026)', desc: 'Autonomous discovery validating zero stick-slip hysteresis at 4.2 K.' }
+    };
+    document.querySelectorAll('.organic-chip').forEach(chip => {
+      chip.addEventListener('mouseenter', (e) => {
+        const info = RELATION_INFO[chip.dataset.rel];
+        if (!info) return;
+        tipTitle.textContent = info.title; tipDesc.textContent = info.desc; tip.style.opacity = '1';
+      });
+      chip.addEventListener('mousemove', (e) => {
+        tip.style.left = `${e.clientX + 14}px`; tip.style.top = `${e.clientY + 14}px`;
+      });
+      chip.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
+    });
+    let timerSecs = 0; let timerInterval = null;
+    const timerDisp = document.getElementById('timer-display');
+    const clockDisp = document.getElementById('clock-display');
+    function updateTimer() {
+      const h = String(Math.floor(timerSecs / 3600)).padStart(2, '0');
+      const m = String(Math.floor((timerSecs % 3600) / 60)).padStart(2, '0');
+      const s = String(timerSecs % 60).padStart(2, '0');
+      timerDisp.textContent = `${h}:${m}:${s}`;
+    }
+    document.getElementById('btn-timer-start').addEventListener('click', () => {
+      if (!timerInterval) timerInterval = setInterval(() => { timerSecs++; updateTimer(); }, 1000);
+    });
+    document.getElementById('btn-timer-pause').addEventListener('click', () => { clearInterval(timerInterval); timerInterval = null; });
+    document.getElementById('btn-timer-reset').addEventListener('click', () => { clearInterval(timerInterval); timerInterval = null; timerSecs = 0; updateTimer(); });
+    setInterval(() => {
+      const d = new Date();
+      clockDisp.textContent = [d.getHours(), d.getMinutes(), d.getSeconds()].map(v => String(v).padStart(2, '0')).join(':');
+    }, 1000);
+    window.addEventListener('load', () => { renderMath(); updateLinkages(); updateTransform(); });
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { closeBrowser(); closeInspector(); }
+      if (e.key === '0') document.getElementById('btn-zoom-reset').click();
+      if (e.key === '1') selectNode('0x01');
+      if (e.key === '2') selectNode('0x02');
+      if (e.key === '3') selectNode('0x03');
+      if (e.key === '4') selectNode('0x04');
+    });
+  </script>
+</html>

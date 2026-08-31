@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing & Artifacts
+coverage/
+.nyc_output
+
+# Build outputs
+# dist is built on CI or locally
+.gemini/
+.system_generated/
+backup_site_v*/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS files
+.DS_Store
+Thumbs.db
