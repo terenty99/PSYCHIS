@@ -369,7 +369,7 @@
     <div id="chip-web-1a" class="organic-chip" data-rel="ORIGIN_URL">origin</div>
     <div id="chip-1a-1b" class="organic-chip" data-rel="COUPLED_SYSTEM">coupled</div>
     <div id="chip-1b-ref" class="organic-chip" data-rel="CONTRADICTS">contradicts</div>
-    <div id="chip-1a-spawned" class="organic-chip" data-rel="AI_PROBE">ai probe</div>
+    <div id="chip-1a-spawned" class="organic-chip" data-rel="DEEP_PROBE">ai probe</div>
     
     <!-- Node 0x00: Website (arXiv) -->
     <article id="node-0x00" class="smart-glass-panel" style="left: 45px; top: 235px; width: 255px;" data-id="0x00" onclick="selectNode('0x00')">
@@ -507,7 +507,7 @@
       </div>
     </article>
 
-    <!-- Node 0x05: AI Discovery -->
+    <!-- Node 0x05: Parametric Discovery -->
     <article id="node-0x05" class="smart-glass-panel" style="left: 655px; top: 550px; width: 265px;" data-id="0x05" onclick="selectNode('0x05')">
       <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--grey-medium); padding-bottom: 4px; margin-bottom: 6px">
         <div style="display: flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 600; color: var(--text-primary)">
@@ -661,7 +661,7 @@
         <button id="tab-btn-study" class="btn-contemplative btn-dark" style="font-size: 10.5px; padding: 3px 8px;" onclick="switchInspTab('study')">📄 Overview</button>
         <button id="tab-btn-visuals" class="btn-contemplative" style="font-size: 10.5px; padding: 3px 8px;" onclick="switchInspTab('visuals')">🎬 Kinetic Visuals</button>
         <button id="tab-btn-proofs" class="btn-contemplative" style="font-size: 10.5px; padding: 3px 8px;" onclick="switchInspTab('proofs')">📐 Proofs (3)</button>
-        <button id="tab-btn-probe" class="btn-contemplative" style="font-size: 10.5px; padding: 3px 8px;" onclick="switchInspTab('probe')">⚡ AI Probe</button>
+        <button id="tab-btn-probe" class="btn-contemplative" style="font-size: 10.5px; padding: 3px 8px;" onclick="switchInspTab('probe')">⚡ Deep Probe</button>
       </div>
     </div>
 
@@ -797,7 +797,7 @@
             <span class="mono" style="font-size: 9px; color: var(--text-muted);">AI Engine</span>
           </div>
           <input id="gif-prompt-input" type="text" value="Synthesize 60fps kinetic loop with velocity vectors and error envelope" style="background: #FFFFFF; border: 1px solid var(--grey-medium); border-radius: 8px; padding: 6px 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; outline: none;" />
-          <button class="btn-contemplative btn-dark" style="font-size: 11px; padding: 8px;" onclick="synthesizeAiGif()">✦ Generate Kinetic Motion GIF</button>
+          <button class="btn-contemplative btn-dark" style="font-size: 11px; padding: 8px;" onclick="synthesizeKineticGif()">✦ Generate Kinetic Motion GIF</button>
           <div id="gif-status-text" class="mono" style="font-size: 10px; color: var(--text-muted); text-align: center; min-height: 16px"></div>
         </div>
       </div>
@@ -1397,12 +1397,12 @@
       if (btn) btn.textContent = isStagePlaying ? '❚❚' : '▶';
     }
 
-    function synthesizeAiGif() {
+    function synthesizeKineticGif() {
       const status = document.getElementById('gif-status-text');
       const input = document.getElementById('gif-prompt-input');
       status.textContent = 'Synthesizing 60fps parametric motion frames...';
       setTimeout(() => {
-        status.textContent = '✓ AI kinetic motion loop synthesized and attached!';
+        status.textContent = '✓ Kinetic motion loop synthesized and attached!';
       }, 1400);
     }
 
@@ -1518,7 +1518,7 @@
       'ORIGIN_URL': { title: 'ORIGIN_URL (Topological Anchor)', desc: 'Web corpus anchor providing primary parametric derivations and closed-form axioms.' },
       'COUPLED_SYSTEM': { title: 'COUPLED_SYSTEM (Mechanical Transport)', desc: '94.8% mathematical coupling through straight-line Chebyshev guidance.' },
       'CONTRADICTS': { title: 'CONTRADICTS (Refutation Dialectic)', desc: 'Strict experimental contradiction: Cu2S phase transition vs superconductivity claims.' },
-      'AI_PROBE': { title: 'AI_PROBE (Crawled 2026)', desc: 'Autonomous discovery validating zero stick-slip hysteresis at 4.2 K.' }
+      'DEEP_PROBE': { title: 'DEEP_PROBE (Crawled 2026)', desc: 'Autonomous discovery validating zero stick-slip hysteresis at 4.2 K.' }
     };
     document.querySelectorAll('.organic-chip').forEach(chip => {
       chip.addEventListener('mouseenter', (e) => {
