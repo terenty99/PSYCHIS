@@ -176,7 +176,7 @@ const getNodeTypeConfig = (type) => {
     case 'spawned':
       return {
         icon: Sparkles,
-        label: 'AI Discovery // 2026',
+        label: 'Parametric Discovery // 2026',
         badge: 'AI DISCOVERY',
       };
     default:
@@ -602,7 +602,7 @@ export const NodeInspector = ({
               }`}
             >
               <Sparkles className="w-3 h-3 text-text-secondary" />
-              <span>AI Probe</span>
+              <span>Deep Probe</span>
             </button>
           </nav>
         </header>

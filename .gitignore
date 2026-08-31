@@ -3,15 +3,18 @@ node_modules/
 .pnp
 .pnp.js
 
+# Agent & Assistant Folders
+.agents/
+.claude/
+.gemini/
+.system_generated/
+uiux-designer-antigravityskills-com/
+3d-web-experience/
+backup_site_v*/
+
 # Testing & Artifacts
 coverage/
 .nyc_output
-
-# Build outputs
-# dist is built on CI or locally
-.gemini/
-.system_generated/
-backup_site_v*/
 
 # Environment
 .env
