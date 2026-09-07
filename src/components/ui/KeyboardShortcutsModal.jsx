@@ -68,6 +68,19 @@ export const KeyboardShortcutsModal = ({ isOpen, onClose }) => {
 
   const shortcutGroups = [
     {
+      title: 'Clusters & Multi-Selection',
+      icon: LayoutGrid,
+      items: [
+        { keys: ['Shift + Drag'], desc: 'Architectural drafting marquee selection' },
+        { keys: ['Shift + Click'], desc: 'Toggle individual node in/out of selection' },
+        { keys: ['V'], desc: 'Switch to Selection Tool (LMB = Marquee)' },
+        { keys: ['H'], desc: 'Switch to Hand Tool (LMB = Pan)' },
+        { keys: ['Ctrl + G'], desc: 'Form permanent cluster from selected nodes' },
+        { keys: ['Ctrl + Shift + G'], desc: 'Ungroup / Dissolve active cluster' },
+        { keys: ['Esc'], desc: 'Clear active multi-selection / Dismiss Ghost Hull' },
+      ],
+    },
+    {
       title: 'Spatial Canvas',
       icon: LayoutGrid,
       items: [

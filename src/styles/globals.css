@@ -126,6 +126,26 @@ body {
     inset 0 1px 2px rgba(255, 255, 255, 0.95);
 }
 
+.smart-glass-panel.is-anticipating {
+  border-color: var(--grey-strong) !important;
+  box-shadow:
+    0 0 0 2.5px rgba(107, 101, 90, 0.45),
+    0 12px 30px -4px rgba(74, 69, 64, 0.2),
+    inset 0 1px 2px rgba(255, 255, 255, 0.95) !important;
+  transform: translateZ(4px);
+}
+
+@keyframes ghost-pulse {
+  0%, 100% {
+    opacity: 0.95;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    opacity: 0.6;
+    stroke-dashoffset: 12;
+  }
+}
+
 /* Tactile Link Creation Gestures */
 @keyframes link-shake {
   0% { transform: translate(0, 0); }

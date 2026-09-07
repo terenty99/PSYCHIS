@@ -6,6 +6,7 @@ import { TrendingUp, BarChart2 } from 'lucide-react';
 export const TransportNode = ({
   node,
   isSelected,
+  isAnticipating = false,
   isDragging,
   isLinkSelected = false,
   isLinkShaking = false,
@@ -21,6 +22,7 @@ export const TransportNode = ({
     <SmartGlassPanel
       nodeId={node.id}
       isSelected={isSelected}
+      isAnticipating={isAnticipating}
       isDragging={isDragging}
       isLinkSelected={isLinkSelected}
       isLinkShaking={isLinkShaking}

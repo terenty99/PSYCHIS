@@ -5,6 +5,7 @@ import { MathFormula } from '../../utils/mathRenderer';
 export const SpawnedNode = ({
   node,
   isSelected,
+  isAnticipating = false,
   isDragging,
   isLinkSelected = false,
   isLinkShaking = false,
@@ -476,6 +477,7 @@ export const SpawnedNode = ({
     <SmartGlassPanel
       nodeId={node.id}
       isSelected={isSelected}
+      isAnticipating={isAnticipating}
       isDragging={isDragging}
       isLinkSelected={isLinkSelected}
       isLinkShaking={isLinkShaking}

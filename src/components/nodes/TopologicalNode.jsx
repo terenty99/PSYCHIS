@@ -6,6 +6,7 @@ import { Compass } from 'lucide-react';
 export const TopologicalNode = ({
   node,
   isSelected,
+  isAnticipating = false,
   isDragging,
   isLinkSelected = false,
   isLinkShaking = false,
@@ -21,6 +22,7 @@ export const TopologicalNode = ({
     <SmartGlassPanel
       nodeId={node.id}
       isSelected={isSelected}
+      isAnticipating={isAnticipating}
       isDragging={isDragging}
       isLinkSelected={isLinkSelected}
       isLinkShaking={isLinkShaking}

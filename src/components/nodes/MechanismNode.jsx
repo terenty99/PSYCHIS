@@ -6,6 +6,7 @@ import { Activity } from 'lucide-react';
 export const MechanismNode = ({
   node,
   isSelected,
+  isAnticipating = false,
   isDragging,
   isLinkSelected = false,
   isLinkShaking = false,
@@ -50,6 +51,7 @@ export const MechanismNode = ({
     <SmartGlassPanel
       nodeId={node.id}
       isSelected={isSelected}
+      isAnticipating={isAnticipating}
       isDragging={isDragging}
       isLinkSelected={isLinkSelected}
       isLinkShaking={isLinkShaking}

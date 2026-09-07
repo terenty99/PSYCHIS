@@ -6,6 +6,7 @@ import { AlertOctagon, CheckCircle2, XCircle } from 'lucide-react';
 export const ContradictionNode = ({
   node,
   isSelected,
+  isAnticipating = false,
   isDragging,
   isLinkSelected = false,
   isLinkShaking = false,
@@ -21,6 +22,7 @@ export const ContradictionNode = ({
     <SmartGlassPanel
       nodeId={node.id}
       isSelected={isSelected}
+      isAnticipating={isAnticipating}
       isDragging={isDragging}
       isLinkSelected={isLinkSelected}
       isLinkShaking={isLinkShaking}
