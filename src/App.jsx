@@ -214,6 +214,7 @@ export function App() {
           id: 'cluster-kinematics-1',
           title: 'Analytical Mechanics & Coupler Invariants',
           nodeIds: ['0x01', '0x02', '0x03'],
+          color: 'stone',
           isCollapsed: false,
           category: 'Domain: Kinematics // Invariants',
           epistemicStatus: 'peer reviewed',
@@ -322,7 +323,7 @@ export function App() {
     onAdoptCluster: (newCluster) => {
       setClusters((prev) => [...prev, newCluster]);
     },
-    isEnabled: true,
+    isEnabled: false,
   });
 
   // Currently Selected Node Data
@@ -683,10 +684,14 @@ export function App() {
       const categories = memberNodes.map((n) => n.data?.category || '').filter(Boolean);
       const defaultCategory = categories.length > 0 ? categories[0] : 'Knowledge Constellation';
 
+      const paletteKeys = ['amber', 'emerald', 'blue', 'purple', 'rose', 'teal', 'orange', 'stone'];
+      const chosenColor = paletteKeys[clusters.length % paletteKeys.length];
+
       const newCluster = {
         id: `cluster-${Date.now()}`,
         title: `Cluster ${clusters.length + 1}: ${defaultCategory.split('//')[0].trim() || 'Constellation'}`,
         nodeIds: [...ids],
+        color: chosenColor,
         isCollapsed: false,
         category: defaultCategory,
         epistemicStatus: 'synthesized',
@@ -706,6 +711,12 @@ export function App() {
   const handleUpdateClusterTitle = useCallback((clusterId, title) => {
     setClusters((prev) =>
       prev.map((c) => (c.id === clusterId ? { ...c, title } : c))
+    );
+  }, []);
+
+  const handleUpdateClusterColor = useCallback((clusterId, colorKey) => {
+    setClusters((prev) =>
+      prev.map((c) => (c.id === clusterId ? { ...c, color: colorKey } : c))
     );
   }, []);
 
@@ -1742,6 +1753,7 @@ export function App() {
         onAutoTidyCluster={handleAutoTidyCluster}
         onDissolveCluster={handleDissolveCluster}
         onUpdateClusterTitle={handleUpdateClusterTitle}
+        onUpdateClusterColor={handleUpdateClusterColor}
         onAdoptGhostCluster={adoptGhost}
         onDismissGhostCluster={dismissGhost}
         onCreateCluster={handleCreateCluster}

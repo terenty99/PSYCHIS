@@ -46,6 +46,7 @@ export const SpatialCanvas = ({
   onAutoTidyCluster,
   onDissolveCluster,
   onUpdateClusterTitle,
+  onUpdateClusterColor,
   onAdoptGhostCluster,
   onDismissGhostCluster,
   onCreateCluster,
@@ -653,8 +654,19 @@ export const SpatialCanvas = ({
     setLinkSourceNodeId(edge.source);
   }, []);
 
+  // Track which nodes are inside a collapsed cluster (represented by Macro-Node Card)
+  const collapsedNodeIds = useMemo(() => {
+    const ids = new Set();
+    clusters.forEach((c) => {
+      if (c.isCollapsed && Array.isArray(c.nodeIds)) {
+        c.nodeIds.forEach((id) => ids.add(id));
+      }
+    });
+    return ids;
+  }, [clusters]);
+
   const renderNode = (node) => {
-    if (node.hidden) return null;
+    if (node.hidden || collapsedNodeIds.has(node.id)) return null;
 
     const isSelected = selectedSet.has(node.id);
     const isAnticipating = anticipatingNodeIds.has(node.id);
@@ -821,6 +833,7 @@ export const SpatialCanvas = ({
           onAutoTidy={onAutoTidyCluster}
           onDissolve={onDissolveCluster}
           onUpdateTitle={onUpdateClusterTitle}
+          onUpdateColor={onUpdateClusterColor}
           onAdoptGhost={onAdoptGhostCluster}
           onDismissGhost={onDismissGhostCluster}
           // Legacy fallbacks:
@@ -900,17 +913,6 @@ export const SpatialCanvas = ({
           >
             <FolderPlus className="w-3.5 h-3.5 text-text-secondary" />
             <span>Form Cluster</span>
-          </button>
-
-          {/* [✦ AI Synthesize] */}
-          <button
-            type="button"
-            onClick={() => onSynthesizeCluster?.(null, effectiveSelectedIds)}
-            className="h-7 px-2.5 rounded-xl bg-amber-50/90 hover:bg-amber-100 border border-amber-300/80 text-amber-900 font-medium flex items-center gap-1.5 transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
-            title="AI Cluster Deep Dive"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-            <span>AI Synthesize</span>
           </button>
 
           {/* [☍ Chain / Link] */}
