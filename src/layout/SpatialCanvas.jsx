@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { WebsiteNode } from '../components/nodes/WebsiteNode';
 import { MechanismNode } from '../components/nodes/MechanismNode';
 import { TransportNode } from '../components/nodes/TransportNode';
@@ -11,12 +11,26 @@ import { ConvexHull } from '../components/ui/ConvexHull';
 import { DynamicAtmosphericBackground } from '../components/ui/DynamicAtmosphericBackground';
 import { useOrganicLinkages } from '../hooks/useOrganicLinkages';
 import { useFluidPhysics } from '../hooks/useFluidPhysics';
+import { getNodeDimensions } from '../utils/canvasPlacement';
+import {
+  FolderPlus,
+  Sparkles,
+  Link as LinkIcon,
+  Grid,
+  Trash2,
+  Layers,
+  X,
+  Check,
+} from 'lucide-react';
 
 export const SpatialCanvas = ({
   nodes = [],
   edges = [],
   selectedNodeId,
+  selectedNodeIds = [],
   onSelectNode,
+  onSelectNodes,
+  onClearSelection,
   onNodeMove,
   onCreateEdge,
   onUpdateEdge,
@@ -24,10 +38,27 @@ export const SpatialCanvas = ({
   onOpenBrowser,
   onInspectNode,
   onSpecificProbe,
+  // Modern cluster props
+  clusters = [],
+  ghostClusters = [],
+  onToggleClusterCollapse,
+  onSynthesizeCluster,
+  onAutoTidyCluster,
+  onDissolveCluster,
+  onUpdateClusterTitle,
+  onAdoptGhostCluster,
+  onDismissGhostCluster,
+  onCreateCluster,
+  onChainNodes,
+  onAutoTidySelection,
+  onDeleteSelectedNodes,
+  // Tool mode: 'hand' vs 'select'
+  toolMode = 'hand',
+  onToolModeChange,
+  // Fallbacks for legacy props
   clusterBounds,
   clusterLabel,
   isClusterCollapsed,
-  onToggleClusterCollapse,
   isAnimationPaused = false,
   pan = { x: 0, y: 0 },
   zoom = 1,
@@ -37,7 +68,16 @@ export const SpatialCanvas = ({
 }) => {
   const containerRef = useRef(null);
   const [draggingNodeId, setDraggingNodeId] = useState(null);
+  const [isDraggingConstellation, setIsDraggingConstellation] = useState(false);
   const [isPanningCanvas, setIsPanningCanvas] = useState(false);
+  const [isSpaceDown, setIsSpaceDown] = useState(false);
+
+  // Marquee Selection State
+  const [isMarqueeActive, setIsMarqueeActive] = useState(false);
+  const [marqueeBox, setMarqueeBox] = useState(null); // { x, y, width, height, screenX, screenY, screenW, screenH }
+  const [anticipatingNodeIds, setAnticipatingNodeIds] = useState(new Set());
+  const marqueeStartRef = useRef({ x: 0, y: 0, screenX: 0, screenY: 0 });
+
   const dragStartRef = useRef({
     startX: 0,
     startY: 0,
@@ -46,7 +86,18 @@ export const SpatialCanvas = ({
     hasMoved: false,
     startTime: 0,
   });
+  const constellationStartsRef = useRef({});
   const panStartRef = useRef({ startX: 0, startY: 0, panX: 0, panY: 0 });
+
+  // Effective multi-selection set
+  const effectiveSelectedIds = useMemo(() => {
+    if (Array.isArray(selectedNodeIds) && selectedNodeIds.length > 0) {
+      return selectedNodeIds;
+    }
+    return selectedNodeId ? [selectedNodeId] : [];
+  }, [selectedNodeIds, selectedNodeId]);
+
+  const selectedSet = useMemo(() => new Set(effectiveSelectedIds), [effectiveSelectedIds]);
 
   // Tactile Linkage Creation State
   const [isCtrlDown, setIsCtrlDown] = useState(false);
@@ -61,7 +112,7 @@ export const SpatialCanvas = ({
     editingEdgeIdRef.current = editingEdgeId;
   }, [editingEdgeId]);
 
-  // Live measure exact DOM dimensions of rendered nodes for pixel-perfect linkage endpoints
+  // Live measure DOM dimensions of nodes
   useEffect(() => {
     const container = nodesContainerRef.current;
     if (!container) return;
@@ -82,7 +133,11 @@ export const SpatialCanvas = ({
         const h = art.offsetHeight;
         if (w > 0 && h > 0) {
           updates[id] = { width: w, height: h };
-          if (!measuredDims[id] || Math.abs(measuredDims[id].width - w) > 1 || Math.abs(measuredDims[id].height - h) > 1) {
+          if (
+            !measuredDims[id] ||
+            Math.abs(measuredDims[id].width - w) > 1 ||
+            Math.abs(measuredDims[id].height - h) > 1
+          ) {
             hasChanges = true;
           }
         }
@@ -109,34 +164,59 @@ export const SpatialCanvas = ({
     };
   }, [nodes]);
 
-  const { resolveFluidRepulsion } = useFluidPhysics();
-  const { calculatedEdges } = useOrganicLinkages(nodes, edges, measuredDims);
+  const { resolveFluidRepulsion, resolveSemanticGravitation } = useFluidPhysics();
+  const { calculatedEdges } = useOrganicLinkages(nodes, edges, measuredDims, clusters);
 
   const suppressClickRef = useRef(false);
 
-  // Track Ctrl / Meta key state for tactile hover shaking and cut gestures
+  // Keyboard shortcut listener for V (select), H (hand), Space (pan), Ctrl (link), Esc (clear)
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ignore if user is typing in inputs or textareas
+      if (
+        e.target.closest('input, textarea, [contenteditable="true"], select, #spark-terminal')
+      ) {
+        return;
+      }
+
       if (e.key === 'Control' || e.key === 'Meta' || e.ctrlKey || e.metaKey) {
         setIsCtrlDown(true);
       }
-      if (e.key === 'Escape') {
+
+      if (e.code === 'Space' && !isSpaceDown) {
+        setIsSpaceDown(true);
+      }
+
+      if (e.key === 'v' || e.key === 'V') {
+        onToolModeChange?.('select');
+      } else if (e.key === 'h' || e.key === 'H') {
+        onToolModeChange?.('hand');
+      } else if (e.key === 'Escape') {
         if (!editingEdgeIdRef.current) {
           setLinkSourceNodeId(null);
         }
+        onClearSelection?.();
+        setAnticipatingNodeIds(new Set());
+        setIsMarqueeActive(false);
+        setMarqueeBox(null);
       }
     };
+
     const handleKeyUp = (e) => {
       if (!e.ctrlKey && !e.metaKey) {
         setIsCtrlDown(false);
-        // Release Ctrl deselects the chosen node immediately
         if (!editingEdgeIdRef.current) {
           setLinkSourceNodeId(null);
         }
       }
+      if (e.code === 'Space') {
+        setIsSpaceDown(false);
+      }
     };
+
     const handleBlur = () => {
       setIsCtrlDown(false);
+      setIsSpaceDown(false);
       if (!editingEdgeIdRef.current) {
         setLinkSourceNodeId(null);
       }
@@ -152,7 +232,7 @@ export const SpatialCanvas = ({
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
     };
-  }, [onHoverNodeChange]);
+  }, [isSpaceDown, onToolModeChange, onClearSelection, onHoverNodeChange]);
 
   // Touchpad / Trackpad Gesture Handler
   useEffect(() => {
@@ -171,7 +251,6 @@ export const SpatialCanvas = ({
       e.preventDefault();
 
       if (e.ctrlKey || Math.abs(e.deltaZ) > 0) {
-        // Pinch-to-zoom gesture on touchpad or Ctrl+Wheel
         const zoomFactor = e.deltaY < 0 ? 1.05 : 0.95;
         const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.35), 2.5);
 
@@ -185,7 +264,6 @@ export const SpatialCanvas = ({
         onZoomChange(newZoom);
         onPanChange({ x: newPanX, y: newPanY });
       } else {
-        // Two-finger touchpad pan
         onPanChange({
           x: pan.x - e.deltaX * 1.2,
           y: pan.y - e.deltaY * 1.2,
@@ -197,16 +275,24 @@ export const SpatialCanvas = ({
     return () => container.removeEventListener('wheel', handleWheel);
   }, [pan, zoom, onPanChange, onZoomChange]);
 
-  // Pointer Down for Nodes or Canvas Panning
+  // Pointer Down for Nodes or Canvas Background
   const handlePointerDown = useCallback(
     (e, nodeId = null) => {
-      if (e.target.closest('button, input, a, textarea, #spark-terminal, aside, footer, [role="search"], [role="dialog"]')) return;
+      if (
+        e.target.closest(
+          'button, input, a, textarea, #spark-terminal, aside, footer, [role="search"], [role="dialog"], #atelier-action-dock'
+        )
+      ) {
+        return;
+      }
 
       if (nodeId) {
         e.stopPropagation();
 
         const isCtrl = e.ctrlKey || e.metaKey || isCtrlDown;
-        // When holding Ctrl or when selecting a second node to link, do NOT drag the node!
+        const isShift = e.shiftKey;
+
+        // Holding Ctrl: Tactile Link Creation
         if (isCtrl || linkSourceNodeId) {
           dragStartRef.current = {
             startX: e.clientX,
@@ -220,20 +306,49 @@ export const SpatialCanvas = ({
           return;
         }
 
-        // Grabbing a specific node to move
-        const node = nodes.find((n) => n.id === nodeId);
-        if (!node) return;
+        // Shift-click toggles selection without dragging
+        if (isShift) {
+          onSelectNode?.(nodeId, true);
+          return;
+        }
+
+        // Grabbing node to move: determine if constellation move or single
+        const targetNode = nodes.find((n) => n.id === nodeId);
+        if (!targetNode) return;
+
+        const isAlreadySelected = selectedSet.has(nodeId);
+        const shouldDragConstellation = isAlreadySelected && effectiveSelectedIds.length > 1;
+
+        if (!isAlreadySelected) {
+          // If clicking an unselected node without shift, select it as primary
+          onSelectNode?.(nodeId, false);
+        }
 
         dragStartRef.current = {
           startX: e.clientX,
           startY: e.clientY,
-          nodeX: node.position?.x || 0,
-          nodeY: node.position?.y || 0,
+          nodeX: targetNode.position?.x || 0,
+          nodeY: targetNode.position?.y || 0,
           hasMoved: false,
           startTime: Date.now(),
         };
-        suppressClickRef.current = false;
 
+        if (shouldDragConstellation) {
+          setIsDraggingConstellation(true);
+          const startMap = {};
+          effectiveSelectedIds.forEach((id) => {
+            const n = nodes.find((x) => x.id === id);
+            if (n) {
+              startMap[id] = { x: n.position?.x || 0, y: n.position?.y || 0 };
+            }
+          });
+          constellationStartsRef.current = startMap;
+        } else {
+          setIsDraggingConstellation(false);
+          constellationStartsRef.current = {};
+        }
+
+        suppressClickRef.current = false;
         setDraggingNodeId(nodeId);
         e.currentTarget.setPointerCapture(e.pointerId);
       } else {
@@ -241,22 +356,112 @@ export const SpatialCanvas = ({
         setEditingEdgeId(null);
         setLinkSourceNodeId(null);
 
-        // Drag-panning the canvas background
-        panStartRef.current = {
-          startX: e.clientX,
-          startY: e.clientY,
-          panX: pan.x,
-          panY: pan.y,
-        };
-        setIsPanningCanvas(true);
+        // Disambiguate Pan vs Marquee
+        const shouldMarquee = (toolMode === 'select' && !isSpaceDown) || e.shiftKey;
+
+        if (shouldMarquee) {
+          // Initiates Architectural Drafting Marquee Selection
+          const rect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
+          const canvasX = (e.clientX - rect.left - pan.x) / zoom;
+          const canvasY = (e.clientY - rect.top - pan.y) / zoom;
+
+          marqueeStartRef.current = {
+            x: canvasX,
+            y: canvasY,
+            screenX: e.clientX,
+            screenY: e.clientY,
+          };
+          setIsMarqueeActive(true);
+          setMarqueeBox({
+            x: canvasX,
+            y: canvasY,
+            width: 0,
+            height: 0,
+            screenX: e.clientX,
+            screenY: e.clientY,
+            screenW: 0,
+            screenH: 0,
+          });
+          setAnticipatingNodeIds(new Set());
+        } else {
+          // Drag-panning the canvas background
+          panStartRef.current = {
+            startX: e.clientX,
+            startY: e.clientY,
+            panX: pan.x,
+            panY: pan.y,
+          };
+          setIsPanningCanvas(true);
+        }
       }
     },
-    [nodes, pan, isCtrlDown, linkSourceNodeId]
+    [
+      nodes,
+      pan,
+      zoom,
+      toolMode,
+      isSpaceDown,
+      isCtrlDown,
+      linkSourceNodeId,
+      selectedSet,
+      effectiveSelectedIds,
+      onSelectNode,
+    ]
   );
 
   const handlePointerMove = useCallback(
     (e) => {
-      if (draggingNodeId) {
+      if (isMarqueeActive) {
+        // Update Marquee Selection in real time
+        const rect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
+        const currCanvasX = (e.clientX - rect.left - pan.x) / zoom;
+        const currCanvasY = (e.clientY - rect.top - pan.y) / zoom;
+
+        const boxX = Math.min(marqueeStartRef.current.x, currCanvasX);
+        const boxY = Math.min(marqueeStartRef.current.y, currCanvasY);
+        const boxW = Math.abs(currCanvasX - marqueeStartRef.current.x);
+        const boxH = Math.abs(currCanvasY - marqueeStartRef.current.y);
+
+        const screenMinX = Math.min(marqueeStartRef.current.screenX, e.clientX);
+        const screenMinY = Math.min(marqueeStartRef.current.screenY, e.clientY);
+        const screenW = Math.abs(e.clientX - marqueeStartRef.current.screenX);
+        const screenH = Math.abs(e.clientY - marqueeStartRef.current.screenY);
+
+        setMarqueeBox({
+          x: boxX,
+          y: boxY,
+          width: boxW,
+          height: boxH,
+          screenX: screenMinX,
+          screenY: screenMinY,
+          screenW,
+          screenH,
+        });
+
+        // Compute AABB intersection with all visible nodes
+        const intersecting = new Set();
+        nodes.forEach((n) => {
+          if (n.hidden) return;
+          const dims = measuredDims[n.id] || getNodeDimensions(n);
+          const nx = n.position?.x || 0;
+          const ny = n.position?.y || 0;
+          const nw = dims.width || 280;
+          const nh = dims.height || 220;
+
+          const isOverlapping = !(
+            nx + nw < boxX ||
+            nx > boxX + boxW ||
+            ny + nh < boxY ||
+            ny > boxY + boxH
+          );
+
+          if (isOverlapping) {
+            intersecting.add(n.id);
+          }
+        });
+
+        setAnticipatingNodeIds(intersecting);
+      } else if (draggingNodeId) {
         const dx = (e.clientX - dragStartRef.current.startX) / zoom;
         const dy = (e.clientY - dragStartRef.current.startY) / zoom;
 
@@ -265,27 +470,79 @@ export const SpatialCanvas = ({
           suppressClickRef.current = true;
         }
 
-        const newPos = {
-          x: dragStartRef.current.nodeX + dx,
-          y: dragStartRef.current.nodeY + dy,
-        };
+        if (isDraggingConstellation) {
+          // Rigid Constellation Movement: Translate all selected nodes simultaneously
+          const newPosMap = {};
+          effectiveSelectedIds.forEach((id) => {
+            const start = constellationStartsRef.current[id];
+            if (start) {
+              const updated = {
+                x: Math.round(start.x + dx),
+                y: Math.round(start.y + dy),
+              };
+              newPosMap[id] = updated;
+              onNodeMove?.(id, updated);
+            }
+          });
 
-        onNodeMove(draggingNodeId, newPos);
-        resolveFluidRepulsion(draggingNodeId, newPos, nodes, onNodeMove);
+          // Resolve collision repulsion against external non-selected nodes
+          resolveFluidRepulsion(effectiveSelectedIds, newPosMap, nodes, onNodeMove);
+        } else {
+          // Single Node Movement
+          const newPos = {
+            x: Math.round(dragStartRef.current.nodeX + dx),
+            y: Math.round(dragStartRef.current.nodeY + dy),
+          };
+
+          onNodeMove?.(draggingNodeId, newPos);
+          resolveFluidRepulsion(draggingNodeId, newPos, nodes, onNodeMove);
+        }
       } else if (isPanningCanvas) {
         const dx = e.clientX - panStartRef.current.startX;
         const dy = e.clientY - panStartRef.current.startY;
-        onPanChange({
+        onPanChange?.({
           x: panStartRef.current.panX + dx,
           y: panStartRef.current.panY + dy,
         });
       }
     },
-    [draggingNodeId, isPanningCanvas, zoom, nodes, onNodeMove, onPanChange, resolveFluidRepulsion]
+    [
+      isMarqueeActive,
+      draggingNodeId,
+      isDraggingConstellation,
+      isPanningCanvas,
+      zoom,
+      pan,
+      nodes,
+      measuredDims,
+      effectiveSelectedIds,
+      onNodeMove,
+      onPanChange,
+      resolveFluidRepulsion,
+    ]
   );
 
   const handlePointerUp = useCallback(
     (e) => {
+      if (isMarqueeActive) {
+        setIsMarqueeActive(false);
+        const count = anticipatingNodeIds.size;
+        if (count > 0) {
+          onSelectNodes?.(Array.from(anticipatingNodeIds));
+        } else {
+          // Clicked empty canvas without drag -> clear selection
+          const dragDist = Math.hypot(
+            e.clientX - marqueeStartRef.current.screenX,
+            e.clientY - marqueeStartRef.current.screenY
+          );
+          if (dragDist < 6) {
+            onClearSelection?.();
+          }
+        }
+        setMarqueeBox(null);
+        setAnticipatingNodeIds(new Set());
+      }
+
       if (draggingNodeId) {
         if (dragStartRef.current.hasMoved) {
           suppressClickRef.current = true;
@@ -294,10 +551,29 @@ export const SpatialCanvas = ({
           }, 120);
         }
         setDraggingNodeId(null);
+        setIsDraggingConstellation(false);
       }
-      if (isPanningCanvas) setIsPanningCanvas(false);
+
+      if (isPanningCanvas) {
+        // If single click on canvas with minimal pan movement -> clear selection
+        const panDist = Math.hypot(
+          e.clientX - panStartRef.current.startX,
+          e.clientY - panStartRef.current.startY
+        );
+        if (panDist < 4) {
+          onClearSelection?.();
+        }
+        setIsPanningCanvas(false);
+      }
     },
-    [draggingNodeId, isPanningCanvas]
+    [
+      isMarqueeActive,
+      anticipatingNodeIds,
+      draggingNodeId,
+      isPanningCanvas,
+      onSelectNodes,
+      onClearSelection,
+    ]
   );
 
   // Link creation, multi-node chaining, and inspection handling
@@ -308,11 +584,15 @@ export const SpatialCanvas = ({
       }
 
       const isCtrl = e?.ctrlKey || e?.metaKey || isCtrlDown;
+      const isShift = e?.shiftKey;
 
-      // Case 1: Link source node is ALREADY selected, and user clicks another node!
-      // This immediately generates the linkage between them!
+      if (isShift) {
+        onSelectNode?.(nodeId, true);
+        return;
+      }
+
+      // Case 1: Link source node is ALREADY selected, and user clicks another node
       if (linkSourceNodeId && linkSourceNodeId !== nodeId) {
-        // Retrieve settings from currently open editing edge if batch-linking
         const activeEditingEdge = edges.find((ed) => ed.id === editingEdgeId);
         const newEdgeId = `edge-${linkSourceNodeId}-${nodeId}-${Date.now()}`;
 
@@ -321,7 +601,7 @@ export const SpatialCanvas = ({
           source: linkSourceNodeId,
           target: nodeId,
           relationshipType: 'USER_DEFINED',
-          color: activeEditingEdge?.color || '#7A7570', // Default color is gray
+          color: activeEditingEdge?.color || '#7A7570',
           style: activeEditingEdge?.style || 'basic',
           label: activeEditingEdge?.label || '',
           description: activeEditingEdge?.description || '',
@@ -330,7 +610,6 @@ export const SpatialCanvas = ({
 
         onCreateEdge?.(newEdge);
         setEditingEdgeId(newEdgeId);
-        // Keep linkSourceNodeId active so user can click a 3rd node to multi-link with same options!
         return;
       }
 
@@ -341,16 +620,16 @@ export const SpatialCanvas = ({
         return;
       }
 
-      // Case 3: Holding Ctrl and clicking node with no source selected -> select as source (frame around)
+      // Case 3: Holding Ctrl and clicking node with no source selected -> select as source
       if (isCtrl && !linkSourceNodeId) {
         setLinkSourceNodeId(nodeId);
         setEditingEdgeId(null);
         return;
       }
 
-      // Case 4: Normal click (no linking active) -> select node
+      // Case 4: Normal click -> select node
       if (!isCtrl && !linkSourceNodeId) {
-        onSelectNode(nodeId);
+        onSelectNode?.(nodeId, false);
       }
     },
     [isCtrlDown, linkSourceNodeId, editingEdgeId, edges, onCreateEdge, onSelectNode]
@@ -377,7 +656,8 @@ export const SpatialCanvas = ({
   const renderNode = (node) => {
     if (node.hidden) return null;
 
-    const isSelected = selectedNodeId === node.id;
+    const isSelected = selectedSet.has(node.id);
+    const isAnticipating = anticipatingNodeIds.has(node.id);
     const isDragging = draggingNodeId === node.id;
     const isLinkSelected = linkSourceNodeId === node.id;
     const isLinkShaking = isCtrlDown && hoveredNodeId === node.id;
@@ -386,6 +666,7 @@ export const SpatialCanvas = ({
       key: node.id,
       node,
       isSelected,
+      isAnticipating,
       isDragging,
       isLinkSelected,
       isLinkShaking,
@@ -410,8 +691,8 @@ export const SpatialCanvas = ({
         e.stopPropagation();
         handleNodeClick(node.id, e);
       },
-      onInspect: () => onInspectNode(node.id),
-      onSpecificProbe: (inquiry, nodeId) => onSpecificProbe?.(inquiry, nodeId || node.id),
+      onInspect: () => onInspectNode?.(node.id),
+      onSpecificProbe: (inquiry, nId) => onSpecificProbe?.(inquiry, nId || node.id),
       onOpenBrowser: (url) => {
         const targetUrl =
           url ||
@@ -442,12 +723,15 @@ export const SpatialCanvas = ({
 
   // Find active editing edge and calculate screen coordinates for popover
   const currentEditingEdge = editingEdgeId
-    ? calculatedEdges.find((e) => e.id === editingEdgeId) || edges.find((e) => e.id === editingEdgeId)
+    ? calculatedEdges.find((e) => e.id === editingEdgeId) ||
+      edges.find((e) => e.id === editingEdgeId)
     : null;
 
   const editingSourceNode = currentEditingEdge
     ? nodes.find((n) => n.id === currentEditingEdge.source)
-    : (linkSourceNodeId ? nodes.find((n) => n.id === linkSourceNodeId) : null);
+    : linkSourceNodeId
+    ? nodes.find((n) => n.id === linkSourceNodeId)
+    : null;
   const editingTargetNode = currentEditingEdge
     ? nodes.find((n) => n.id === currentEditingEdge.target)
     : null;
@@ -458,25 +742,54 @@ export const SpatialCanvas = ({
       x: currentEditingEdge.midpoint.x * zoom + pan.x,
       y: currentEditingEdge.midpoint.y * zoom + pan.y,
     };
-  } else if (editingSourceNode && editingTargetNode) {
-    const sPos = editingSourceNode.position || { x: 0, y: 0 };
-    const tPos = editingTargetNode.position || { x: 0, y: 0 };
-    const sW = editingSourceNode.width || 300;
-    const sH = editingSourceNode.height || 200;
-    const tW = editingTargetNode.width || 300;
-    const tH = editingTargetNode.height || 200;
-    popoverScreenPos = {
-      x: ((sPos.x + sW / 2 + tPos.x + tW / 2) / 2) * zoom + pan.x,
-      y: ((sPos.y + sH / 2 + tPos.y + tH / 2) / 2) * zoom + pan.y,
-    };
   }
+
+  // Floating Atelier Selection Dock Envelope Calculation (when >= 2 nodes selected)
+  const selectionEnvelope = useMemo(() => {
+    if (effectiveSelectedIds.length < 2) return null;
+
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+
+    effectiveSelectedIds.forEach((id) => {
+      const n = nodes.find((x) => x.id === id);
+      if (n && !n.hidden) {
+        const dims = measuredDims[id] || getNodeDimensions(n);
+        const px = n.position?.x ?? 0;
+        const py = n.position?.y ?? 0;
+        minX = Math.min(minX, px);
+        minY = Math.min(minY, py);
+        maxX = Math.max(maxX, px + (dims.width || 280));
+        maxY = Math.max(maxY, py + (dims.height || 220));
+      }
+    });
+
+    if (minX === Infinity) return null;
+
+    const centerX = (minX + maxX) / 2;
+    const screenX = centerX * zoom + pan.x;
+    const screenY = minY * zoom + pan.y - 18;
+
+    return {
+      screenX: Math.max(120, Math.min(screenX, window.innerWidth - 120)),
+      screenY: Math.max(70, screenY),
+      nodeCount: effectiveSelectedIds.length,
+    };
+  }, [effectiveSelectedIds, nodes, measuredDims, pan, zoom]);
+
+  // Cursor style calculation
+  const canvasCursorClass = useMemo(() => {
+    if (isSpaceDown) return isPanningCanvas ? 'cursor-grabbing' : 'cursor-grab';
+    if (toolMode === 'select' || isMarqueeActive) return 'cursor-crosshair';
+    return isPanningCanvas ? 'cursor-grabbing' : 'cursor-grab';
+  }, [isSpaceDown, isPanningCanvas, toolMode, isMarqueeActive]);
 
   return (
     <main
       ref={containerRef}
-      className={`relative w-screen h-screen overflow-hidden select-none ${
-        isPanningCanvas ? 'cursor-grabbing' : 'cursor-grab'
-      }`}
+      className={`relative w-screen h-screen overflow-hidden select-none ${canvasCursorClass}`}
       onPointerDown={(e) => handlePointerDown(e, null)}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -493,15 +806,27 @@ export const SpatialCanvas = ({
         className="absolute inset-0 origin-top-left will-change-transform"
         style={{
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-          transition: isPanningCanvas || draggingNodeId ? 'none' : 'transform 0.05s linear',
+          transition:
+            isPanningCanvas || draggingNodeId || isMarqueeActive ? 'none' : 'transform 0.05s linear',
         }}
       >
-        {/* Dynamic Cluster Convex Hull */}
+        {/* Dynamic Multi-Cluster Organic Convex Hulls */}
         <ConvexHull
-          bounds={clusterBounds}
-          label={clusterLabel || 'Exploration Cluster'}
-          isCollapsed={isClusterCollapsed}
+          clusters={clusters}
+          ghostClusters={ghostClusters}
+          nodes={nodes}
+          measuredDims={measuredDims}
           onToggleCollapse={onToggleClusterCollapse}
+          onSynthesize={onSynthesizeCluster}
+          onAutoTidy={onAutoTidyCluster}
+          onDissolve={onDissolveCluster}
+          onUpdateTitle={onUpdateClusterTitle}
+          onAdoptGhost={onAdoptGhostCluster}
+          onDismissGhost={onDismissGhostCluster}
+          // Legacy fallbacks:
+          bounds={clusterBounds}
+          label={clusterLabel}
+          isCollapsed={isClusterCollapsed}
         />
 
         {/* High-Visibility Organic Bézier Linkage Layer */}
@@ -516,7 +841,121 @@ export const SpatialCanvas = ({
         <div ref={nodesContainerRef} className="absolute inset-0 z-20 pointer-events-none">
           {nodes.map((node) => renderNode(node))}
         </div>
+
+        {/* Dynamic Architectural Drafting Marquee Box */}
+        {marqueeBox && marqueeBox.width > 2 && (
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-30 overflow-visible">
+            <rect
+              x={marqueeBox.x}
+              y={marqueeBox.y}
+              width={marqueeBox.width}
+              height={marqueeBox.height}
+              rx="4"
+              fill="rgba(74, 69, 64, 0.05)"
+              stroke="var(--grey-strong, #6B655A)"
+              strokeWidth="1.2"
+              strokeDasharray="5 4"
+            />
+          </svg>
+        )}
       </div>
+
+      {/* Ephemeral Floating Marquee Dimension Badge */}
+      {marqueeBox && marqueeBox.width > 12 && (
+        <div
+          className="fixed z-40 pointer-events-none font-mono text-[10px] text-text-primary bg-white-pure/95 backdrop-blur-md px-2.5 py-1 rounded-full border border-grey-strong shadow-md"
+          style={{
+            left: `${marqueeBox.screenX + marqueeBox.screenW + 12}px`,
+            top: `${marqueeBox.screenY + marqueeBox.screenH + 12}px`,
+          }}
+        >
+          W: {Math.round(marqueeBox.width)}px · H: {Math.round(marqueeBox.height)}px ·{' '}
+          <strong className="font-bold">{anticipatingNodeIds.size}</strong> Selected
+        </div>
+      )}
+
+      {/* Floating Atelier Action Dock ("The Atelier Action Bar") docked above selection */}
+      {selectionEnvelope && !isMarqueeActive && !draggingNodeId && (
+        <div
+          id="atelier-action-dock"
+          style={{
+            left: `${selectionEnvelope.screenX}px`,
+            top: `${selectionEnvelope.screenY}px`,
+            transform: 'translate(-50%, -100%)',
+          }}
+          className="fixed z-45 bg-white-pure/95 backdrop-blur-xl border border-grey-strong/80 rounded-2xl px-3 py-1.5 shadow-[0_16px_36px_-6px_rgba(74,69,64,0.18),0_2px_8px_rgba(0,0,0,0.04)] flex items-center gap-2 select-none pointer-events-auto font-mono text-xs animate-in fade-in zoom-in-95 duration-150"
+        >
+          {/* Node Count Badge */}
+          <span className="flex items-center gap-1.5 font-bold text-text-primary pr-2 border-r border-grey-medium">
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <span>{selectionEnvelope.nodeCount} Selected</span>
+          </span>
+
+          {/* [⊞ Form Cluster] (Ctrl+G) */}
+          <button
+            type="button"
+            onClick={() => onCreateCluster?.(effectiveSelectedIds)}
+            className="h-7 px-2.5 rounded-xl bg-white-warm hover:bg-grey-soft border border-grey-medium/70 text-text-primary font-medium flex items-center gap-1.5 transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
+            title="Form Cluster (Ctrl+G)"
+          >
+            <FolderPlus className="w-3.5 h-3.5 text-text-secondary" />
+            <span>Form Cluster</span>
+          </button>
+
+          {/* [✦ AI Synthesize] */}
+          <button
+            type="button"
+            onClick={() => onSynthesizeCluster?.(null, effectiveSelectedIds)}
+            className="h-7 px-2.5 rounded-xl bg-amber-50/90 hover:bg-amber-100 border border-amber-300/80 text-amber-900 font-medium flex items-center gap-1.5 transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
+            title="AI Cluster Deep Dive"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <span>AI Synthesize</span>
+          </button>
+
+          {/* [☍ Chain / Link] */}
+          <button
+            type="button"
+            onClick={() => onChainNodes?.(effectiveSelectedIds)}
+            className="h-7 px-2 rounded-xl bg-white-warm hover:bg-grey-soft border border-grey-medium/70 text-text-secondary hover:text-text-primary flex items-center gap-1 transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
+            title="Chain / Link sequentially"
+          >
+            <LinkIcon className="w-3.5 h-3.5" />
+            <span>Chain</span>
+          </button>
+
+          {/* [⇄ Auto-Tidy] */}
+          <button
+            type="button"
+            onClick={() => onAutoTidySelection?.(effectiveSelectedIds)}
+            className="h-7 px-2 rounded-xl bg-white-warm hover:bg-grey-soft border border-grey-medium/70 text-text-secondary hover:text-text-primary flex items-center gap-1 transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
+            title="Auto-Tidy Golden-Ratio Layout"
+          >
+            <Grid className="w-3.5 h-3.5" />
+            <span>Tidy</span>
+          </button>
+
+          {/* [🗑 Delete] */}
+          <button
+            type="button"
+            onClick={() => onDeleteSelectedNodes?.(effectiveSelectedIds)}
+            className="h-7 px-2 rounded-xl hover:bg-red-50 text-text-muted hover:text-red-600 border border-transparent hover:border-red-200 flex items-center transition-all duration-150 active:scale-95 cursor-pointer ml-0.5"
+            title="Delete Selected Nodes"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Clear Selection [×] */}
+          <button
+            type="button"
+            onClick={onClearSelection}
+            className="w-5 h-5 rounded-md hover:bg-grey-soft text-text-muted hover:text-text-primary flex items-center justify-center transition-colors cursor-pointer"
+            title="Clear Selection (Esc)"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
 
       {/* Floating Linkage Options Popover */}
       {currentEditingEdge && (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ZoomIn, ZoomOut, RotateCcw, Keyboard, Plus, Move, Focus, Map } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Keyboard, Plus, Move, Focus, Map, Hand, BoxSelect } from 'lucide-react';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 export const CanvasControls = ({
@@ -25,12 +25,43 @@ export const CanvasControls = ({
   onOpenAuthModal,
   onOpenAISettings,
   onLogout,
+  toolMode = 'hand',
+  onToolModeChange,
 }) => {
   return (
     <div
       className="fixed bottom-5 left-5 z-40 bg-white-pure/95 backdrop-blur-xl border border-grey-medium/80 rounded-2xl p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.08),0_2px_6px_rgba(0,0,0,0.04)] flex items-center gap-1.5 select-none font-sans text-xs"
       aria-label="Canvas zoom and view controls"
     >
+      {/* Tool Switcher: Hand Mode (H) vs Selection Marquee Mode (V) */}
+      <div className="flex items-center gap-0.5 bg-grey-soft/80 p-0.5 rounded-xl border border-grey-medium/60 mr-1">
+        <button
+          type="button"
+          onClick={() => onToolModeChange?.('hand')}
+          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-150 cursor-pointer ${
+            toolMode === 'hand'
+              ? 'bg-text-primary text-white shadow-xs'
+              : 'text-text-secondary hover:text-text-primary hover:bg-white-pure/80'
+          }`}
+          title="Hand / Pan Mode (H)"
+          aria-label="Hand Mode"
+        >
+          <Hand className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onToolModeChange?.('select')}
+          className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-150 cursor-pointer ${
+            toolMode === 'select'
+              ? 'bg-text-primary text-white shadow-xs'
+              : 'text-text-secondary hover:text-text-primary hover:bg-white-pure/80'
+          }`}
+          title="Select / Marquee Mode (V)"
+          aria-label="Select Mode"
+        >
+          <BoxSelect className="w-3.5 h-3.5" />
+        </button>
+      </div>
       <button
         onClick={onZoomOut}
         className="w-8 h-8 rounded-xl bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-primary flex items-center justify-center transition-all duration-150 active:scale-90 shadow-3xs cursor-pointer"

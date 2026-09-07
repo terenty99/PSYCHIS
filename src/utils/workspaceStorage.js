@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PSYCHIS Workspace & .psychis Spatial Protocol Serialization Engine
  * Version: 2026.1
  */
@@ -17,6 +17,19 @@ export const DEFAULT_WORKSPACES = [
     zoom: 1.0,
     nodes: null, // hydrated with default nodes
     edges: null,
+    clusters: [
+      {
+        id: 'cluster-kinematics-1',
+        title: 'Analytical Mechanics & Coupler Invariants',
+        nodeIds: ['0x01', '0x02', '0x03'],
+        isCollapsed: false,
+        category: 'Domain: Kinematics // Invariants',
+        epistemicStatus: 'peer reviewed',
+        coherenceScore: 0.96,
+        aiSynthesizedSummary:
+          'Synthesis of planar kinematic translation, dynamic coupler curves, and topological invariant mappings across constrained manifolds.',
+      },
+    ],
   },
   {
     id: 'ws-cryo',
@@ -105,7 +118,7 @@ export function persistWorkspaces(workspaces) {
 /**
  * Export a workspace to a .psychis file conforming to the official spatial protocol schema
  */
-export function exportPsychisFile(workspace, nodes, edges, pan, zoom) {
+export function exportPsychisFile(workspace, nodes, edges, pan, zoom, clusters = []) {
   const psychisPayload = {
     format: 'psychis-spatial-protocol',
     version: '2026.1',
@@ -118,6 +131,7 @@ export function exportPsychisFile(workspace, nodes, edges, pan, zoom) {
     },
     nodes: nodes || [],
     edges: edges || [],
+    clusters: clusters || workspace.clusters || [],
   };
 
   const jsonStr = JSON.stringify(psychisPayload, null, 2);
@@ -153,6 +167,7 @@ export function parsePsychisFile(fileText) {
     const viewport = parsed.viewport || { pan: { x: 0, y: 0 }, zoom: 1.0 };
     const nodes = parsed.nodes;
     const edges = Array.isArray(parsed.edges) ? parsed.edges : [];
+    const clusters = Array.isArray(parsed.clusters) ? parsed.clusters : [];
 
     return {
       success: true,
@@ -161,6 +176,7 @@ export function parsePsychisFile(fileText) {
       viewport,
       nodes,
       edges,
+      clusters,
     };
   } catch (e) {
     return {

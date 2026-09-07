@@ -26,6 +26,8 @@ import {
 } from './utils/workspaceStorage';
 import { exportTrainingJsonlFile } from './utils/trainingJsonlExporter';
 import { sanitizeNodeData } from './utils/nodeSanitizer';
+import { useSemanticLoom } from './hooks/useSemanticLoom';
+import { autoTidyNodes } from './utils/convexHull';
 import { FileUp } from 'lucide-react';
 
 const NewInvestigationModal = lazy(() =>
@@ -205,7 +207,25 @@ export function App() {
   const [pan, setPan] = useState(() => currentWorkspace?.pan || { x: 0, y: 0 });
   const [zoom, setZoom] = useState(() => currentWorkspace?.zoom || 1);
 
-  const [isClusterCollapsed, setIsClusterCollapsed] = useState(false);
+  const [clusters, setClusters] = useState(() => {
+    return (
+      currentWorkspace?.clusters || [
+        {
+          id: 'cluster-kinematics-1',
+          title: 'Analytical Mechanics & Coupler Invariants',
+          nodeIds: ['0x01', '0x02', '0x03'],
+          isCollapsed: false,
+          category: 'Domain: Kinematics // Invariants',
+          epistemicStatus: 'peer reviewed',
+          coherenceScore: 0.96,
+          aiSynthesizedSummary:
+            'Synthesis of planar kinematic translation, dynamic coupler curves, and topological invariant mappings across constrained manifolds.',
+        },
+      ]
+    );
+  });
+  const [selectedNodeIds, setSelectedNodeIds] = useState(() => ['0x01']);
+  const [toolMode, setToolMode] = useState('hand'); // 'hand' | 'select'
   const [isAnimationPaused, setIsAnimationPaused] = useState(false);
 
   // Modals
@@ -244,12 +264,73 @@ export function App() {
     setInvestigationMessage,
   } = useNodeInspector('0x01');
 
+  // Multi-Selection Sync Handlers
+  const handleSelectNode = useCallback(
+    (nodeId, isMulti = false) => {
+      if (isMulti) {
+        setSelectedNodeIds((prev) => {
+          const next = prev.includes(nodeId)
+            ? prev.filter((id) => id !== nodeId)
+            : [...prev, nodeId];
+          if (next.length > 0 && !next.includes(selectedNodeId)) {
+            selectNode(next[0]);
+          } else if (next.length === 0) {
+            closeInspector();
+          }
+          return next;
+        });
+      } else {
+        setSelectedNodeIds(nodeId ? [nodeId] : []);
+        if (nodeId) {
+          selectNode(nodeId);
+        } else {
+          closeInspector();
+        }
+      }
+    },
+    [selectNode, selectedNodeId, closeInspector]
+  );
+
+  const handleSelectNodes = useCallback(
+    (nodeIds) => {
+      const ids = Array.isArray(nodeIds) ? nodeIds : [];
+      setSelectedNodeIds(ids);
+      if (ids.length > 0) {
+        selectNode(ids[0]);
+      } else {
+        closeInspector();
+      }
+    },
+    [selectNode, closeInspector]
+  );
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedNodeIds([]);
+    closeInspector();
+  }, [closeInspector]);
+
+  // Autonomous Semantic Loom Hook
+  const {
+    ghostClusters,
+    isAnalyzing: isLoomAnalyzing,
+    adoptGhost,
+    dismissGhost,
+  } = useSemanticLoom({
+    nodes,
+    edges,
+    clusters,
+    onAdoptCluster: (newCluster) => {
+      setClusters((prev) => [...prev, newCluster]);
+    },
+    isEnabled: true,
+  });
+
   // Currently Selected Node Data
   const selectedNodeData = useMemo(() => {
     return nodes.find((n) => n.id === selectedNodeId) || null;
   }, [nodes, selectedNodeId]);
 
-  // Auto-persist active workspace continuously to localStorage whenever nodes, edges, pan, or zoom change
+  // Auto-persist active workspace continuously to localStorage whenever nodes, edges, clusters, pan, or zoom change
   useEffect(() => {
     if (!activeWorkspaceId) return;
     const timeoutId = setTimeout(() => {
@@ -261,6 +342,7 @@ export function App() {
                 updatedAt: new Date().toISOString(),
                 nodes,
                 edges,
+                clusters,
                 pan,
                 zoom,
               }
@@ -272,7 +354,7 @@ export function App() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [nodes, edges, pan, zoom, activeWorkspaceId]);
+  }, [nodes, edges, clusters, pan, zoom, activeWorkspaceId]);
 
   // Synchronous flush on exit/reload so no changes are ever lost on exit
   useEffect(() => {
@@ -287,6 +369,7 @@ export function App() {
                 updatedAt: new Date().toISOString(),
                 nodes,
                 edges,
+                clusters,
                 pan,
                 zoom,
               }
@@ -298,7 +381,7 @@ export function App() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [nodes, edges, pan, zoom, activeWorkspaceId]);
+  }, [nodes, edges, clusters, pan, zoom, activeWorkspaceId]);
 
   // Switch Active Workspace
   const handleSelectWorkspace = (workspaceId) => {
@@ -308,6 +391,7 @@ export function App() {
     localStorage.setItem(STORAGE_KEY_ACTIVE_ID, workspaceId);
     setNodes(target.nodes || []);
     setEdges(target.edges || []);
+    setClusters(target.clusters || []);
     setPan(target.pan || { x: 0, y: 0 });
     setZoom(target.zoom || 1);
   };
@@ -449,6 +533,18 @@ export function App() {
       zoom: 1,
       nodes: initialNodes,
       edges: initialEdges,
+      clusters: initialNodes.length >= 2 ? [
+        {
+          id: `cluster-${Date.now()}`,
+          title: `${name || 'Investigation'} — Constellation`,
+          nodeIds: initialNodes.map((n) => n.id),
+          isCollapsed: false,
+          category: 'Investigation Cluster',
+          epistemicStatus: 'synthesized root',
+          coherenceScore: 0.95,
+          aiSynthesizedSummary: `Primary investigation cluster seeded from topic: ${seedTopic || name || 'New Topic'}`,
+        }
+      ] : [],
     };
 
     setWorkspaces((prev) => {
@@ -460,6 +556,7 @@ export function App() {
     localStorage.setItem(STORAGE_KEY_ACTIVE_ID, newId);
     setNodes(initialNodes);
     setEdges(initialEdges);
+    setClusters(newWs.clusters);
     setPan({ x: 0, y: 0 });
     setZoom(1);
 
@@ -470,7 +567,8 @@ export function App() {
   const handleClearCanvas = () => {
     setNodes([]);
     setEdges([]);
-    setSelectedNodeId(null);
+    setClusters([]);
+    setSelectedNodeIds([]);
     closeInspector();
     closeBrowser();
     setIsSparkGenerating(false);
@@ -489,7 +587,7 @@ export function App() {
 
   // Export .psychis File
   const handleExportPsychis = () => {
-    exportPsychisFile(currentWorkspace, nodes, edges, pan, zoom);
+    exportPsychisFile(currentWorkspace, nodes, edges, pan, zoom, clusters);
   };
 
   // Import .psychis Text
@@ -509,6 +607,7 @@ export function App() {
       zoom: result.viewport.zoom,
       nodes: result.nodes,
       edges: result.edges,
+      clusters: result.clusters || [],
     };
     setWorkspaces((prev) => {
       const next = [newWs, ...prev];
@@ -519,6 +618,7 @@ export function App() {
     localStorage.setItem(STORAGE_KEY_ACTIVE_ID, newId);
     setNodes(result.nodes);
     setEdges(result.edges);
+    setClusters(result.clusters || []);
     setPan(result.viewport.pan);
     setZoom(result.viewport.zoom);
   };
@@ -545,12 +645,228 @@ export function App() {
     (nodeId) => {
       setNodes((prev) => prev.filter((n) => n.id !== nodeId));
       setEdges((prev) => prev.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      setSelectedNodeIds((prev) => prev.filter((id) => id !== nodeId));
+      setClusters((prev) =>
+        prev
+          .map((c) => ({
+            ...c,
+            nodeIds: c.nodeIds.filter((id) => id !== nodeId),
+          }))
+          .filter((c) => c.nodeIds.length >= 2)
+      );
       if (selectedNodeId === nodeId) {
         closeInspector();
       }
       setHoveredNodeId((prev) => (prev === nodeId ? null : prev));
     },
     [selectedNodeId, closeInspector]
+  );
+
+  // Cluster & Multi-Selection Handlers
+  const handleToggleClusterCollapse = useCallback((clusterId) => {
+    setClusters((prev) =>
+      prev.map((c) =>
+        c.id === clusterId ? { ...c, isCollapsed: !c.isCollapsed } : c
+      )
+    );
+  }, []);
+
+  const handleCreateCluster = useCallback(
+    (nodeIdsToCluster) => {
+      const ids =
+        nodeIdsToCluster && nodeIdsToCluster.length > 0
+          ? nodeIdsToCluster
+          : selectedNodeIds;
+      if (!ids || ids.length < 2) return;
+
+      const memberNodes = nodes.filter((n) => ids.includes(n.id));
+      const categories = memberNodes.map((n) => n.data?.category || '').filter(Boolean);
+      const defaultCategory = categories.length > 0 ? categories[0] : 'Knowledge Constellation';
+
+      const newCluster = {
+        id: `cluster-${Date.now()}`,
+        title: `Cluster ${clusters.length + 1}: ${defaultCategory.split('//')[0].trim() || 'Constellation'}`,
+        nodeIds: [...ids],
+        isCollapsed: false,
+        category: defaultCategory,
+        epistemicStatus: 'synthesized',
+        coherenceScore: 0.94,
+        aiSynthesizedSummary: `Constellation uniting ${ids.length} nodes across shared conceptual coordinates.`,
+      };
+
+      setClusters((prev) => [...prev, newCluster]);
+    },
+    [selectedNodeIds, nodes, clusters.length]
+  );
+
+  const handleDissolveCluster = useCallback((clusterId) => {
+    setClusters((prev) => prev.filter((c) => c.id !== clusterId));
+  }, []);
+
+  const handleUpdateClusterTitle = useCallback((clusterId, title) => {
+    setClusters((prev) =>
+      prev.map((c) => (c.id === clusterId ? { ...c, title } : c))
+    );
+  }, []);
+
+  const handleAutoTidyCluster = useCallback(
+    (clusterId) => {
+      const cluster = clusters.find((c) => c.id === clusterId);
+      if (!cluster) return;
+      const clusterNodes = nodes.filter((n) => cluster.nodeIds.includes(n.id));
+      const tidiedPositions = autoTidyNodes(clusterNodes);
+      setNodes((prev) =>
+        prev.map((n) =>
+          tidiedPositions[n.id] ? { ...n, position: tidiedPositions[n.id] } : n
+        )
+      );
+    },
+    [clusters, nodes]
+  );
+
+  const handleAutoTidySelection = useCallback(
+    (nodeIdsToTidy) => {
+      const ids =
+        nodeIdsToTidy && nodeIdsToTidy.length > 0 ? nodeIdsToTidy : selectedNodeIds;
+      if (!ids || ids.length < 2) return;
+      const targetNodes = nodes.filter((n) => ids.includes(n.id));
+      const tidiedPositions = autoTidyNodes(targetNodes);
+      setNodes((prev) =>
+        prev.map((n) =>
+          tidiedPositions[n.id] ? { ...n, position: tidiedPositions[n.id] } : n
+        )
+      );
+    },
+    [selectedNodeIds, nodes]
+  );
+
+  const handleChainNodes = useCallback(
+    (nodeIdsToChain) => {
+      const ids =
+        nodeIdsToChain && nodeIdsToChain.length > 0 ? nodeIdsToChain : selectedNodeIds;
+      if (!ids || ids.length < 2) return;
+      const newEdges = [];
+      for (let i = 0; i < ids.length - 1; i++) {
+        const source = ids[i];
+        const target = ids[i + 1];
+        const exists = edges.some(
+          (e) =>
+            (e.source === source && e.target === target) ||
+            (e.source === target && e.target === source)
+        );
+        if (!exists) {
+          newEdges.push({
+            id: `edge-${source}-${target}-${Date.now()}`,
+            source,
+            target,
+            relationshipType: RELATIONSHIP_TYPES.COUPLED_SYSTEM,
+            label: 'sequential chain',
+            color: '#7A7570',
+            style: 'basic',
+          });
+        }
+      }
+      if (newEdges.length > 0) {
+        setEdges((prev) => [...prev, ...newEdges]);
+      }
+    },
+    [selectedNodeIds, edges]
+  );
+
+  const handleDeleteSelectedNodes = useCallback(
+    (nodeIdsToDelete) => {
+      const ids =
+        nodeIdsToDelete && nodeIdsToDelete.length > 0
+          ? nodeIdsToDelete
+          : selectedNodeIds;
+      if (!ids || ids.length === 0) return;
+      const idSet = new Set(ids);
+      setNodes((prev) => prev.filter((n) => !idSet.has(n.id)));
+      setEdges((prev) => prev.filter((e) => !idSet.has(e.source) && !idSet.has(e.target)));
+      setClusters((prev) =>
+        prev
+          .map((c) => ({
+            ...c,
+            nodeIds: c.nodeIds.filter((id) => !idSet.has(id)),
+          }))
+          .filter((c) => c.nodeIds.length >= 2)
+      );
+      setSelectedNodeIds([]);
+      closeInspector();
+    },
+    [selectedNodeIds, closeInspector]
+  );
+
+  const handleSynthesizeCluster = useCallback(
+    async (clusterId, nodeIds) => {
+      const targetCluster = clusters.find((c) => c.id === clusterId);
+      const targetIds = nodeIds || targetCluster?.nodeIds || selectedNodeIds;
+      const clusterNodes = nodes.filter((n) => targetIds.includes(n.id));
+      if (clusterNodes.length < 2) return;
+
+      const backendUrl = getStoredBackendUrl();
+      try {
+        const res = await fetch(`${backendUrl}/api/cluster/synthesize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cluster_id: clusterId || `cluster-${Date.now()}`,
+            cluster_title: targetCluster?.title || 'Synthesized Constellation',
+            nodes: clusterNodes.map((n) => ({
+              id: n.id,
+              type: n.type,
+              title: n.data?.title || n.id,
+              category: n.data?.category,
+              description: n.data?.description,
+              status: n.data?.status,
+            })),
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const synthesis = data.synthesis;
+          if (synthesis) {
+            setClusters((prev) =>
+              prev.map((c) =>
+                c.id === clusterId
+                  ? {
+                      ...c,
+                      title: synthesis.macroTitle || c.title,
+                      aiSynthesizedSummary:
+                        synthesis.synthesisText || c.aiSynthesizedSummary,
+                      coherenceScore:
+                        synthesis.coherenceScore || c.coherenceScore,
+                      category: synthesis.emergentCategory || c.category,
+                      epistemicStatus: synthesis.epistemicStatus || 'synthesized',
+                    }
+                  : c
+              )
+            );
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[SynthesizeCluster API fallback]', err);
+      }
+
+      // Heuristic fallback if backend is offline
+      const categories = clusterNodes.map((n) => n.data?.category).filter(Boolean);
+      const synthesizedCat = categories[0] || 'Interdisciplinary Core';
+      setClusters((prev) =>
+        prev.map((c) =>
+          c.id === clusterId
+            ? {
+                ...c,
+                aiSynthesizedSummary: `Emergent synthesis uniting ${clusterNodes.length} nodes under ${synthesizedCat}. Coherence demonstrated across mathematical, mechanical, and topological boundaries.`,
+                coherenceScore: 0.94,
+                epistemicStatus: 'heuristic synthesis',
+              }
+            : c
+        )
+      );
+    },
+    [clusters, nodes, selectedNodeIds]
   );
 
   // Safeguarded node deletion: asks confirmation if node has >= 2 linkages
@@ -749,7 +1065,29 @@ export function App() {
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          const targetCluster = clusters.find((c) =>
+            c.nodeIds.some((id) => selectedNodeIds.includes(id))
+          );
+          if (targetCluster) {
+            handleDissolveCluster(targetCluster.id);
+          }
+        } else {
+          if (selectedNodeIds.length >= 2) {
+            handleCreateCluster(selectedNodeIds);
+          }
+        }
+        return;
+      }
+
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedNodeIds.length > 1) {
+          e.preventDefault();
+          handleDeleteSelectedNodes(selectedNodeIds);
+          return;
+        }
         const targetNodeId = hoveredNodeId || selectedNodeId;
         if (targetNodeId) {
           e.preventDefault();
@@ -764,6 +1102,7 @@ export function App() {
         setIsShortcutsOpen(false);
         setIsNewNodeModalOpen(false);
         setIsAuthModalOpen(false);
+        setSelectedNodeIds([]);
       } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         setIsShortcutsOpen((prev) => !prev);
       } else if (e.key === '+' || e.key === '=') {
@@ -774,13 +1113,20 @@ export function App() {
         handleResetZoom();
       } else if (['1', '2', '3', '4', '5'].includes(e.key)) {
         const targetNode = nodes[parseInt(e.key) - 1];
-        if (targetNode) selectNode(targetNode.id);
+        if (targetNode) {
+          selectNode(targetNode.id);
+          setSelectedNodeIds([targetNode.id]);
+        }
       } else if (e.key.toLowerCase() === 't' || e.key.toLowerCase() === 's') {
         e.preventDefault();
         document.getElementById('spark-input')?.focus();
       } else if (e.key.toLowerCase() === 'n') {
         e.preventDefault();
         setIsNewNodeModalOpen(true);
+      } else if (e.key.toLowerCase() === 'v') {
+        setToolMode('select');
+      } else if (e.key.toLowerCase() === 'h') {
+        setToolMode('hand');
       } else if (e.key.toLowerCase() === 'b' && !isBrowserOpen) {
         e.preventDefault();
         openBrowserWithUrl(browserUrl || 'psychis://home');
@@ -795,7 +1141,25 @@ export function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [closeBrowser, closeInspector, selectNode, selectedNodeId, requestDeleteNode, hoveredNodeId, deleteConfirmation, nodes, isBrowserOpen, openBrowserWithUrl, browserUrl, handleFitView]);
+  }, [
+    closeBrowser,
+    closeInspector,
+    selectNode,
+    selectedNodeId,
+    selectedNodeIds,
+    requestDeleteNode,
+    handleDeleteSelectedNodes,
+    handleCreateCluster,
+    handleDissolveCluster,
+    clusters,
+    hoveredNodeId,
+    deleteConfirmation,
+    nodes,
+    isBrowserOpen,
+    openBrowserWithUrl,
+    browserUrl,
+    handleFitView,
+  ]);
 
   // Create Node from Template
   const handleCreateNodeFromTemplate = ({ templateKey, customData }) => {
@@ -820,59 +1184,6 @@ export function App() {
         },
       ]);
     }
-  };
-
-  // Dynamic Cluster Bounding Box
-  const clusterBounds = useMemo(() => {
-    if (isClusterCollapsed) {
-      const n1a = nodes.find((n) => n.id === '0x01');
-      if (!n1a) return null;
-      const dims1 = getNodeDimensions(n1a);
-      return {
-        x: n1a.position.x - 20,
-        y: n1a.position.y - 20,
-        width: dims1.width + 40,
-        height: dims1.height + 40,
-      };
-    }
-
-    const clusterNodeIds = ['0x01', '0x02', '0x03'];
-    const clusterNodes = nodes.filter((n) => clusterNodeIds.includes(n.id) && !n.hidden);
-    if (clusterNodes.length === 0) return null;
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    clusterNodes.forEach((n) => {
-      const dims = getNodeDimensions(n);
-      minX = Math.min(minX, n.position.x);
-      minY = Math.min(minY, n.position.y);
-      maxX = Math.max(maxX, n.position.x + dims.width);
-      maxY = Math.max(maxY, n.position.y + dims.height);
-    });
-
-    const padding = 24;
-    return {
-      x: minX - padding,
-      y: minY - padding,
-      width: maxX - minX + padding * 2,
-      height: maxY - minY + padding * 2,
-    };
-  }, [nodes, isClusterCollapsed]);
-
-  const handleToggleClusterCollapse = () => {
-    const nextState = !isClusterCollapsed;
-    setIsClusterCollapsed(nextState);
-    setNodes((prev) =>
-      prev.map((n) => {
-        if (n.id === '0x02' || n.id === '0x03') return { ...n, hidden: nextState };
-        if (n.id === '0x01' && nextState) return { ...n, position: { x: 440, y: 140 } };
-        if (n.id === '0x01' && !nextState) return { ...n, position: { x: 345, y: 125 } };
-        return n;
-      })
-    );
   };
 
   // AI Web Investigation Probe Handlers
@@ -1413,7 +1724,10 @@ export function App() {
         nodes={nodes}
         edges={edges}
         selectedNodeId={selectedNodeId}
-        onSelectNode={selectNode}
+        selectedNodeIds={selectedNodeIds}
+        onSelectNode={handleSelectNode}
+        onSelectNodes={handleSelectNodes}
+        onClearSelection={handleClearSelection}
         onNodeMove={handleNodeMove}
         onCreateEdge={handleCreateEdge}
         onUpdateEdge={handleUpdateEdge}
@@ -1421,10 +1735,21 @@ export function App() {
         onOpenBrowser={openBrowserWithUrl}
         onInspectNode={selectNode}
         onSpecificProbe={handleSpecificProbe}
-        clusterBounds={clusterBounds}
-        clusterLabel={currentWorkspace?.name || 'Exploration Cluster'}
-        isClusterCollapsed={isClusterCollapsed}
+        clusters={clusters}
+        ghostClusters={ghostClusters}
         onToggleClusterCollapse={handleToggleClusterCollapse}
+        onSynthesizeCluster={handleSynthesizeCluster}
+        onAutoTidyCluster={handleAutoTidyCluster}
+        onDissolveCluster={handleDissolveCluster}
+        onUpdateClusterTitle={handleUpdateClusterTitle}
+        onAdoptGhostCluster={adoptGhost}
+        onDismissGhostCluster={dismissGhost}
+        onCreateCluster={handleCreateCluster}
+        onChainNodes={handleChainNodes}
+        onAutoTidySelection={handleAutoTidySelection}
+        onDeleteSelectedNodes={handleDeleteSelectedNodes}
+        toolMode={toolMode}
+        onToolModeChange={setToolMode}
         isAnimationPaused={isAnimationPaused}
         pan={pan}
         zoom={zoom}
@@ -1464,6 +1789,8 @@ export function App() {
         isMinimapOpen={isMinimapOpen}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenNewNode={() => setIsNewNodeModalOpen(true)}
+        toolMode={toolMode}
+        onToolModeChange={setToolMode}
       />
 
       {/* Embedded Scholarly Browser Panel (z-70 layer) */}

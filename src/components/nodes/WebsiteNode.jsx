@@ -5,6 +5,7 @@ import { Globe, Lock, ExternalLink, ArrowUpRight } from 'lucide-react';
 export const WebsiteNode = ({
   node,
   isSelected,
+  isAnticipating = false,
   isDragging,
   isLinkSelected = false,
   isLinkShaking = false,
@@ -39,6 +40,7 @@ export const WebsiteNode = ({
     <SmartGlassPanel
       nodeId={node.id}
       isSelected={isSelected}
+      isAnticipating={isAnticipating}
       isDragging={isDragging}
       isLinkSelected={isLinkSelected}
       isLinkShaking={isLinkShaking}
