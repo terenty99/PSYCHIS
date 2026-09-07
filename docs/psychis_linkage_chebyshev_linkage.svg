@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <!-- PSYCHIS Spatial Linkage Mark -->
+  <path d="M 30 98 C 78 96, 92 54, 98 30"
+        fill="none"
+        stroke="#4A4540"
+        stroke-width="6"
+        stroke-linecap="round" />
+  <!-- Node A (Source / Anchor Point) -->
+  <circle cx="30" cy="98" r="5.5" fill="#4A4540" />
+  <!-- Node B (Target / Coupled Point) -->
+  <circle cx="98" cy="30" r="5.5" fill="#4A4540" />
+</svg>

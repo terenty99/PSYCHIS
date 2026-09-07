@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg-contour {
+        fill: none;
+        stroke: #4A4540;
+        stroke-width: 0.9;
+        stroke-opacity: 0.16;
+        stroke-linecap: round;
+      }
+      .bg-contour-subtle {
+        fill: none;
+        stroke: #4A4540;
+        stroke-width: 0.6;
+        stroke-opacity: 0.09;
+        stroke-linecap: round;
+      }
+      .draft-accent {
+        fill: none;
+        stroke: #4A4540;
+        stroke-width: 0.8;
+        stroke-opacity: 0.22;
+      }
+      .draft-text {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-size: 7.5px;
+        fill: #4A4540;
+        fill-opacity: 0.35;
+        letter-spacing: 1.5px;
+      }
+      .monoline-main {
+        fill: none;
+        stroke: #4A4540;
+        stroke-width: 2.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .monoline-link {
+        fill: none;
+        stroke: #4A4540;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .node-circle {
+        fill: #F8F7F5;
+        stroke: #4A4540;
+        stroke-width: 2.2;
+      }
+      .node-core {
+        fill: #4A4540;
+      }
+    </style>
+  </defs>
+
+  <!-- Architectural Contour Elevation Lines (Spatial Geography / Cognitive Topology) -->
+  <g id="architectural-contours">
+    <path class="bg-contour" d="M 25,75 C 115,40 235,45 345,60 C 425,70 495,110 550,150" />
+    <path class="bg-contour-subtle" d="M 10,115 C 100,70 210,80 320,95 C 410,110 485,150 565,195" />
+    
+    <path class="bg-contour" d="M 35,180 C 105,130 205,125 290,145 C 370,163 445,225 535,255" />
+    <path class="bg-contour-subtle" d="M 30,235 C 100,195 180,185 260,200 C 340,215 420,285 525,305" />
+
+    <path class="bg-contour" d="M 50,300 C 120,265 190,250 270,265 C 350,280 400,360 515,355" />
+    <path class="bg-contour-subtle" d="M 45,350 C 110,325 195,310 260,325 C 325,340 390,410 505,405" />
+
+    <path class="bg-contour" d="M 70,415 C 140,385 220,375 295,390 C 360,403 410,460 495,465" />
+    <path class="bg-contour-subtle" d="M 100,470 C 170,445 250,435 330,450 C 390,460 430,500 480,515" />
+
+    <!-- Topographic loops -->
+    <path class="bg-contour" d="M 145,205 C 165,165 220,155 260,175 C 295,193 305,235 285,265 C 260,300 200,295 165,270 C 140,250 135,220 145,205 Z" />
+    <path class="bg-contour-subtle" d="M 125,195 C 150,145 235,135 285,160 C 330,183 340,245 315,290 C 285,330 205,325 150,295 C 115,270 110,225 125,195 Z" />
+
+    <!-- Drafting coordinates & elevation markers -->
+    <line class="draft-accent" x1="270" y1="35" x2="290" y2="35" />
+    <line class="draft-accent" x1="280" y1="25" x2="280" y2="45" />
+    <text class="draft-text" x="297" y="38">E-284.4°</text>
+
+    <line class="draft-accent" x1="60" y1="255" x2="80" y2="255" />
+    <line class="draft-accent" x1="70" y1="245" x2="70" y2="265" />
+    <text class="draft-text" x="77" y="275">N-41.9°</text>
+
+    <line class="draft-accent" x1="480" y1="375" x2="500" y2="375" />
+    <line class="draft-accent" x1="490" y1="365" x2="490" y2="385" />
+    <text class="draft-text" x="460" y="395">Z-0.85</text>
+  </g>
+
+  <!-- Core Emblem: Continuous Monoline Profile & Internal Spatial Knowledge Engine -->
+  <g id="psychis-monoline-core" transform="translate(-48, 12)">
+    <!-- Continuous Profile Silhouette -->
+    <path class="monoline-main" d="
+      M 230, 385
+      C 220, 350 212, 300 205, 250
+      C 198, 195 210, 150 240, 125
+      C 265, 105 300, 105 330, 120
+      C 365, 138 385, 170 390, 200
+      C 392, 212 388, 218 395, 222
+      C 402, 225 410, 228 406, 234
+      C 401, 239 390, 242 387, 247
+      C 385, 252 393, 257 391, 264
+      C 388, 270 380, 272 380, 278
+      C 380, 286 388, 295 385, 304
+      C 380, 316 364, 325 348, 332
+      C 328, 340 308, 355 302, 385
+    " />
+
+    <!-- Organic Bezier Knowledge Linkages -->
+    <path class="monoline-link" d="M 265, 175 C 280, 150 315, 155 335, 185" />
+    <path class="monoline-link" d="M 335, 185 C 345, 215 320, 235 295, 245" />
+    <path class="monoline-link" d="M 295, 245 C 280, 260 260, 275 245, 265" />
+    <path class="monoline-link" d="M 245, 265 C 225, 240 235, 195 265, 175" />
+    <path class="monoline-link" d="M 265, 175 C 275, 205 285, 225 295, 245" />
+    <path class="monoline-link" d="M 245, 265 C 230, 310 255, 345 280, 355" />
+
+    <!-- 4 Spatial Knowledge Nodes -->
+    <circle class="node-circle" cx="265" cy="175" r="7.5" />
+    <circle class="node-core" cx="265" cy="175" r="2.2" />
+
+    <circle class="node-circle" cx="335" cy="185" r="7.5" />
+    <circle class="node-core" cx="335" cy="185" r="2.2" />
+
+    <circle class="node-circle" cx="295" cy="245" r="8.5" />
+    <circle class="node-core" cx="295" cy="245" r="2.5" />
+
+    <circle class="node-circle" cx="245" cy="265" r="7" />
+    <circle class="node-core" cx="245" cy="265" r="2" />
+  </g>
+</svg>

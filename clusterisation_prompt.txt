@@ -1,0 +1,320 @@
+================================================================================
+PSYCHIS — SPATIAL CLUSTERISATION & AUTONOMOUS SEMANTIC LOOM
+Comprehensive Architectural Specification & Master Implementation Prompt
+================================================================================
+
+1. EXECUTIVE PHILOSOPHY & EPISTEMIC PURPOSE
+--------------------------------------------------------------------------------
+In conventional digital tools, grouping is purely utilitarian: a folder in a
+filesystem, a colored tag in Notion, or a rectangular container in Miro.
+
+PSYCHIS is a Spatial Knowledge Engine & Cognitive Research Atelier. Here,
+research is not an inventory of files; it is an organic, high-dimensional
+landscape of thought. When a researcher clusters nodes, they are not merely
+organizing cards—they are crystallizing an epistemic territory:
+
+* A cluster represents a Coherent Field of Inquiry / Semantic Biome /
+  Theoretical Constellation (e.g., Classical Kinematics, Dialectical
+  Materialism, Solid-State Optical Response).
+* Spatial position grounds memory via the human brain's innate Method of Loci
+  (spatial memory). Groupings must respect cognitive ergonomics: they must
+  breathe with "Ma" (intentional negative space), provide instant visual
+  hierarchy without sensory fatigue, and preserve the physical integrity of the
+  researcher's spatial layout.
+
+Clustering in PSYCHIS operates on three complementary tiers:
+1. Tactile Gestural Selection (User Intent): Marquee rectangle selection,
+   modifier-based selection, and multi-node constellation dragging.
+2. Topological Coherence (Deterministic Graph Theory): Natural physical
+   clustering emerging from semantic Bezier linkages (COUPLED_SYSTEM,
+   AXIOMATIC_DERIVATION) and viscous fluid physics.
+3. The Autonomous Semantic Loom (Continuous AI Background Clustering): An
+   ambient, non-intrusive intelligence engine that computes latent semantic
+   embeddings, identifies emergent clusters in real time, and proposes gentle,
+   non-disruptive consolidations.
+
+
+2. TACTILE MULTI-SELECTION MECHANICS & GESTURAL ERGONOMICS
+--------------------------------------------------------------------------------
+Currently, dragging with LMB on an empty canvas executes canvas panning
+(isPanningCanvas). To introduce intuitive, industry-standard marquee selection
+without breaking canvas navigation, we implement a dual-modal gestural model:
+
+A. Disambiguating Pan vs. Marquee:
+   * Shift + LMB Drag on Background:
+     - Initiates the Architectural Drafting Marquee.
+     - The cursor transforms to crosshair.
+     - An SVG drafting rectangle is rendered dynamically in viewport space from
+       (x_start, y_start) to (x_current, y_current).
+     - Tool Switcher Alternative: Pressing 'V' activates Select Mode (LMB drag
+       defaults to Marquee; Space + LMB drag pans). Pressing 'H' activates Hand
+       Mode (LMB drag pans). Two-finger trackpad drag always pans.
+   * Shift + LMB Click on Individual Nodes:
+     - Toggles inclusion in the active selection set (selectedNodeIds: Set).
+     - Clicking an unselected node adds it; clicking an already selected node
+       removes it.
+     - Pressing Esc or single-clicking empty canvas clears the selection.
+   * Live Bounding Intersection:
+     - As the marquee expands, every node whose screen-transformed bounding box
+       intersects the marquee rectangle receives an instant active anticipation
+       state:
+       - Border ring glows subtly in --grey-strong with a warm paper lift
+         (translateZ 4px).
+       - The corner badge displays [SELECTED].
+     - The bottom-right corner of the marquee displays an ephemeral floating
+       tag: "W: 420px  H: 260px · 3 Nodes Selected".
+
+B. Constellation Dragging (Multi-Node Translation):
+   * When multiple nodes are selected, clicking and dragging ANY ONE of the
+     selected nodes moves all selected nodes simultaneously as a rigid
+     constellation, maintaining exact relative offsets:
+     x_i(t) = x_i(0) + delta_drag
+   * Repulsion physics in useFluidPhysics.js applies to external non-selected
+     nodes, pushing outside obstacles away while keeping internal cluster
+     geometry stable.
+
+C. Floating Selection HUD ("The Atelier Action Bar"):
+   When 2 or more nodes are selected, a floating glass pill docks 16px above
+   the top-center of the selection bounding envelope:
+   [ ✦ 3 Selected │ ⊞ Form Cluster │ ✦ AI Synthesize │ ☍ Chain │ 🗑 Delete ]
+
+   - [ ⊞ Form Cluster ] (Ctrl + G): Wraps selected nodes into a permanent
+     Cluster Hull with an editable title and collapsed state.
+   - [ ✦ AI Synthesize ]: Queries the backend to analyze the relationship
+     between the selected nodes and generate a unifying synthesis thesis.
+   - [ ☍ Chain / Link ]: Automatically creates directional Bezier linkages
+     connecting the selected nodes in logical or topological order.
+   - [ ⇄ Auto-Tidy ]: Neatly arranges selected nodes into an optimal
+     Golden-Ratio grid layout with standardized 32px gutters.
+
+
+3. VISUAL AESTHETIC & UI DESIGN SYSTEM: THE ATELIER MANIFOLD
+--------------------------------------------------------------------------------
+PSYCHIS eschews noisy cyberpunk tropes in favor of sunlit concrete, aged
+architectural vellum, and Japanese Ma. Cluster boundaries must feel like
+architectural site drawings and topographic contour maps rather than flat SaaS
+cards.
+
+A. Organic Smoothed Convex Hull (Replacing Rigid Rectangles):
+   * Instead of a rigid SVG <rect>, the cluster boundary is computed using a 2D
+     Convex Hull (Graham Scan / Monotone Chain) padded outward by R = 36px and
+     smoothed via Chaikin's Corner-Cutting Algorithm or a closed Catmull-Rom
+     cubic spline.
+   * Vellum Membrane Background:
+     - Base: rgba(245, 244, 242, 0.45) with backdrop-filter: blur(12px).
+     - Topographic Isolines: A secondary concentric contour line 8px inside the
+       main boundary rendered with stroke="rgba(197, 194, 188, 0.4)" and
+       strokeDasharray="4 4".
+     - Elevation: Warm ambient shadow (box-shadow: 0 12px 36px -8px
+       rgba(74, 69, 64, 0.06)).
+     - Contrast: Exceeds WCAG 2.1 AAA contrast, maintaining crisp node text
+       legibility.
+
+B. Architectural Header & Meta Tagging:
+   Anchored to the top-left edge of the smoothed hull:
+   * Index & Title: "§ 01 · Analytical Mechanics" (Editable inline with single
+     click or F2).
+   * Epistemic Badge: Monochrome chip displaying domain category
+     ("Domain: Kinematics // Invariants").
+   * Semantic Coherence Metric: A subtle percentage badge ("Coherence: 96%")
+     derived from the graph connectivity and embedding similarity.
+   * Quick Controls:
+     - [-] / [+]: Toggle collapse to Macro-Node.
+     - [✦]: Trigger AI Cluster Deep Dive (generates cluster summary).
+     - [⇄]: Re-pack cluster nodes without overlap.
+     - [×]: Dissolve / Ungroup cluster (Ctrl + Shift + G).
+
+C. The Collapsed "Macro-Node" (Cognitive Crystal):
+   When research expands to 50+ nodes, cognitive overload occurs if every node
+   remains open. Collapsing a cluster transforms it into a high-density
+   Macro-Node (Super-Node):
+   1. Morphing Transition: 300ms cubic-bezier spring animation shrinks child
+      nodes into a centralized card (width: 340px).
+   2. Constellation Radar: An embedded SVG miniature display showing the
+      internal topology of the collapsed nodes in micro-scale.
+   3. Executive Summary: 2-3 sentence synthesized abstract of the cluster's
+      combined thesis.
+   4. Dynamic Linkage Retargeting: All external linkages that previously
+      connected to internal child nodes cleanly snap to the perimeter ports of
+      the Macro-Node. Expanding the cluster restores all edges to their
+      original specific child nodes.
+
+
+4. THE AUTONOMOUS SEMANTIC LOOM: CONTINUOUS AI AUTO-CLUSTERING
+--------------------------------------------------------------------------------
+A. The Cardinal Rule: "No Spatial Shock"
+   NEVER violently reposition nodes while the user is thinking, reading, or
+   typing. Violent automated re-layouts cause profound disorientation and
+   destroy the user's mental spatial map. Autonomous clustering must be
+   continuous in computation, but gentle and provisional in presentation.
+
+B. Three-Tier Architecture of the Continuous Loom:
+   * Tier 1: Client-Side Instant Heuristic (0ms - 50ms)
+     - Graph topological modularity (Louvain community detection on edges)
+     - Category & tag affinity matching
+     - Spatial proximity clustering (DBSCAN on canvas coordinates)
+   * Tier 2: Backend Embedding Vector Space (100ms - 300ms)
+     - Compute cosine similarity matrix S_ij across all node corpora
+     - Identify high-density semantic islands (HDBSCAN / Affinity Propagation)
+     - Detect cross-disciplinary bridges (nodes with high betweenness)
+   * Tier 3: Epistemic Gravitation & Provisional Ghost Hulls
+     - Continuous Semantic Gravitation Force in useFluidPhysics.js
+     - Provisional "Ghost Hulls" rendered with dashed pulsing isolines
+     - 1-Click "Accept Cluster" or auto-solidify if user leaves idle
+
+C. Continuous Semantic Gravitational Force (Physics Integration):
+   In useFluidPhysics.js, alongside collision repulsion, we add a gentle,
+   asymptotic Semantic Attraction Force:
+   F_semantic(i, j) = gamma * Sim(i, j) * (r_j - r_i) / ||r_j - r_i||
+   Unlinked nodes that share deep conceptual similarity (e.g. Sim(i, j) > 0.82)
+   experience a tiny, imperceptible gravitational pull (0.05px/frame) when the
+   canvas is idle, causing related concepts to naturally drift into neighbor
+   constellations over time without abrupt jumping.
+
+D. Provisional "Ghost Hulls":
+   When the AI detects a new cluster candidate with >85% coherence:
+   * It renders a Ghost Hull—a delicate, breathing dashed contour in
+     --grey-dark with an amber spark icon:
+     "✦ AI Proposed Cluster: 'Wave Mechanics & Phase Conjugation' (3 nodes) · [Adopt] [Dismiss]"
+   * If the user clicks [Adopt], it solidifies into a permanent cluster. If the
+     user drags a node away, the AI gracefully decays the hypothesis.
+
+E. Autonomous Cluster Synthesis (LLM Epistemic Inference):
+   When a cluster forms (manually or adopted from AI), the backend
+   automatically triggers an asynchronous synthesis task:
+   1. Title Generation: Generates a rigorous academic/conceptual title (e.g.
+      "Non-Holonomic Kinematic Constraints").
+   2. Dialectical Tension: Scans for internal contradictions between nodes in
+      the cluster (e.g., Node A asserts determinism while Node B introduces
+      stochastic noise).
+   3. Bridge Suggestion: Proposes a "Missing Synthesis Node" to bridge this
+      cluster with an adjacent cluster on the canvas.
+
+F. Shadow Dataset Continuous Logging:
+   Every cluster formed, rejected, or edited is recorded in
+   backend/data/training_dataset.jsonl:
+   {
+     "instruction": "Group and synthesize topological knowledge cluster",
+     "input": {"node_titles": ["Chebyshev Linkage", "Coupler Curve", "Straight-Line Kinematics"]},
+     "output": {
+       "cluster_title": "Planar Kinematic Synthesis",
+       "domain": "Mechanics",
+       "coherence": 0.96,
+       "emergent_thesis": "Approximation of linear translation via constrained circular trajectories."
+     }
+   }
+
+
+================================================================================
+5. MASTER IMPLEMENTATION PROMPT (COPY-PASTE READY FOR AI CODING AGENT)
+================================================================================
+
+# MISSION SPECIFICATION: Implement Spatial Multi-Selection, Organic Clusterisation, and the Autonomous Semantic Loom in PSYCHIS
+
+## 1. Context & Objectives
+PSYCHIS is a Spatial Knowledge Engine and Cognitive Research Atelier built with React 18, Vite, TailwindCSS, and a FastAPI/Groq backend. 
+Currently, nodes can be linked with organic Bezier linkages, but grouping is limited to a single hardcoded bounding box in SpatialCanvas.jsx. 
+You must implement a full, production-grade Clusterisation and Selection System that adheres to the contemplative architectural design system (sunlit concrete, warm grey palette #F8F7F5, #E8E6E3, #4A4540, JetBrains Mono, Inter, Space Grotesk, WCAG AAA).
+
+---
+
+## 2. Technical Scope of Work
+
+### Phase 1: Multi-Selection State & Gestural Marquee
+1. Selection State in App.jsx:
+   - Migrate selectedNodeId: string | null to selectedNodeIds: string[] (while preserving primarySelectedNodeId for inspection).
+   - Add actions: selectNode(id, isMulti), selectNodes(ids), clearSelection(), selectAll().
+2. Marquee Box Selection in SpatialCanvas.jsx:
+   - Differentiate canvas pan vs. box selection:
+     - Shift + LMB Drag on canvas background starts Marquee Selection.
+     - Regular LMB Drag on canvas background pans the canvas.
+     - Shift + Click on a node toggles it in/out of selectedNodeIds.
+   - Render an SVG Marquee Box with architectural styling:
+     - stroke="var(--grey-strong)" strokeWidth="1.2" strokeDasharray="5 4" fill="rgba(74, 69, 64, 0.05)" rx="4"
+     - Render an ephemeral cursor badge displaying dimension and count: W: ${w}px H: ${h}px · ${count} Nodes.
+   - Compute AABB bounding box intersection with all nodes in real time during pointermove.
+3. Constellation Movement:
+   - If a dragged node is in selectedNodeIds and selectedNodeIds.length > 1, drag all selected nodes together, maintaining their relative (delta_x, delta_y) positions.
+4. Atelier Selection Dock:
+   - Render a floating glass dock above the selection bounding envelope when selectedNodeIds.length >= 2:
+     - [⊞ Form Cluster]: Calls createCluster(selectedNodeIds).
+     - [✦ AI Synthesize]: Calls synthesizeClusterSummary(selectedNodeIds).
+     - [☍ Auto-Link]: Generates sequential linkages between selected nodes.
+     - [⇄ Auto-Tidy]: Smoothly aligns selected nodes into a golden-ratio grid with 32px gutters.
+     - [🗑 Delete Selection]: Deletes all selected nodes.
+
+---
+
+### Phase 2: Organic Convex Hull Cluster Membrane
+1. Cluster Data Model in App.jsx:
+   interface SpatialCluster {
+     id: string;
+     title: string;
+     nodeIds: string[];
+     isCollapsed: boolean;
+     colorTint?: string; // Subtle warm architectural tint
+     category?: string;
+     epistemicStatus?: string;
+     aiSynthesizedSummary?: string;
+     coherenceScore?: number;
+     isGhost?: boolean; // True if proposed by background AI
+   }
+2. Organic Hull Math in src/utils/convexHull.js:
+   - Implement Monotone Chain / Graham Scan to find the convex hull vertices of the constituent nodes' corners.
+   - Expand the polygon outward by 36px padding.
+   - Smooth the vertices using Chaikin's corner-cutting algorithm (2 iterations) to generate a smooth, organic SVG <path> with rounded curves (no sharp box corners).
+3. Refactor ConvexHull.jsx:
+   - Support rendering multiple clusters concurrently (clusters.map(...)).
+   - Visual membrane styling:
+     - Fill: rgba(245, 244, 242, 0.55) with backdrop-filter: blur(10px).
+     - Outer Stroke: rgba(197, 194, 188, 0.85) width 1.5px.
+     - Inner isoline contour: Padded inward by 8px, strokeDasharray="4 4", stroke="rgba(197, 194, 188, 0.4)".
+   - Floating Architectural Header Pill:
+     - Displays "§ ${index} · ${cluster.title}", node count badge, coherence metric.
+     - In-place editable title on click.
+     - Controls: Collapse [-], AI Synthesize [✦], Ungroup [×].
+4. Collapsed Macro-Node State:
+   - When cluster.isCollapsed === true:
+     - Hide internal child nodes (hidden: true).
+     - Render a single elegant Macro-Node card (width: 320px) at the cluster center of mass.
+     - Features: Cluster title, summary bullets, embedded SVG constellation thumbnail, and expand [+] button.
+     - In useOrganicLinkages.js, reroute external edges that target any child node to connect to this Macro-Node.
+
+---
+
+### Phase 3: Autonomous Semantic Loom (Continuous AI Auto-Clustering)
+1. Backend Endpoints in backend/server.py:
+   - POST /api/cluster/analyze:
+     - Accepts list of node contents {id, title, category, description, formula}.
+     - Returns detected cluster partitions with suggested titles, coherence scores (0.0 to 1.0), and a synthesized conceptual thesis.
+     - Employs the Groq/Llama-3 model with strict JSON formatting.
+     - Logs the interaction to training_dataset.jsonl for shadow fine-tuning.
+   - POST /api/cluster/synthesize:
+     - Takes nodes of a specific cluster and returns a detailed 3-bullet epistemological summary and cross-cluster bridge suggestion.
+2. Client-Side Background Engine (useSemanticLoom.js):
+   - Watches changes to nodes and edges with a 4-second idle debounce.
+   - When the canvas is quiescent, evaluates semantic affinity and graph topological modularity.
+   - If an unclustered group of >= 3 nodes has high conceptual similarity (>82%), renders a Ghost Hull:
+     - Dashed amber/slate perimeter with subtle pulse animation (animation: pulse 3s infinite).
+     - Action pill: '✦ AI Detected: "${title}" (${count} nodes) · [Adopt] [Dismiss]'.
+     - Clicking Adopt converts it to a permanent user cluster.
+     - Dragging a node away automatically dissolves the ghost suggestion.
+3. Semantic Viscous Gravitation in useFluidPhysics.js:
+   - In addition to repulsive collision forces, add an ultra-subtle semantic attraction force between nodes belonging to the same cluster or high-affinity pair:
+     F_attract = 0.04 * clamp(d - 300, 0, 150)
+   - Prevents clusters from scattering across infinite distances while preserving user positioning.
+
+---
+
+## 3. Verification & Accessibility Requirements
+1. WCAG 2.1 AAA Compliance: Ensure text contrast inside cluster headers and macro-nodes meets or exceeds 4.5:1 (normal text) and 3:1 (large text) against #F8F7F5 and vellum backgrounds.
+2. Keyboard Accessibility:
+   - Ctrl + G: Group selected nodes into cluster.
+   - Ctrl + Shift + G: Ungroup focused cluster.
+   - Escape: Clear selection / dismiss ghost hull.
+   - V: Switch to Selection Tool; H / Space: Hand (Pan) tool.
+3. Performance:
+   - Marquee drag and multi-node dragging must sustain 60 FPS.
+   - Convex hull calculations must be memoized using useMemo based on node position/dimension keys.
+   - Avoid unnecessary re-renders of non-selected nodes.
+================================================================================

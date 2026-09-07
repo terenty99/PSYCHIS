@@ -1,5 +1,6 @@
-/**
- * PSYCHIS Workspace & .psychis File Serialization Engine
+﻿/**
+ * PSYCHIS Workspace & .psychis Spatial Protocol Serialization Engine
+ * Version: 2026.1
  */
 
 export const STORAGE_KEY_WORKSPACES = 'psychis_workspaces_v1';
@@ -13,13 +14,13 @@ export const DEFAULT_WORKSPACES = [
     clientHandle: 'Researcher 01',
     updatedAt: new Date().toISOString(),
     pan: { x: 0, y: 0 },
-    zoom: 1,
-    nodes: null, // Will use default initial nodes if null
+    zoom: 1.0,
+    nodes: null, // hydrated with default nodes
     edges: null,
   },
   {
     id: 'ws-cryo',
-    name: 'Cryogenic Flexures (Draft)',
+    name: 'Cryogenic Orbital Flexures',
     clientHandle: 'Researcher 01',
     updatedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
     pan: { x: -80, y: -20 },
@@ -37,9 +38,37 @@ export const DEFAULT_WORKSPACES = [
           year: '2026',
           title: 'Cryogenic Flexure Stability',
           source: 'IEEE Trans. Robotics (2026)',
+          institution: 'IEEE Robotics & Automation Society (2026 Corpus)',
+          url: 'https://arxiv.org/abs/2307.12008',
           description:
             'Sub-micron straight-line excursion maintained down to 4.2 K with zero stick-slip hysteresis on beryllium-copper flexure prototype.',
+          detailedSynthesis:
+            'Sub-micron straight-line excursion maintained down to 4.2 K with zero stick-slip hysteresis on beryllium-copper flexure prototype for orbital cryo-interferometry. Validates continuous elastic deformation kinetics under ultra-low thermal dissipation.',
           formula: '\\Delta x_{\\text{err}}\\le 0.042\\%',
+          formulaType: 'Precision Excursion Bound',
+          vitalStats: [
+            { label: 'Thermal Limit', value: '4.2 K' },
+            { label: 'Excursion Precision', value: 'Δx ≤ 0.042%' },
+            { label: 'Substrate Material', value: 'Beryllium-Copper' },
+            { label: 'Discovery Timestamp', value: 'August 2026' },
+          ],
+          formulas: [
+            {
+              id: 'f0',
+              title: 'Precision Excursion Tolerance',
+              formula: '\\Delta x_{\\text{err}}\\le 0.042\\%',
+              type: 'Excursion Bound',
+              desc: 'Maximum allowable thermal contraction drift along the active guidance vector.',
+            }
+          ],
+          derivationSteps: [
+            {
+              step: 1,
+              title: 'Thermal Contraction Invariant',
+              formula: '\\Delta L = L_0 \\int_{4.2\\,\\text{K}}^{293\\,\\text{K}} \\alpha(T)\\,dT',
+              explanation: 'Calculates differential contraction between flexure arm and monolithic ground mounting.',
+            }
+          ]
         },
       },
     ],
@@ -74,21 +103,21 @@ export function persistWorkspaces(workspaces) {
 }
 
 /**
- * Export a workspace to a .psychis file and trigger download
+ * Export a workspace to a .psychis file conforming to the official spatial protocol schema
  */
 export function exportPsychisFile(workspace, nodes, edges, pan, zoom) {
   const psychisPayload = {
-    psychis_version: '1.0',
-    app: 'PSYCHIS — Spatial Knowledge Engine',
-    exported_at: new Date().toISOString(),
-    workspace: {
-      id: workspace.id,
-      name: workspace.name,
-      clientHandle: workspace.clientHandle || 'Anonymous',
+    format: 'psychis-spatial-protocol',
+    version: '2026.1',
+    workspaceName: workspace.name || 'Applied Kinematics & Transport',
+    clientHandle: workspace.clientHandle || 'Researcher 01',
+    exportedAt: new Date().toISOString(),
+    viewport: {
+      pan: pan || { x: 0, y: 0 },
+      zoom: zoom || 1.0,
     },
-    viewport: { pan, zoom },
-    nodes,
-    edges,
+    nodes: nodes || [],
+    edges: edges || [],
   };
 
   const jsonStr = JSON.stringify(psychisPayload, null, 2);
@@ -110,7 +139,7 @@ export function exportPsychisFile(workspace, nodes, edges, pan, zoom) {
 }
 
 /**
- * Parse and validate a .psychis file text
+ * Parse and validate a .psychis file text conforming to the official schema
  */
 export function parsePsychisFile(fileText) {
   try {
@@ -118,12 +147,20 @@ export function parsePsychisFile(fileText) {
     if (!parsed || !Array.isArray(parsed.nodes)) {
       throw new Error('Invalid .psychis file: missing nodes array');
     }
+
+    const workspaceName = parsed.workspaceName || parsed.workspace?.name || 'Imported Universe';
+    const clientHandle = parsed.clientHandle || parsed.workspace?.clientHandle || 'Researcher 01';
+    const viewport = parsed.viewport || { pan: { x: 0, y: 0 }, zoom: 1.0 };
+    const nodes = parsed.nodes;
+    const edges = Array.isArray(parsed.edges) ? parsed.edges : [];
+
     return {
       success: true,
-      workspaceName: parsed.workspace?.name || 'Imported Workspace',
-      viewport: parsed.viewport || { pan: { x: 0, y: 0 }, zoom: 1 },
-      nodes: parsed.nodes,
-      edges: Array.isArray(parsed.edges) ? parsed.edges : [],
+      workspaceName,
+      clientHandle,
+      viewport,
+      nodes,
+      edges,
     };
   } catch (e) {
     return {

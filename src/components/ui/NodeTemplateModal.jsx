@@ -36,7 +36,7 @@ export const NodeTemplateModal = ({ isOpen, onClose, onCreateNode }) => {
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[90] bg-[#3A3530]/20 backdrop-blur-sm flex items-center justify-center p-4 select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] bg-[#3A3530]/40 backdrop-blur-md flex items-center justify-center p-4 select-none animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}

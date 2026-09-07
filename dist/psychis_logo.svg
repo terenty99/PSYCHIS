@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg-contour {
+        fill: none;
+        stroke: #4A4540;
+        stroke-width: 0.9;
+        stroke-opacity: 0.15;
+        stroke-linecap: round;
+      }
+      .bg-contour-subtle {
+        fill: none;
+        stroke: #4A4540;
+        stroke-width: 0.6;
+        stroke-opacity: 0.08;
+        stroke-linecap: round;
+      }
+      .draft-accent {
+        fill: none;
+        stroke: #4A4540;
+        stroke-width: 0.8;
+        stroke-opacity: 0.22;
+      }
+      .draft-text {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        font-size: 7.5px;
+        fill: #4A4540;
+        fill-opacity: 0.35;
+        letter-spacing: 1.5px;
+      }
+      .monoline-main {
+        fill: none;
+        stroke: #4A4540;
+        stroke-width: 2.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .monoline-link {
+        fill: none;
+        stroke: #4A4540;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .node-circle {
+        fill: #F8F7F5;
+        stroke: #4A4540;
+        stroke-width: 2.2;
+      }
+      .node-core {
+        fill: #4A4540;
+      }
+      .brand-title {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Montserrat, "Helvetica Neue", sans-serif;
+        font-size: 26px;
+        font-weight: 300;
+        fill: #4A4540;
+        letter-spacing: 11px;
+      }
+      .brand-subtitle {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+        font-size: 9.5px;
+        font-weight: 400;
+        fill: #4A4540;
+        fill-opacity: 0.65;
+        letter-spacing: 5px;
+        text-transform: uppercase;
+      }
+    </style>
+  </defs>
+
+  <!-- LAYER 1: Architectural Contour Elevation Lines (Spatial Geography / Cognitive Topology) -->
+  <g id="architectural-contours">
+    <path class="bg-contour" d="M 40,80 C 130,45 250,50 360,65 C 440,75 510,115 565,155" />
+    <path class="bg-contour-subtle" d="M 20,120 C 110,75 220,85 330,100 C 420,115 495,155 575,200" />
+    
+    <path class="bg-contour" d="M 50,185 C 120,135 220,130 305,150 C 385,168 460,230 550,260" />
+    <path class="bg-contour-subtle" d="M 45,240 C 115,200 195,190 275,205 C 355,220 435,290 540,310" />
+
+    <path class="bg-contour" d="M 65,305 C 135,270 205,255 285,270 C 365,285 415,365 530,360" />
+    <path class="bg-contour-subtle" d="M 60,355 C 125,330 210,315 275,330 C 340,345 405,415 520,410" />
+
+    <path class="bg-contour" d="M 85,420 C 155,390 235,380 310,395 C 375,408 425,465 510,470" />
+    <path class="bg-contour-subtle" d="M 115,475 C 185,450 265,440 345,455 C 405,465 445,505 495,520" />
+
+    <!-- Topographic loops -->
+    <path class="bg-contour" d="M 160,210 C 180,170 235,160 275,180 C 310,198 320,240 300,270 C 275,305 215,300 180,275 C 155,255 150,225 160,210 Z" />
+    <path class="bg-contour-subtle" d="M 140,200 C 165,150 250,140 300,165 C 345,188 355,250 330,295 C 300,335 220,330 165,300 C 130,275 125,230 140,200 Z" />
+
+    <!-- Drafting coordinates & elevation markers -->
+    <line class="draft-accent" x1="285" y1="38" x2="305" y2="38" />
+    <line class="draft-accent" x1="295" y1="28" x2="295" y2="48" />
+    <text class="draft-text" x="312" y="41">E-284.4°</text>
+
+    <line class="draft-accent" x1="75" y1="260" x2="95" y2="260" />
+    <line class="draft-accent" x1="85" y1="250" x2="85" y2="270" />
+    <text class="draft-text" x="92" y="280">N-41.9°</text>
+
+    <line class="draft-accent" x1="495" y1="380" x2="515" y2="380" />
+    <line class="draft-accent" x1="505" y1="370" x2="505" y2="390" />
+    <text class="draft-text" x="475" y="400">Z-0.85</text>
+  </g>
+
+  <!-- LAYER 2: Core Emblem (Continuous Monoline Silhouette + Neural Knowledge Graph) -->
+  <g id="psychis-monoline-core">
+    <!-- Continuous Profile Silhouette -->
+    <path class="monoline-main" d="
+      M 230, 385
+      C 220, 350 212, 300 205, 250
+      C 198, 195 210, 150 240, 125
+      C 265, 105 300, 105 330, 120
+      C 365, 138 385, 170 390, 200
+      C 392, 212 388, 218 395, 222
+      C 402, 225 410, 228 406, 234
+      C 401, 239 390, 242 387, 247
+      C 385, 252 393, 257 391, 264
+      C 388, 270 380, 272 380, 278
+      C 380, 286 388, 295 385, 304
+      C 380, 316 364, 325 348, 332
+      C 328, 340 308, 355 302, 385
+    " />
+
+    <!-- Organic Bezier Knowledge Linkages -->
+    <path class="monoline-link" d="M 265, 175 C 280, 150 315, 155 335, 185" />
+    <path class="monoline-link" d="M 335, 185 C 345, 215 320, 235 295, 245" />
+    <path class="monoline-link" d="M 295, 245 C 280, 260 260, 275 245, 265" />
+    <path class="monoline-link" d="M 245, 265 C 225, 240 235, 195 265, 175" />
+    <path class="monoline-link" d="M 265, 175 C 275, 205 285, 225 295, 245" />
+    <path class="monoline-link" d="M 245, 265 C 230, 310 255, 345 280, 355" />
+
+    <!-- 4 Spatial Knowledge Nodes -->
+    <circle class="node-circle" cx="265" cy="175" r="7.5" />
+    <circle class="node-core" cx="265" cy="175" r="2.2" />
+
+    <circle class="node-circle" cx="335" cy="185" r="7.5" />
+    <circle class="node-core" cx="335" cy="185" r="2.2" />
+
+    <circle class="node-circle" cx="295" cy="245" r="8.5" />
+    <circle class="node-core" cx="295" cy="245" r="2.5" />
+
+    <circle class="node-circle" cx="245" cy="265" r="7" />
+    <circle class="node-core" cx="245" cy="265" r="2" />
+  </g>
+
+  <!-- LAYER 3: Brand Lockup Typography -->
+  <g id="brand-typography">
+    <text class="brand-title" x="300" y="470" text-anchor="middle">PSYCHIS</text>
+    <text class="brand-subtitle" x="300" y="498" text-anchor="middle">SPATIAL KNOWLEDGE ENGINE</text>
+  </g>
+</svg>

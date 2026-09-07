@@ -2,7 +2,7 @@ import React from 'react';
 
 export const ConvexHull = ({
   bounds,
-  label = 'Applied Kinematics & Transport',
+  label = 'Spatial Cluster',
   isCollapsed = false,
   onToggleCollapse,
 }) => {
