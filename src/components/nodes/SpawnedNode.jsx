@@ -134,7 +134,7 @@ export const SpawnedNode = ({
       return archetypes[posHash % archetypes.length];
     }
 
-    return posHash % 3 === 0 ? 'minimal_quote' : 'text_dossier';
+    return 'text_dossier';
   }
 
   let effectiveStructure = layout.structure || 'auto';
@@ -411,37 +411,7 @@ export const SpawnedNode = ({
     );
   };
 
-  const renderInquiries = () => {
-    const inquiries = Array.isArray(node.data?.targetedInquiries)
-      ? node.data.targetedInquiries.filter(Boolean).slice(0, 2)
-      : [];
-
-    if (inquiries.length === 0) return null;
-
-    return (
-      <div className="mb-2.5 flex flex-col gap-1.5">
-        {inquiries.map((q, idx) => (
-          <button
-            key={idx}
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onSpecificProbe) {
-                onSpecificProbe(q, node.id);
-              } else {
-                onInspect?.(node.id);
-              }
-            }}
-            className="w-full text-left px-3 py-1.5 rounded-xl bg-[#FBFBFA] hover:bg-white border border-[#E5E3DF] hover:border-grey-strong text-[#5C5650] hover:text-[#2B2724] font-mono text-[10px] transition-all duration-150 active:scale-[0.98] shadow-3xs cursor-pointer flex items-center gap-1.5"
-            title={`Investigate: "${q}"`}
-          >
-            <span className="text-[#8F8A83] shrink-0 leading-none">→</span>
-            <span className="truncate leading-tight">{q}</span>
-          </button>
-        ))}
-      </div>
-    );
-  };
+  const renderInquiries = () => null;
 
   const renderFooter = () => (
     <div className="flex justify-between items-center font-mono text-[8px] pt-1.5 border-t border-grey-soft mt-auto">
@@ -707,9 +677,13 @@ export const SpawnedNode = ({
         <>
           {renderHeader()}
           {renderTitle()}
-          <div className="bg-amber-500/10 border-l-2 border-amber-500 pl-2.5 py-2 my-2 font-serif italic text-[11px] text-text-primary">
-            "{node.data.description || node.data.title}"
-          </div>
+          {node.data?.quote ? (
+            <div className="bg-amber-500/10 border-l-2 border-amber-500 pl-2.5 py-2 my-2 font-serif italic text-[11px] text-text-primary">
+              "{node.data.quote}"
+            </div>
+          ) : (
+            renderText(true)
+          )}
           {renderInquiries()}
           {renderFooter()}
         </>

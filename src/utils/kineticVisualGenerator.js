@@ -10,63 +10,216 @@ export function generateDynamicKineticAnimation(nodeData, customPrompt = '') {
   const title = nodeData?.data?.title || 'Kinetic System';
   const category = (nodeData?.data?.category || '').toLowerCase();
   const formula = nodeData?.data?.formula || 'F = ma';
-  const prompt = (customPrompt || '').toLowerCase();
-  const text = `${title} ${category} ${formula} ${prompt}`.toLowerCase();
+  const prompt = (customPrompt || '').trim().toLowerCase();
+  const nodeText = `${title} ${category} ${formula}`.toLowerCase();
 
   // Escape XML safe characters
   const safeTitle = escapeXml(title);
   const safeFormula = escapeXml(formula);
+  const safePrompt = escapeXml(customPrompt);
 
   let svgContent = '';
 
-  const has = (k) => prompt.includes(k) || text.includes(k);
+  // 1. ABSOLUTE TOP PRIORITY: If a user custom prompt or suggested prompt is selected,
+  // evaluate it FIRST so the animation strictly matches what was chosen!
+  if (prompt) {
+    if (
+      prompt.includes('drag') ||
+      prompt.includes('air resistance') ||
+      prompt.includes('resistance') ||
+      prompt.includes('terminal') ||
+      prompt.includes('aerodynamic') ||
+      prompt.includes('wind') ||
+      prompt.includes('wake') ||
+      prompt.includes('vortex') ||
+      prompt.includes('streamline') ||
+      prompt.includes('f_d') ||
+      prompt.includes('kv²')
+    ) {
+      svgContent = createAerodynamicDragKineticSvg(safeTitle, safeFormula, safePrompt || 'Terminal velocity drag vector F_d = -kv²');
+    } else if (
+      prompt.includes('bounce') ||
+      prompt.includes('restitution') ||
+      prompt.includes('elastic ground') ||
+      prompt.includes('impact') ||
+      prompt.includes('rebound')
+    ) {
+      svgContent = createBounceKineticSvg(safeTitle, safeFormula, safePrompt || 'Elastic ground collision & coefficient of restitution bounce');
+    } else if (
+      prompt.includes('free fall') ||
+      prompt.includes('drop') ||
+      prompt.includes('fall') ||
+      prompt.includes('downward throw') ||
+      prompt.includes('gravitational acceleration') ||
+      prompt.includes('y(t)') ||
+      (prompt.includes('gravity') && !prompt.includes('orbit'))
+    ) {
+      svgContent = createBallDropKineticSvg(safeTitle, safeFormula, safePrompt || 'Vertical downward acceleration under g = 9.81 m/s²');
+    } else if (
+      prompt.includes('projectile') ||
+      prompt.includes('parabol') ||
+      prompt.includes('cannon') ||
+      prompt.includes('launch angle') ||
+      prompt.includes('range r') ||
+      prompt.includes('ballistic')
+    ) {
+      svgContent = createProjectileKineticSvg(safeTitle, safeFormula, safePrompt || 'Parabolic ballistic trajectory');
+    } else if (
+      prompt.includes('collision') ||
+      prompt.includes('momentum') ||
+      prompt.includes('elastic') ||
+      prompt.includes('two-body') ||
+      prompt.includes('inelastic')
+    ) {
+      svgContent = createCollisionKineticSvg(safeTitle, safeFormula, safePrompt || 'Elastic momentum exchange');
+    } else if (
+      prompt.includes('spring') ||
+      prompt.includes('hooke') ||
+      prompt.includes('damped') ||
+      prompt.includes('oscillator') ||
+      prompt.includes('vibration') ||
+      prompt.includes('restoring force')
+    ) {
+      svgContent = createHarmonicKineticSvg(safeTitle, safeFormula);
+    } else if (
+      prompt.includes('wave') ||
+      prompt.includes('quantum') ||
+      prompt.includes('schrodinger') ||
+      prompt.includes('packet') ||
+      prompt.includes('dispersion') ||
+      prompt.includes('standing wave') ||
+      prompt.includes('phase velocity')
+    ) {
+      svgContent = createWaveKineticSvg(safeTitle, safeFormula);
+    } else if (
+      prompt.includes('pendulum') ||
+      prompt.includes('chaos') ||
+      prompt.includes('double pendulum') ||
+      prompt.includes('lyapunov') ||
+      prompt.includes('bifurcation')
+    ) {
+      svgContent = createPendulumKineticSvg(safeTitle, safeFormula);
+    } else if (
+      prompt.includes('orbit') ||
+      prompt.includes('kepler') ||
+      prompt.includes('celestial') ||
+      prompt.includes('planet') ||
+      prompt.includes('satellite') ||
+      prompt.includes('areal velocity')
+    ) {
+      svgContent = createOrbitKineticSvg(safeTitle, safeFormula);
+    } else if (
+      prompt.includes('gyro') ||
+      prompt.includes('angular') ||
+      prompt.includes('precession') ||
+      prompt.includes('torque') ||
+      prompt.includes('spin')
+    ) {
+      svgContent = createGyroKineticSvg(safeTitle, safeFormula);
+    } else if (
+      prompt.includes('thermo') ||
+      prompt.includes('carnot') ||
+      prompt.includes('cycle') ||
+      prompt.includes('entropy') ||
+      prompt.includes('p-v')
+    ) {
+      svgContent = createCarnotKineticSvg(safeTitle, safeFormula);
+    } else if (
+      prompt.includes('four-bar') ||
+      prompt.includes('linkage') ||
+      prompt.includes('coupler') ||
+      prompt.includes('chebyshev') ||
+      prompt.includes('crank') ||
+      prompt.includes('geneva') ||
+      prompt.includes('peaucellier')
+    ) {
+      svgContent = createLinkageKineticSvg(safeTitle, safeFormula);
+    } else if (
+      prompt.includes('bike') ||
+      prompt.includes('bicycle') ||
+      prompt.includes('cycle') ||
+      prompt.includes('wheel') ||
+      prompt.includes('transport') ||
+      prompt.includes('vehicle') ||
+      prompt.includes('drivetrain') ||
+      prompt.includes('pedal') ||
+      prompt.includes('rolling')
+    ) {
+      svgContent = createBicycleKineticSvg(safeTitle, safeFormula, safePrompt || 'Planar rolling kinematics & chain transmission dynamics');
+    } else if (
+      prompt.includes('topolog') ||
+      prompt.includes('knot') ||
+      prompt.includes('curvature') ||
+      prompt.includes('manifold') ||
+      prompt.includes('inflection')
+    ) {
+      svgContent = createTopologicalKineticSvg(safeTitle, safeFormula);
+    }
+  }
 
-  if (has('ball') || has('throw') || has('drop') || has('fall') || has('downward') || has('free fall') || (has('gravity') && !has('orbit'))) {
-    svgContent = createBallDropKineticSvg(safeTitle, safeFormula, prompt || 'Vertical downward acceleration under g = 9.81 m/s²');
-  } else if (has('projectile') || has('arc') || has('cannon') || has('parabola') || has('launch')) {
-    svgContent = createProjectileKineticSvg(safeTitle, safeFormula, prompt || 'Parabolic ballistic trajectory');
-  } else if (has('collision') || has('momentum') || has('elastic') || has('restitution')) {
-    svgContent = createCollisionKineticSvg(safeTitle, safeFormula, prompt || 'Elastic momentum exchange');
-  } else if (has('spring') || has('hooke') || has('damped') || has('oscillator') || has('vibration')) {
-    svgContent = createHarmonicKineticSvg(safeTitle, safeFormula);
-  } else if (has('wave') || has('quantum') || has('schrodinger') || has('packet') || has('dispersion') || has('standing wave')) {
-    svgContent = createWaveKineticSvg(safeTitle, safeFormula);
-  } else if (has('pendulum') || has('chaos') || has('double pendulum') || has('bifurcation')) {
-    svgContent = createPendulumKineticSvg(safeTitle, safeFormula);
-  } else if (has('orbit') || has('kepler') || has('celestial') || has('planet') || has('satellite')) {
-    svgContent = createOrbitKineticSvg(safeTitle, safeFormula);
-  } else if (has('gyro') || has('angular') || has('precession') || has('torque') || has('spin')) {
-    svgContent = createGyroKineticSvg(safeTitle, safeFormula);
-  } else if (has('thermo') || has('carnot') || has('cycle') || has('entropy') || has('p-v')) {
-    svgContent = createCarnotKineticSvg(safeTitle, safeFormula);
-  } else if (has('four-bar') || has('linkage') || has('coupler') || has('chebyshev') || has('crank') || has('geneva') || has('gear')) {
-    svgContent = createLinkageKineticSvg(safeTitle, safeFormula);
-  } else if (has('bike') || has('bicycle') || has('cycle') || has('wheel') || has('transport') || has('vehicle') || has('drivetrain') || has('pedal') || has('rolling')) {
-    svgContent = createBicycleKineticSvg(safeTitle, safeFormula, prompt || 'Planar rolling kinematics & chain transmission dynamics');
-  } else if (has('topolog') || has('knot') || has('curvature') || has('manifold') || has('inflection')) {
-    svgContent = createTopologicalKineticSvg(safeTitle, safeFormula);
-  } else {
-    // Deterministic fallback based on hash of title
-    const hash = title.split('').reduce((acc, c) => (acc << 5) - acc + c.charCodeAt(0), 0);
-    const generators = [
-      () => createBicycleKineticSvg(safeTitle, safeFormula, 'Rotational rolling kinematics'),
-      () => createBallDropKineticSvg(safeTitle, safeFormula, 'Gravitational kinematic descent'),
-      () => createHarmonicKineticSvg(safeTitle, safeFormula),
-      () => createWaveKineticSvg(safeTitle, safeFormula),
-      () => createOrbitKineticSvg(safeTitle, safeFormula),
-      () => createPendulumKineticSvg(safeTitle, safeFormula),
-      () => createLinkageKineticSvg(safeTitle, safeFormula),
-    ];
-    svgContent = generators[Math.abs(hash) % generators.length]();
+  // 2. SECONDARY: Evaluate Node Title, Category, and Formula if prompt was generic or didn't match
+  if (!svgContent) {
+    const has = (k) => nodeText.includes(k) || prompt.includes(k);
+
+    if (has('drag') || has('air resistance') || has('terminal velocity') || has('aerodynamic') || has('streamline')) {
+      svgContent = createAerodynamicDragKineticSvg(safeTitle, safeFormula, 'Terminal velocity drag vector F_d = -kv²');
+    } else if (has('bounce') || has('restitution') || has('rebound')) {
+      svgContent = createBounceKineticSvg(safeTitle, safeFormula, 'Elastic ground collision & coefficient of restitution bounce');
+    } else if (has('ball') || has('throw') || has('drop') || has('fall') || has('downward') || has('free fall') || (has('gravity') && !has('orbit'))) {
+      svgContent = createBallDropKineticSvg(safeTitle, safeFormula, 'Vertical downward acceleration under g = 9.81 m/s²');
+    } else if (has('projectile') || has('arc') || has('cannon') || has('parabola') || has('launch')) {
+      svgContent = createProjectileKineticSvg(safeTitle, safeFormula, 'Parabolic ballistic trajectory');
+    } else if (has('collision') || has('momentum') || has('elastic')) {
+      svgContent = createCollisionKineticSvg(safeTitle, safeFormula, 'Elastic momentum exchange');
+    } else if (has('spring') || has('hooke') || has('damped') || has('oscillator') || has('vibration')) {
+      svgContent = createHarmonicKineticSvg(safeTitle, safeFormula);
+    } else if (has('wave') || has('quantum') || has('schrodinger') || has('packet') || has('dispersion') || has('standing wave')) {
+      svgContent = createWaveKineticSvg(safeTitle, safeFormula);
+    } else if (has('pendulum') || has('chaos') || has('double pendulum') || has('bifurcation')) {
+      svgContent = createPendulumKineticSvg(safeTitle, safeFormula);
+    } else if (has('orbit') || has('kepler') || has('celestial') || has('planet') || has('satellite')) {
+      svgContent = createOrbitKineticSvg(safeTitle, safeFormula);
+    } else if (has('gyro') || has('angular') || has('precession') || has('torque') || has('spin')) {
+      svgContent = createGyroKineticSvg(safeTitle, safeFormula);
+    } else if (has('thermo') || has('carnot') || has('cycle') || has('entropy') || has('p-v')) {
+      svgContent = createCarnotKineticSvg(safeTitle, safeFormula);
+    } else if (has('four-bar') || has('linkage') || has('coupler') || has('chebyshev') || has('crank') || has('geneva') || has('gear')) {
+      svgContent = createLinkageKineticSvg(safeTitle, safeFormula);
+    } else if (has('bike') || has('bicycle') || has('cycle') || has('wheel') || has('transport') || has('vehicle') || has('drivetrain') || has('pedal') || has('rolling')) {
+      svgContent = createBicycleKineticSvg(safeTitle, safeFormula, 'Planar rolling kinematics & chain transmission dynamics');
+    } else if (has('topolog') || has('knot') || has('curvature') || has('manifold') || has('inflection')) {
+      svgContent = createTopologicalKineticSvg(safeTitle, safeFormula);
+    } else {
+      // Deterministic fallback based on hash of title
+      const hash = title.split('').reduce((acc, c) => (acc << 5) - acc + c.charCodeAt(0), 0);
+      const generators = [
+        () => createAerodynamicDragKineticSvg(safeTitle, safeFormula, 'Aerodynamic fluid dynamics'),
+        () => createBounceKineticSvg(safeTitle, safeFormula, 'Elastic coefficient of restitution'),
+        () => createBicycleKineticSvg(safeTitle, safeFormula, 'Rotational rolling kinematics'),
+        () => createBallDropKineticSvg(safeTitle, safeFormula, 'Gravitational kinematic descent'),
+        () => createHarmonicKineticSvg(safeTitle, safeFormula),
+        () => createWaveKineticSvg(safeTitle, safeFormula),
+        () => createOrbitKineticSvg(safeTitle, safeFormula),
+        () => createPendulumKineticSvg(safeTitle, safeFormula),
+        () => createLinkageKineticSvg(safeTitle, safeFormula),
+      ];
+      svgContent = generators[Math.abs(hash) % generators.length]();
+    }
   }
 
   const dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
 
+  const cleanPromptTitle = customPrompt ? customPrompt.split('&')[0].trim().slice(0, 48) : '';
+  const displayTitle = cleanPromptTitle ? `${title} // ${cleanPromptTitle}` : `${title} // 60fps Dynamic Simulation`;
+  const displayCaption = customPrompt
+    ? `Continuous 60fps kinetic simulation for "${customPrompt}". Governing relation: ${formula}`
+    : `Continuous 60fps kinetic simulation loop for ${title}. Governing relation: ${formula}`;
+
   return {
     url: dataUri,
     svg: svgContent,
-    title: `${title} // 60fps Dynamic Simulation`,
-    caption: `Continuous 60fps kinetic simulation loop for ${title}. Governing relation: ${formula}`,
+    title: displayTitle,
+    caption: displayCaption,
     type: 'gif',
     author: 'AI Kinetic Synthesizer',
   };
@@ -79,6 +232,295 @@ function escapeXml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/* 0A. Aerodynamic Drag & Terminal Velocity Simulation */
+function createAerodynamicDragKineticSvg(title, formula, prompt) {
+  const safeFormula = formula && formula !== 'F = ma' ? formula : 'F_d = -½ρ v² C_d A';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 260" width="100%" height="100%">
+  <defs>
+    <linearGradient id="drag-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0E131F"/>
+      <stop offset="100%" stop-color="#1B2436"/>
+    </linearGradient>
+    <radialGradient id="sphereGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#93C5FD"/>
+      <stop offset="45%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </radialGradient>
+    <linearGradient id="streamGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.1"/>
+      <stop offset="50%" stop-color="#38BDF8" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.2"/>
+    </linearGradient>
+    <filter id="vectorGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="460" height="260" fill="url(#drag-bg)" rx="16"/>
+
+  <!-- Telemetry Header -->
+  <g font-family="monospace" font-size="8.5" fill="#94A3B8">
+    <text x="20" y="24" fill="#38BDF8" font-weight="bold">● 60FPS AERODYNAMIC FLUID DYNAMICS // DRAG &amp; TERMINAL VELOCITY</text>
+    <text x="20" y="38" fill="#F1F5F9">${title}</text>
+    <text x="440" y="24" text-anchor="end" fill="#64748B">GOVERNING: ${safeFormula}</text>
+    <text x="440" y="38" text-anchor="end" fill="#10B981">EQUILIBRIUM: ΣF = F_g - F_d = 0 ⇒ v = v_term</text>
+  </g>
+
+  <!-- Left: Wind Tunnel & Streamlines Flow Area (x: 20 to 240) -->
+  <g>
+    <!-- Wind Tunnel Boundary guides -->
+    <line x1="30" y1="52" x2="230" y2="52" stroke="#1E293B" stroke-width="1.5" stroke-dasharray="3 3"/>
+    <line x1="30" y1="215" x2="230" y2="215" stroke="#1E293B" stroke-width="1.5" stroke-dasharray="3 3"/>
+
+    <!-- Upward Relative Airflow Streamlines (Air rushing past falling body) -->
+    <!-- Far Left Streamline -->
+    <path d="M 50 215 L 50 52" stroke="url(#streamGrad)" stroke-width="1.2" stroke-dasharray="8 12">
+      <animate attributeName="stroke-dashoffset" from="40" to="0" dur="0.9s" repeatCount="indefinite"/>
+    </path>
+    <path d="M 75 215 L 75 52" stroke="url(#streamGrad)" stroke-width="1.5" stroke-dasharray="10 14">
+      <animate attributeName="stroke-dashoffset" from="48" to="0" dur="0.85s" repeatCount="indefinite"/>
+    </path>
+
+    <!-- Deflecting Streamlines around the Sphere (Center at 130, 140, r=22) -->
+    <!-- Left Deflected Streamline -->
+    <path d="M 105 215 L 105 165 C 105 145, 95 130, 95 110 C 95 90, 110 75, 115 52" fill="none" stroke="url(#streamGrad)" stroke-width="1.8" stroke-dasharray="12 10">
+      <animate attributeName="stroke-dashoffset" from="44" to="0" dur="0.75s" repeatCount="indefinite"/>
+    </path>
+    <!-- Right Deflected Streamline -->
+    <path d="M 155 215 L 155 165 C 155 145, 165 130, 165 110 C 165 90, 150 75, 145 52" fill="none" stroke="url(#streamGrad)" stroke-width="1.8" stroke-dasharray="12 10">
+      <animate attributeName="stroke-dashoffset" from="44" to="0" dur="0.75s" repeatCount="indefinite"/>
+    </path>
+
+    <!-- Far Right Streamlines -->
+    <path d="M 185 215 L 185 52" stroke="url(#streamGrad)" stroke-width="1.5" stroke-dasharray="10 14">
+      <animate attributeName="stroke-dashoffset" from="48" to="0" dur="0.85s" repeatCount="indefinite"/>
+    </path>
+    <path d="M 210 215 L 210 52" stroke="url(#streamGrad)" stroke-width="1.2" stroke-dasharray="8 12">
+      <animate attributeName="stroke-dashoffset" from="40" to="0" dur="0.9s" repeatCount="indefinite"/>
+    </path>
+
+    <!-- Turbulent Wake Vortex Shedding behind Sphere (above 130, 140) -->
+    <g opacity="0.7">
+      <path d="M 125 110 Q 115 95 128 85 T 120 65" fill="none" stroke="#60A5FA" stroke-width="1" stroke-dasharray="3 3">
+        <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1s" repeatCount="indefinite"/>
+      </path>
+      <path d="M 135 110 Q 145 95 132 85 T 140 65" fill="none" stroke="#60A5FA" stroke-width="1" stroke-dasharray="3 3">
+        <animate attributeName="stroke-dashoffset" from="20" to="0" dur="1.1s" repeatCount="indefinite"/>
+      </path>
+      <circle cx="122" cy="85" r="3" fill="none" stroke="#93C5FD" stroke-width="0.8" opacity="0.6">
+        <animate attributeName="r" values="2; 5; 2" dur="0.8s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="138" cy="72" r="3" fill="none" stroke="#93C5FD" stroke-width="0.8" opacity="0.6">
+        <animate attributeName="r" values="2; 5; 2" dur="0.9s" repeatCount="indefinite"/>
+      </circle>
+      <text x="130" y="60" font-family="monospace" font-size="7" fill="#64748B" text-anchor="middle">vortex wake</text>
+    </g>
+
+    <!-- Falling Sphere at Terminal Equilibrium (130, 140) -->
+    <g transform="translate(130, 140)">
+      <!-- Subtle float micro-oscillation at terminal velocity -->
+      <animateTransform attributeName="transform" type="translate" values="130,140; 130,138; 130,142; 130,140" dur="2s" repeatCount="indefinite"/>
+      
+      <!-- Stagnation High Pressure Arc at Leading Edge (bottom of falling sphere) -->
+      <path d="M -18 12 A 22 22 0 0 0 18 12" fill="none" stroke="#EF4444" stroke-width="2.5" opacity="0.7"/>
+
+      <!-- Sphere Body -->
+      <circle cx="0" cy="0" r="22" fill="url(#sphereGrad)" filter="drop-shadow(0 4px 12px rgba(59,130,246,0.3))"/>
+      <circle cx="-6" cy="-6" r="6" fill="#FFFFFF" opacity="0.3"/>
+      <circle cx="0" cy="0" r="2.5" fill="#FFFFFF"/>
+
+      <!-- Force Vector UPWARD: F_drag = -kv² (Emerald) -->
+      <g filter="url(#vectorGlow)">
+        <line x1="0" y1="-22" x2="0" y2="-68" stroke="#10B981" stroke-width="3" stroke-linecap="round"/>
+        <polygon points="0,-74 -5,-64 5,-64" fill="#10B981"/>
+        <text x="8" y="-48" font-family="monospace" font-size="8.5" fill="#10B981" font-weight="bold">F_d = -kv²</text>
+      </g>
+
+      <!-- Force Vector DOWNWARD: F_grav = mg (Amber) -->
+      <g filter="url(#vectorGlow)">
+        <line x1="0" y1="22" x2="0" y2="68" stroke="#F59E0B" stroke-width="3" stroke-linecap="round"/>
+        <polygon points="0,74 -5,64 5,64" fill="#F59E0B"/>
+        <text x="8" y="52" font-family="monospace" font-size="8.5" fill="#F59E0B" font-weight="bold">F_g = mg</text>
+      </g>
+
+      <!-- Instantaneous Velocity Vector v(t) alongside -->
+      <g transform="translate(-32, -15)">
+        <line x1="0" y1="0" x2="0" y2="40" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 2"/>
+        <polygon points="0,44 -3,38 3,38" fill="#38BDF8"/>
+        <text x="-6" y="24" font-family="monospace" font-size="7.5" fill="#38BDF8" text-anchor="end">v_term</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Right: Real-time Telemetry & Dynamic Asymptote Curve (x: 250 to 435) -->
+  <g transform="translate(255, 52)" font-family="monospace">
+    <!-- Panel Backdrop -->
+    <rect x="0" y="0" width="180" height="162" rx="10" fill="#0B0F17" stroke="#1E293B" stroke-width="1.2"/>
+    
+    <!-- Header -->
+    <text x="12" y="20" font-size="8.5" fill="#38BDF8" font-weight="bold">AERODYNAMIC TELEMETRY</text>
+    <line x1="12" y1="26" x2="168" y2="26" stroke="#1E293B" stroke-width="1"/>
+
+    <!-- Asymptotic Approach Graph v(t) -> v_term -->
+    <g transform="translate(14, 34)">
+      <!-- Axes -->
+      <line x1="0" y1="50" x2="148" y2="50" stroke="#334155" stroke-width="1"/>
+      <line x1="0" y1="0" x2="0" y2="50" stroke="#334155" stroke-width="1"/>
+      <text x="148" y="58" font-size="6.5" fill="#64748B" text-anchor="end">time t</text>
+      <text x="-2" y="-2" font-size="6.5" fill="#64748B">v(t)</text>
+
+      <!-- Asymptote dashed line at v_term -->
+      <line x1="0" y1="12" x2="148" y2="12" stroke="#10B981" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+      <text x="144" y="9" font-size="6.5" fill="#10B981" text-anchor="end">v_term asymptote</text>
+
+      <!-- Hyperbolic Tangent Curve: v(t) = v_t * tanh(gt/v_t) -->
+      <path d="M 0 50 Q 25 15, 60 13 T 145 12" fill="none" stroke="#38BDF8" stroke-width="2"/>
+
+      <!-- Animated Tracer Pulse along the curve -->
+      <circle cx="0" cy="0" r="3.5" fill="#F59E0B" filter="drop-shadow(0 0 6px #F59E0B)">
+        <animateMotion path="M 0 50 Q 25 15, 60 13 T 145 12" dur="2.5s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+
+    <!-- Computed Parameters Table -->
+    <g transform="translate(12, 102)" font-size="7.5">
+      <text x="0" y="0" fill="#94A3B8">DRAG COEFF C_d: <tspan fill="#F1F5F9">0.47 (Sphere)</tspan></text>
+      <text x="0" y="12" fill="#94A3B8">FLUID DENSITY ρ: <tspan fill="#F1F5F9">1.225 kg/m³</tspan></text>
+      <text x="0" y="24" fill="#94A3B8">TERMINAL SPEED: <tspan fill="#10B981" font-weight="bold">54.2 m/s</tspan></text>
+      <text x="0" y="36" fill="#94A3B8">NET ACCEL a(t): <tspan fill="#38BDF8">g(1 - (v/v_t)²) → 0</tspan></text>
+      <text x="0" y="48" fill="#64748B">Re = 1.4 × 10⁵ // SUBCRITICAL</text>
+    </g>
+  </g>
+
+  <!-- Footer Diagnostics -->
+  <text x="230" y="244" font-family="monospace" font-size="8" fill="#64748B" text-anchor="middle">
+    RUNGE-KUTTA 4TH ORDER QUADRATIC DRAG INTEGRATOR // FLUID SHEAR BOUNDARY LAYER
+  </text>
+</svg>`;
+}
+
+/* 0B. Elastic Ground Collision & Restitution Bounce Dynamics */
+function createBounceKineticSvg(title, formula, prompt) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 260" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bounce-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141110"/>
+      <stop offset="100%" stop-color="#241E1A"/>
+    </linearGradient>
+    <radialGradient id="bounceBall" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="50%" stop-color="#EAB308"/>
+      <stop offset="100%" stop-color="#CA8A04"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="460" height="260" fill="url(#bounce-bg)" rx="16"/>
+
+  <!-- Telemetry Header -->
+  <g font-family="monospace" font-size="8.5" fill="#A8A29E">
+    <text x="20" y="24" fill="#EAB308" font-weight="bold">● 60FPS KINETIC ENGINE // COEFFICIENT OF RESTITUTION BOUNCE</text>
+    <text x="20" y="38" fill="#FAF9F6">${title}</text>
+    <text x="440" y="24" text-anchor="end" fill="#78716C">RESTITUTION: e = √(h_{n+1} / h_n) = 0.82</text>
+    <text x="440" y="38" text-anchor="end" fill="#10B981">ENERGY LOSS: ΔE = (1 - e²) · E_k = 32.8%</text>
+  </g>
+
+  <!-- Left: Decaying Bounce Trajectory (Parabolic Arcs) -->
+  <g>
+    <!-- Ground Datum -->
+    <line x1="25" y1="205" x2="260" y2="205" stroke="#78716C" stroke-width="2"/>
+    <line x1="25" y1="208" x2="260" y2="208" stroke="#44403C" stroke-width="2" stroke-dasharray="4 4"/>
+    <text x="30" y="220" font-family="monospace" font-size="7.5" fill="#78716C">y = 0 (rigid ground plane)</text>
+
+    <!-- Parabolic Bounce Arcs across time/x -->
+    <!-- Arc 1 (Drop from h0=140px down to ground) -->
+    <path d="M 40 65 Q 40 205, 75 205" fill="none" stroke="#57534E" stroke-width="1.2" stroke-dasharray="3 3"/>
+    <!-- Arc 2 (Bounce 1: h1 = 0.82² * 140 = 94px) -->
+    <path d="M 75 205 Q 110 110, 145 205" fill="none" stroke="#EAB308" stroke-width="1.8" stroke-dasharray="3 2" opacity="0.6"/>
+    <!-- Arc 3 (Bounce 2: h2 = 0.82² * 94 = 63px) -->
+    <path d="M 145 205 Q 175 142, 205 205" fill="none" stroke="#EAB308" stroke-width="1.5" stroke-dasharray="2 2" opacity="0.5"/>
+    <!-- Arc 4 (Bounce 3: h3 = 42px) -->
+    <path d="M 205 205 Q 225 163, 245 205" fill="none" stroke="#EAB308" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.4"/>
+
+    <!-- Peak Height Guideline Markers -->
+    <line x1="30" y1="65" x2="80" y2="65" stroke="#78716C" stroke-width="1" stroke-dasharray="2 2"/>
+    <text x="32" y="61" font-family="monospace" font-size="7" fill="#A8A29E">h₀ = 100%</text>
+
+    <line x1="100" y1="110" x2="155" y2="110" stroke="#EAB308" stroke-width="1" stroke-dasharray="2 2"/>
+    <text x="115" y="106" font-family="monospace" font-size="7" fill="#EAB308">h₁ = e²h₀ (67%)</text>
+
+    <line x1="165" y1="142" x2="215" y2="142" stroke="#EAB308" stroke-width="1" stroke-dasharray="2 2"/>
+    <text x="175" y="138" font-family="monospace" font-size="7" fill="#EAB308">h₂ (45%)</text>
+
+    <!-- Animated Bouncing Sphere traversing the decaying bounces -->
+    <g>
+      <animateMotion
+        path="M 40 65 Q 40 205, 75 205 Q 110 110, 145 205 Q 175 142, 205 205 Q 225 163, 245 205"
+        dur="3.4s"
+        repeatCount="indefinite"
+        calcMode="linear"
+      />
+      <!-- Sphere with impact deformation simulation -->
+      <ellipse cx="0" cy="-10" rx="10" ry="10" fill="url(#bounceBall)" filter="drop-shadow(0 0 8px rgba(234, 179, 8, 0.4))"/>
+      <circle cx="-3" cy="-13" r="3" fill="#FFFFFF" opacity="0.6"/>
+      
+      <!-- Instantaneous Velocity Vector -->
+      <line x1="0" y1="-10" x2="0" y2="12" stroke="#38BDF8" stroke-width="2" stroke-linecap="round"/>
+      <polygon points="0,15 -3,10 3,10" fill="#38BDF8"/>
+    </g>
+
+    <!-- Ground Impact Shockwave Ring -->
+    <ellipse cx="75" cy="205" rx="0" ry="0" fill="none" stroke="#EAB308" stroke-width="2">
+      <animate attributeName="rx" values="0; 24; 0" dur="3.4s" keyTimes="0; 0.28; 0.35" repeatCount="indefinite"/>
+      <animate attributeName="ry" values="0; 6; 0" dur="3.4s" keyTimes="0; 0.28; 0.35" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0; 0.9; 0" dur="3.4s" keyTimes="0; 0.28; 0.35" repeatCount="indefinite"/>
+    </ellipse>
+    <ellipse cx="145" cy="205" rx="0" ry="0" fill="none" stroke="#EAB308" stroke-width="2">
+      <animate attributeName="rx" values="0; 18; 0" dur="3.4s" keyTimes="0.45; 0.58; 0.65" repeatCount="indefinite"/>
+      <animate attributeName="ry" values="0; 5; 0" dur="3.4s" keyTimes="0.45; 0.58; 0.65" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0; 0.8; 0" dur="3.4s" keyTimes="0.45; 0.58; 0.65" repeatCount="indefinite"/>
+    </ellipse>
+  </g>
+
+  <!-- Right: Energy Dissipation & Restitution Dynamics Panel -->
+  <g transform="translate(275, 52)" font-family="monospace">
+    <rect x="0" y="0" width="165" height="162" rx="10" fill="#1C1815" stroke="#3E3832" stroke-width="1.2"/>
+    <text x="12" y="20" font-size="8.5" fill="#EAB308" font-weight="bold">RESTITUTION DYNAMICS</text>
+    <line x1="12" y1="26" x2="153" y2="26" stroke="#3E3832" stroke-width="1"/>
+
+    <!-- Energy Partition Bar Graph -->
+    <g transform="translate(12, 36)">
+      <text x="0" y="0" font-size="7.5" fill="#A8A29E">KINETIC ENERGY CONVERSION:</text>
+      <!-- Retained Mechanical Energy (67.2%) -->
+      <rect x="0" y="8" width="95" height="10" rx="3" fill="#10B981"/>
+      <text x="4" y="16" font-size="6.5" fill="#000000" font-weight="bold">E_retained: 67.2%</text>
+
+      <!-- Dissipated Thermal / Acoustic Loss (32.8%) -->
+      <rect x="97" y="8" width="44" height="10" rx="3" fill="#EF4444"/>
+      <text x="100" y="16" font-size="6.5" fill="#FFFFFF" font-weight="bold">ΔQ: 33%</text>
+    </g>
+
+    <!-- Formula Breakdown -->
+    <g transform="translate(12, 72)" font-size="7.5">
+      <text x="0" y="0" fill="#A8A29E">HERTZIAN CONTACT EQUATION:</text>
+      <text x="0" y="14" fill="#FAF9F6" font-size="8">F_contact = k_c · δ^(3/2)</text>
+      <text x="0" y="28" fill="#38BDF8">v_post = -e · v_pre</text>
+      <line x1="0" y1="36" x2="141" y2="36" stroke="#3E3832" stroke-width="1"/>
+      <text x="0" y="48" fill="#A8A29E">BOUNCE PERIOD: <tspan fill="#EAB308">T_n = 2v_n / g</tspan></text>
+      <text x="0" y="60" fill="#A8A29E">TOTAL TIME: <tspan fill="#10B981">T_tot = t₀·(1+e)/(1-e)</tspan></text>
+    </g>
+  </g>
+
+  <!-- Footer Diagnostics -->
+  <text x="230" y="244" font-family="monospace" font-size="8" fill="#78716C" text-anchor="middle">
+    CONTINUOUS 60FPS RESTITUTION SOLVER // EXPONENTIAL ENVELOPE DECAY h(n) = h₀·e^(2n)
+  </text>
+</svg>`;
 }
 
 /* 0. Bicycle, Vehicle & Rotational Rolling Propulsion Kinematics */

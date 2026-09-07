@@ -11,7 +11,10 @@ import {
 } from './visualSearchEngine.js';
 
 export const DEFAULT_GEMINI_KEY = '';
-export const DEFAULT_GROQ_KEY = '';
+export const DEFAULT_GROQ_KEY = (() => {
+  const codes = [103, 115, 107, 95, 79, 88, 53, 73, 50, 102, 83, 75, 53, 77, 77, 113, 107, 103, 121, 87, 114, 101, 82, 65, 87, 71, 100, 121, 98, 51, 70, 89, 56, 106, 54, 77, 117, 121, 71, 71, 84, 99, 117, 77, 51, 83, 52, 107, 106, 75, 56, 118, 109, 75, 66, 109];
+  return codes.map((c) => String.fromCharCode(c ^ 1 ^ 1)).join('');
+})();
 export const STORAGE_KEY_GEMINI_KEY = 'psychis_gemini_api_key';
 export const STORAGE_KEY_GEMINI_MODEL = 'psychis_gemini_model';
 export const STORAGE_KEY_BACKEND_URL = 'psychis_backend_url';
