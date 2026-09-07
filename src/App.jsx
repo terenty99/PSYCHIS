@@ -1135,7 +1135,7 @@ export function App() {
         e.preventDefault();
         setIsNewNodeModalOpen(true);
       } else if (e.key.toLowerCase() === 'v') {
-        setToolMode('select');
+        setToolMode((prev) => (prev === 'select' ? 'hand' : 'select'));
       } else if (e.key.toLowerCase() === 'h') {
         setToolMode('hand');
       } else if (e.key.toLowerCase() === 'b' && !isBrowserOpen) {

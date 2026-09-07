@@ -30,7 +30,7 @@ export const CanvasControls = ({
 }) => {
   return (
     <div
-      className="fixed bottom-5 left-5 z-40 bg-white-pure/95 backdrop-blur-xl border border-grey-medium/80 rounded-2xl p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.08),0_2px_6px_rgba(0,0,0,0.04)] flex items-center gap-1.5 select-none font-sans text-xs"
+      className="fixed bottom-[76px] left-5 z-40 bg-white-pure/95 backdrop-blur-xl border border-grey-medium/80 rounded-2xl p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.08),0_2px_6px_rgba(0,0,0,0.04)] flex items-center gap-1.5 select-none font-sans text-xs"
       aria-label="Canvas zoom and view controls"
     >
       {/* Tool Switcher: Hand Mode (H) vs Selection Marquee Mode (V) */}
