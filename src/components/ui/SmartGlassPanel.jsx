@@ -1,12 +1,18 @@
 import React from 'react';
 
 export const SmartGlassPanel = ({
+  nodeId,
   children,
   className = '',
   isSelected = false,
   isDragging = false,
+  isLinkSelected = false,
+  isLinkShaking = false,
   style = {},
   onPointerDown,
+  onPointerUp,
+  onPointerEnter,
+  onPointerLeave,
   onClick,
   onKeyDown,
   tabIndex = 0,
@@ -23,15 +29,22 @@ export const SmartGlassPanel = ({
 
   return (
     <article
+      data-node-id={nodeId}
+      id={nodeId ? `node-${nodeId}` : undefined}
       role={role}
       tabIndex={tabIndex}
       aria-label={ariaLabel}
       onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       onClick={onClick}
       onKeyDown={onKeyDown}
       style={style}
-      className={`smart-glass-panel absolute p-4 select-none ${isSelected ? 'is-selected' : ''} ${
+      className={`smart-glass-panel absolute p-4 overflow-hidden select-none ${isSelected ? 'is-selected' : ''} ${
         isDragging ? 'is-dragging' : ''
+      } ${isLinkSelected ? 'link-source-selected' : ''} ${
+        isLinkShaking ? 'link-hover-shake' : ''
       } ${variantClass} ${className}`}
     >
       {children}

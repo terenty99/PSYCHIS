@@ -11,6 +11,9 @@ node_modules/
 uiux-designer-antigravityskills-com/
 3d-web-experience/
 backup_site_v*/
+mock_site/
+__pycache__/
+*.pyc
 
 # Testing & Artifacts
 coverage/

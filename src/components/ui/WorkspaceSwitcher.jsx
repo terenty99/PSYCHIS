@@ -9,6 +9,7 @@ import {
   Check,
   Key,
   FolderOpen,
+  Sparkles,
 } from 'lucide-react';
 
 export const WorkspaceSwitcher = ({
@@ -22,16 +23,21 @@ export const WorkspaceSwitcher = ({
   onClearCanvas,
   clientAuth,
   onOpenAuthModal,
+  onOpenAISettings,
+  className = '',
+  inlineTrigger = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const dropdownRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click and reset confirmClear
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false);
+        setConfirmClear(false);
       }
     };
     if (isOpen) document.addEventListener('pointerdown', handleClickOutside);
@@ -51,24 +57,28 @@ export const WorkspaceSwitcher = ({
   };
 
   return (
-    <aside
+    <div
       ref={dropdownRef}
-      className="fixed top-14 left-4 z-40 select-none font-mono text-xs"
+      className={`relative select-none font-mono text-xs ${className}`}
       aria-label="Workspace and board manager"
     >
       {/* Top Floating Pill */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-white-warm/95 hover:bg-grey-soft backdrop-blur-md border border-grey-strong shadow-[0_2px_10px_rgba(0,0,0,0.06)] text-text-primary transition-all duration-200 cursor-pointer"
+        className={
+          inlineTrigger
+            ? 'flex items-center gap-2 px-2.5 py-1 rounded-xl hover:bg-grey-soft/80 text-text-primary transition-all duration-150 active:scale-95 cursor-pointer h-7 text-xs font-sans'
+            : 'flex items-center gap-2 px-3 py-1 rounded-xl bg-white-pure hover:bg-grey-soft/90 backdrop-blur-xl border border-grey-medium/70 hover:border-text-primary/30 shadow-3xs text-text-primary transition-all duration-150 active:scale-95 cursor-pointer h-8 text-xs font-sans'
+        }
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
         <Layers className="w-3.5 h-3.5 text-text-secondary" />
-        <span className="font-sans font-medium text-[12.5px] max-w-[190px] sm:max-w-[240px] truncate text-text-primary">
+        <span className="font-medium text-[11.5px] max-w-[140px] sm:max-w-[200px] truncate text-text-primary">
           {currentWorkspace?.name || 'Applied Kinematics'}
         </span>
-        <span className="text-[10px] bg-grey-medium px-2 py-0.5 rounded-full font-mono text-text-secondary font-semibold">
-          {nodeCount} nodes
+        <span className="text-[10px] bg-grey-medium/80 px-1.5 py-0.2 rounded-md font-mono text-text-secondary font-semibold">
+          {nodeCount}
         </span>
         <ChevronDown
           className={`w-3 h-3 text-text-muted transition-transform duration-200 ${
@@ -77,10 +87,10 @@ export const WorkspaceSwitcher = ({
         />
       </button>
 
-      {/* Glassmorphic Dropdown Deck */}
+      {/* Solid Opaque Dropdown Deck */}
       {isOpen && (
         <div
-          className="absolute top-12 left-0 w-[310px] bg-white-pure/98 backdrop-blur-2xl border border-grey-strong rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.12)] p-2 animate-in fade-in zoom-in-95 duration-150 text-text-primary"
+          className="absolute top-11 left-0 w-[310px] bg-white border border-[#D5D2CC] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.22)] p-2 animate-in fade-in zoom-in-95 duration-150 text-text-primary z-50 opacity-100"
           role="menu"
         >
           {/* Client Authentication Header */}
@@ -147,11 +157,29 @@ export const WorkspaceSwitcher = ({
                 onNewWorkspace();
                 setIsOpen(false);
               }}
-              className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center gap-2 hover:bg-grey-soft text-text-primary transition-colors cursor-pointer text-[11.5px]"
+              className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between hover:bg-grey-soft text-text-primary transition-colors cursor-pointer text-[11.5px]"
               role="menuitem"
             >
-              <Plus className="w-3.5 h-3.5 text-text-secondary" />
-              <span>New Blank Canvas</span>
+              <div className="flex items-center gap-2">
+                <Plus className="w-3.5 h-3.5 text-text-primary" />
+                <span className="font-medium">Start New Investigation...</span>
+              </div>
+              <span className="text-[9px] font-mono bg-grey-medium px-1.5 py-0.5 rounded text-text-muted">From Scratch</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                onOpenAISettings?.();
+              }}
+              className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between hover:bg-grey-soft text-text-primary transition-colors cursor-pointer text-[11.5px]"
+              role="menuitem"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span className="font-medium">AI Engine & API Settings</span>
+              </div>
+              <span className="text-[9px] font-mono bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Groq Cloud</span>
             </button>
 
             <button
@@ -176,17 +204,29 @@ export const WorkspaceSwitcher = ({
             </button>
 
             <button
-              onClick={() => {
-                if (window.confirm('Clear all nodes from the current canvas?')) {
-                  onClearCanvas();
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!confirmClear) {
+                  setConfirmClear(true);
+                } else {
+                  setConfirmClear(false);
                   setIsOpen(false);
+                  onClearCanvas();
                 }
               }}
-              className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center gap-2 hover:bg-red-50 text-red-700 transition-colors cursor-pointer text-[11.5px]"
+              className={`w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between transition-colors cursor-pointer text-[11.5px] ${
+                confirmClear
+                  ? 'bg-red-600 text-white font-semibold hover:bg-red-700'
+                  : 'hover:bg-red-50 text-red-700'
+              }`}
               role="menuitem"
             >
-              <Trash2 className="w-3.5 h-3.5 text-red-500" />
-              <span>Clear Canvas</span>
+              <div className="flex items-center gap-2">
+                <Trash2 className={`w-3.5 h-3.5 ${confirmClear ? 'text-white' : 'text-red-500'}`} />
+                <span>{confirmClear ? 'Click again to confirm Clear' : 'Clear Canvas'}</span>
+              </div>
+              {confirmClear && <span className="text-[10px] bg-red-800/60 text-white px-1.5 py-0.5 rounded">Confirm</span>}
             </button>
           </div>
 
@@ -200,6 +240,6 @@ export const WorkspaceSwitcher = ({
           />
         </div>
       )}
-    </aside>
+    </div>
   );
 };

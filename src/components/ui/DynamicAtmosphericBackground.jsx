@@ -392,25 +392,6 @@ export const DynamicAtmosphericBackground = ({
           />
         )}
 
-        {/* TIER 5: Precision Navigation Reticles (1.0x) */}
-        <g className="font-mono text-[9px] fill-text-primary" opacity="0.75">
-          <line x1="20" y1="20" x2="45" y2="20" stroke="#6E6A63" strokeWidth="1.5" />
-          <line x1="20" y1="20" x2="20" y2="45" stroke="#6E6A63" strokeWidth="1.5" />
-          <circle cx="20" cy="20" r="2.5" fill="#6E6A63" />
-          
-          <text x="54" y="24" className="font-bold tracking-wider fill-text-primary">
-            WIRED SPATIAL ENGINE &bull; {Math.round(zoom * 100)}% SCALE &bull; {aspectRatio < 0.95 ? 'PORTRAIT' : aspectRatio > 1.4 ? 'LANDSCAPE' : 'SQUARE'}
-          </text>
-          <text x="54" y="37" fill="#8F8A82" className="text-[8.5px] font-semibold">
-            COORD [X: {Math.round(pan.x)}, Y: {Math.round(pan.y)}] &bull; 60FPS LIVING ATELIER
-          </text>
-
-          <line x1="calc(100% - 20px)" y1="20" x2="calc(100% - 45px)" y2="20" stroke="#6E6A63" strokeWidth="1.5" />
-          <line x1="calc(100% - 20px)" y1="20" x2="calc(100% - 20px)" y2="45" stroke="#6E6A63" strokeWidth="1.5" />
-
-          <line x1="20" y1="calc(100% - 20px)" x2="45" y2="calc(100% - 20px)" stroke="#6E6A63" strokeWidth="1.5" />
-          <line x1="20" y1="calc(100% - 20px)" x2="20" y2="calc(100% - 45px)" stroke="#6E6A63" strokeWidth="1.5" />
-        </g>
       </svg>
 
       {/* 4. TACTILE MONOCHROMATIC PAPER FIBER NOISE */}

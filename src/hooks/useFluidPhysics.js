@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { getNodeDimensions } from '../utils/canvasPlacement';
 
 /**
  * Hook to apply physical billiard collision impulses and viscous proximity repulsion
@@ -9,8 +10,9 @@ export function useFluidPhysics() {
     const draggedNode = allNodes.find((n) => n.id === draggedId);
     if (!draggedNode) return;
 
-    const dWidth = draggedNode.width || 280;
-    const dHeight = draggedNode.height || 220;
+    const dDims = getNodeDimensions(draggedNode);
+    const dWidth = dDims.width;
+    const dHeight = dDims.height;
     const dCenterX = currentPos.x + dWidth / 2;
     const dCenterY = currentPos.y + dHeight / 2;
 
@@ -19,8 +21,9 @@ export function useFluidPhysics() {
     allNodes.forEach((other) => {
       if (other.id === draggedId || other.hidden) return;
 
-      const oWidth = other.width || 280;
-      const oHeight = other.height || 220;
+      const oDims = getNodeDimensions(other);
+      const oWidth = oDims.width;
+      const oHeight = oDims.height;
       const oCenterX = other.position.x + oWidth / 2;
       const oCenterY = other.position.y + oHeight / 2;
 

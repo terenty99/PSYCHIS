@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg-rect { fill: #F8F7F5; }
+      .draft-grid { stroke: #4A4540; stroke-width: 0.5; stroke-opacity: 0.08; }
+      .draft-axis { stroke: #4A4540; stroke-width: 0.75; stroke-opacity: 0.18; stroke-dasharray: 4 4; }
+      .control-line { stroke: #4A4540; stroke-width: 1.2; stroke-opacity: 0.28; stroke-dasharray: 3 3; }
+      .control-handle { fill: none; stroke: #4A4540; stroke-width: 1.5; stroke-opacity: 0.45; }
+      .curve-main { fill: none; stroke: #4A4540; stroke-width: 24; stroke-linecap: round; }
+      .node-main { fill: #4A4540; }
+      .draft-label { font-family: -apple-system, BlinkMacSystemFont, "Space Grotesk", monospace; font-size: 11px; fill: #4A4540; fill-opacity: 0.55; }
+      .draft-metric { font-family: -apple-system, BlinkMacSystemFont, "Space Grotesk", monospace; font-size: 9px; fill: #4A4540; fill-opacity: 0.4; }
+    </style>
+  </defs>
+
+  <!-- Ground -->
+  <rect class="bg-rect" width="512" height="512" />
+
+  <!-- Architectural Drafting Grid -->
+  <line class="draft-grid" x1="64" y1="0" x2="64" y2="512" />
+  <line class="draft-grid" x1="128" y1="0" x2="128" y2="512" />
+  <line class="draft-grid" x1="256" y1="0" x2="256" y2="512" />
+  <line class="draft-grid" x1="384" y1="0" x2="384" y2="512" />
+  <line class="draft-grid" x1="448" y1="0" x2="448" y2="512" />
+  <line class="draft-grid" x1="0" y1="64" x2="512" y2="64" />
+  <line class="draft-grid" x1="0" y1="128" x2="512" y2="128" />
+  <line class="draft-grid" x1="0" y1="256" x2="512" y2="256" />
+  <line class="draft-grid" x1="0" y1="384" x2="512" y2="384" />
+  <line class="draft-grid" x1="0" y1="448" x2="512" y2="448" />
+
+  <!-- Chebyshev Straight-Line Baseline Guideline -->
+  <line class="draft-axis" x1="60" y1="392" x2="330" y2="392" />
+  <text class="draft-metric" x="140" y="420">Tension Tangent: Chebyshev straight line (dx: +184, dy: -8)</text>
+
+  <!-- Vertical Arrival Guideline -->
+  <line class="draft-axis" x1="392" y1="80" x2="392" y2="260" />
+  <text class="draft-metric" x="402" y="180">Coupling Tangent: Vertical arrival</text>
+
+  <!-- Control Polygon -->
+  <!-- Scale 128 -> 512 is factor of 4: P0=(120, 392), C1=(304, 384), C2=(368, 224), P1=(392, 120) -->
+  <line class="control-line" x1="120" y1="392" x2="304" y2="384" />
+  <line class="control-line" x1="304" y1="384" x2="368" y2="224" />
+  <line class="control-line" x1="368" y1="224" x2="392" y2="120" />
+
+  <circle class="control-handle" cx="304" cy="384" r="5" />
+  <text class="draft-label" x="312" y="380">C₁ (Tension Vector)</text>
+
+  <circle class="control-handle" cx="368" cy="224" r="5" />
+  <text class="draft-label" x="376" y="228">C₂ (Curvature Shoulder)</text>
+
+  <!-- The Core Cubic Bezier Curve -->
+  <path
+    class="curve-main"
+    d="M 120,392 C 304,384 368,224 392,120"
+  />
+
+  <!-- Nodes -->
+  <circle class="node-main" cx="120" cy="392" r="21" />
+  <circle class="node-main" cx="392" cy="120" r="21" />
+
+  <!-- Node Labels -->
+  <text class="draft-label" x="72" y="435">Node A (Spatial Anchor)</text>
+  <text class="draft-label" x="345" y="95">Node B (Knowledge Object)</text>
+</svg>

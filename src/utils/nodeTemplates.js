@@ -1,4 +1,4 @@
-import { RELATIONSHIP_TYPES } from './colorTokens';
+import { RELATIONSHIP_TYPES } from './colorTokens.js';
 
 export const NODE_TEMPLATES = {
   website: {
@@ -555,40 +555,40 @@ export function createNodeFromTemplate(templateKey, id, position, customData = {
 
 export const LINKAGE_DEFINITIONS = {
   ORIGIN_URL: {
-    name: 'Origin Source Linkage',
+    name: 'Topological Anchor Linkage',
     type: 'ORIGIN_URL',
-    badge: 'ORIGIN // URL',
-    coupling: '100% Top-Level Derivation',
+    badge: 'ORIGIN // CORPUS',
+    coupling: '100% Axiomatic Grounding',
     description:
-      'Primary source grounding connection. Extracts structured ontology directly from verified scholarly preprints or living web domains.',
-    mathematics: '\\vec{S} \\to \\mathcal{M}_{\\text{kinematic}}',
+      'Foundational corpus grounding providing axiomatic premises, verified literature, and formal derivations.',
+    mathematics: '\\mathcal{S}_{\\text{origin}} \\implies \\mathcal{K}_{\\text{derived}}',
   },
   COUPLED_SYSTEM: {
-    name: 'Coupled Kinematic Linkage',
+    name: 'Coupled System Linkage',
     type: 'COUPLED_SYSTEM',
     badge: 'COUPLED DYNAMICS',
-    coupling: '94.8% Mathematical Coupling',
+    coupling: 'Direct Structural Coupling',
     description:
-      'Direct kinematic and energy transfer coupling. Changes in rotary crank input strictly govern optical and topological states.',
-    mathematics: '\\Delta\\theta(t) \\implies \\nabla \\sigma(\\omega)',
+      'Direct mathematical or functional interdependence. Transformations in the primary system strictly govern the state of the coupled branch.',
+    mathematics: '\\mathcal{A} \\iff \\mathcal{B}',
   },
   CONTRADICTS: {
-    name: 'Empirical Refutation Linkage',
+    name: 'Dialectical Refutation',
     type: 'CONTRADICTS',
     badge: 'COUNTER-THESIS // REFUTATION',
     coupling: 'Strict Logical Contradiction',
     description:
-      'Rigorous empirical contradiction. Disproves ambient superconductivity hypotheses by identifying phase-transition artifact ground states.',
-    mathematics: '\\mathcal{H}_0 \\cap \\mathcal{H}_{\\text{artifact}} = \\emptyset',
+      'Formal dialectical counter-thesis or empirical falsification establishing boundary constraints and opposing paradigms.',
+    mathematics: '\\mathcal{H}_0 \\cap \\mathcal{H}_{\\text{refutation}} = \\emptyset',
   },
   DEFAULT: {
-    name: 'Semantic Discovery Linkage',
+    name: 'Conceptual Synthesis Linkage',
     type: 'DEFAULT',
-    badge: 'AI INFERENCE',
-    coupling: '88.2% Semantic Association',
+    badge: 'CONCEPTUAL LINKAGE',
+    coupling: 'Synthesized Invariant',
     description:
-      'Machine-synthesized associative bridge linking theoretical mechanics with orbital cryogenic micro-manipulator research.',
-    mathematics: '\\mathcal{L}_{\\text{graph}} = \\arg\\max P(k_j | k_i)',
+      'Synthesized conceptual and mathematical bridge connecting core mechanisms across related knowledge domains.',
+    mathematics: '\\mathcal{K}_1 \\longleftrightarrow \\mathcal{K}_2',
   },
 };
 

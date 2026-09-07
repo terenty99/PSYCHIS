@@ -3,10 +3,11 @@ import { announceToScreenReader } from '../utils/accessibilityHelpers';
 
 export function useNodeInspector(initialNodeId = '0x01') {
   const [selectedNodeId, setSelectedNodeId] = useState(initialNodeId);
-  const [viewMode, setViewMode] = useState('inspector'); // 'inspector' | 'browser' | 'split'
-  const [isInspectorOpen, setIsInspectorOpen] = useState(true);
+  const [viewMode, setViewMode] = useState('canvas'); // 'canvas' | 'inspector' | 'browser' | 'split' | 'drawer'
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isBrowserOpen, setIsBrowserOpen] = useState(false);
-  const [browserUrl, setBrowserUrl] = useState('https://arxiv.org/abs/2307.12008');
+  const [browserUrl, setBrowserUrl] = useState('psychis://home');
+  const [browserViewTab, setBrowserViewTab] = useState('frame'); // 'frame' | 'reader' | 'images'
   const [isInvestigating, setIsInvestigating] = useState(false);
   const [investigationMessage, setInvestigationMessage] = useState('');
 
@@ -16,10 +17,15 @@ export function useNodeInspector(initialNodeId = '0x01') {
     announceToScreenReader(`Inspecting node ${nodeId}`);
   }, []);
 
-  const openBrowserWithUrl = useCallback((url, mode = 'split') => {
+  const openBrowserWithUrl = useCallback((url, mode = 'browser', viewTab = 'frame') => {
     if (url) setBrowserUrl(url);
+    if (viewTab) setBrowserViewTab(viewTab);
     setIsBrowserOpen(true);
-    setIsInspectorOpen(true);
+    if (mode === 'split') {
+      setIsInspectorOpen(true);
+    } else {
+      setIsInspectorOpen(false);
+    }
     setViewMode(mode);
     announceToScreenReader(`Embedded browser opened with ${url} in ${mode} mode`);
   }, []);
@@ -47,6 +53,9 @@ export function useNodeInspector(initialNodeId = '0x01') {
     } else if (mode === 'split') {
       setIsInspectorOpen(true);
       setIsBrowserOpen(true);
+    } else if (mode === 'drawer') {
+      setIsBrowserOpen(true);
+      setIsInspectorOpen(false);
     }
   }, []);
 
@@ -62,6 +71,8 @@ export function useNodeInspector(initialNodeId = '0x01') {
     setIsBrowserOpen,
     browserUrl,
     setBrowserUrl,
+    browserViewTab,
+    setBrowserViewTab,
     openBrowserWithUrl,
     closeBrowser,
     closeInspector,

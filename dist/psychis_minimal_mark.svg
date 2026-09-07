@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <!--
+    PSYCHIS — Spatial Knowledge Engine
+    Extreme Minimalist Abstract Logo
+    Specification:
+      - ONLY two dot nodes connected by a single cubic Bézier curve
+      - Asymmetric Chebyshev linkage tension (straightened horizontal trajectory transitioning into vertical coupling)
+      - Medium-thin uniform monoline stroke in warm dark gray #4A4540
+      - Transparent background, 1:1 aspect ratio
+  -->
+  <path
+    d="M 30,98 C 76,96 92,56 98,30"
+    fill="none"
+    stroke="#4A4540"
+    stroke-width="6"
+    stroke-linecap="round"
+  />
+  <!-- Node A (Source Anchor) -->
+  <circle cx="30" cy="98" r="5.2" fill="#4A4540" />
+  <!-- Node B (Coupled Target) -->
+  <circle cx="98" cy="30" r="5.2" fill="#4A4540" />
+</svg>
