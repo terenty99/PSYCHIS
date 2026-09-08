@@ -267,23 +267,23 @@ export function App() {
 
   // Multi-Selection Sync Handlers
   const handleSelectNode = useCallback(
-    (nodeId, isMulti = false) => {
+    (nodeId, isMulti = false, shouldOpenInspector = true) => {
       if (isMulti) {
         setSelectedNodeIds((prev) => {
           const next = prev.includes(nodeId)
             ? prev.filter((id) => id !== nodeId)
             : [...prev, nodeId];
           if (next.length > 0 && !next.includes(selectedNodeId)) {
-            selectNode(next[0]);
-          } else if (next.length === 0) {
-            closeInspector();
+            selectNode(next[0], false);
           }
           return next;
         });
+        // Never open inspector when holding Ctrl/Shift to multi-select
+        closeInspector();
       } else {
         setSelectedNodeIds(nodeId ? [nodeId] : []);
         if (nodeId) {
-          selectNode(nodeId);
+          selectNode(nodeId, shouldOpenInspector);
         } else {
           closeInspector();
         }
@@ -297,10 +297,10 @@ export function App() {
       const ids = Array.isArray(nodeIds) ? nodeIds : [];
       setSelectedNodeIds(ids);
       if (ids.length > 0) {
-        selectNode(ids[0]);
-      } else {
-        closeInspector();
+        selectNode(ids[0], false);
       }
+      // When tracing all nodes, NEVER open the inspector
+      closeInspector();
     },
     [selectNode, closeInspector]
   );
@@ -1134,9 +1134,11 @@ export function App() {
       } else if (e.key.toLowerCase() === 'n') {
         e.preventDefault();
         setIsNewNodeModalOpen(true);
-      } else if (e.key.toLowerCase() === 'v') {
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
         setToolMode((prev) => (prev === 'select' ? 'hand' : 'select'));
-      } else if (e.key.toLowerCase() === 'h') {
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
         setToolMode('hand');
       } else if (e.key.toLowerCase() === 'b' && !isBrowserOpen) {
         e.preventDefault();

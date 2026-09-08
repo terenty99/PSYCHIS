@@ -11,10 +11,12 @@ export function useNodeInspector(initialNodeId = '0x01') {
   const [isInvestigating, setIsInvestigating] = useState(false);
   const [investigationMessage, setInvestigationMessage] = useState('');
 
-  const selectNode = useCallback((nodeId) => {
+  const selectNode = useCallback((nodeId, shouldOpenInspector = true) => {
     setSelectedNodeId(nodeId);
-    setIsInspectorOpen(true);
-    announceToScreenReader(`Inspecting node ${nodeId}`);
+    if (shouldOpenInspector) {
+      setIsInspectorOpen(true);
+      announceToScreenReader(`Inspecting node ${nodeId}`);
+    }
   }, []);
 
   const openBrowserWithUrl = useCallback((url, mode = 'browser', viewTab = 'frame') => {

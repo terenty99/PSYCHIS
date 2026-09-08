@@ -228,6 +228,7 @@ export const SpawnedNode = ({
               : 'rounded-xl mb-2.5 my-1'
           }`}
           onClick={(e) => {
+            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
             e.stopPropagation();
             onInspect?.(node.id);
           }}
@@ -308,6 +309,7 @@ export const SpawnedNode = ({
           isTopHero ? '-mx-4 -mt-4 mb-3 rounded-t-[17px] border-b' : 'rounded-xl mb-2.5'
         }`}
         onClick={(e) => {
+          if (e.ctrlKey || e.metaKey || e.shiftKey) return;
           e.stopPropagation();
           onInspect?.(node.id);
         }}
@@ -388,6 +390,7 @@ export const SpawnedNode = ({
           maxHeight: '220px',
         }}
         onClick={(e) => {
+          if (e.ctrlKey || e.metaKey || e.shiftKey) return;
           e.stopPropagation();
           onInspect?.(node.id);
         }}
@@ -422,6 +425,7 @@ export const SpawnedNode = ({
         <button
           type="button"
           onClick={(e) => {
+            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
             e.stopPropagation();
             onOpenBrowser?.(node.data?.url || node.data?.sourceUrl || `https://en.wikipedia.org/wiki/${encodeURIComponent(node.data?.title || '')}`);
           }}
@@ -432,6 +436,7 @@ export const SpawnedNode = ({
         </button>
         <button
           onClick={(e) => {
+            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
             e.stopPropagation();
             onInspect?.(node.id);
           }}
@@ -480,6 +485,7 @@ export const SpawnedNode = ({
               isGif ? 'bg-[#141210]' : 'bg-[#FAF9F6]'
             }`}
             onClick={(e) => {
+              if (e.ctrlKey || e.metaKey || e.shiftKey) return;
               e.stopPropagation();
               onInspect?.(node.id);
             }}
@@ -542,6 +548,7 @@ export const SpawnedNode = ({
               isGif ? 'bg-[#141210]' : 'bg-[#FAF9F6]'
             }`}
             onClick={(e) => {
+              if (e.ctrlKey || e.metaKey || e.shiftKey) return;
               e.stopPropagation();
               onInspect?.(node.id);
             }}
