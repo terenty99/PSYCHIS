@@ -11,6 +11,8 @@ import {
   EyeOff,
   X,
   Zap,
+  Tv,
+  Music,
 } from 'lucide-react';
 import {
   getStoredGroqKey,
@@ -24,6 +26,10 @@ import {
   setStoredAiMode,
   getStoredBackendUrl,
   setStoredBackendUrl,
+  getStoredYouTubeKey,
+  setStoredYouTubeKey,
+  getStoredSpotifyCredentials,
+  setStoredSpotifyCredentials,
   DEFAULT_GROQ_KEY,
 } from '../../utils/geminiClient';
 
@@ -36,6 +42,11 @@ export const AISettingsModal = ({ isOpen = false, onClose, onSettingsSaved }) =>
 
   const [aiMode, setAiMode] = useState('auto');
   const [backendUrl, setBackendUrl] = useState('http://localhost:8000');
+
+  // Media APIs
+  const [youtubeKey, setYoutubeKey] = useState('');
+  const [spotifyClientId, setSpotifyClientId] = useState('');
+  const [spotifyClientSecret, setSpotifyClientSecret] = useState('');
 
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -71,6 +82,12 @@ export const AISettingsModal = ({ isOpen = false, onClose, onSettingsSaved }) =>
       setGroqModel(currentGModel);
       setAiMode(getStoredAiMode());
       setBackendUrl(getStoredBackendUrl());
+
+      setYoutubeKey(getStoredYouTubeKey());
+      const spot = getStoredSpotifyCredentials();
+      setSpotifyClientId(spot.clientId);
+      setSpotifyClientSecret(spot.clientSecret);
+
       setTestResult(null);
       setSavedSuccess(false);
       setShowKey(false);
@@ -105,9 +122,12 @@ export const AISettingsModal = ({ isOpen = false, onClose, onSettingsSaved }) =>
     setStoredAiMode(aiMode);
     setStoredBackendUrl(backendUrl);
 
+    setStoredYouTubeKey(youtubeKey);
+    setStoredSpotifyCredentials(spotifyClientId, spotifyClientSecret);
+
     setSavedSuccess(true);
     if (onSettingsSaved) {
-      onSettingsSaved({ provider: 'groq', groqKey, groqModel, aiMode, backendUrl });
+      onSettingsSaved({ provider: 'groq', groqKey, groqModel, aiMode, backendUrl, youtubeKey });
     }
 
     setTimeout(() => {
@@ -273,6 +293,72 @@ export const AISettingsModal = ({ isOpen = false, onClose, onSettingsSaved }) =>
                 placeholder="http://localhost:8000"
                 className="w-full bg-[#F8F7F4] border border-[#D5D2CC] rounded-xl px-2.5 py-1.5 font-mono text-xs text-[#1A1816] outline-none focus:border-[#1A1816]"
               />
+            </div>
+          </div>
+
+          {/* MEDIA & INGESTION APIS (OPTIONAL) */}
+          <div className="bg-[#F9F8F6] border border-[#E0DCD5] rounded-2xl p-3.5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] font-bold text-[#4A4540] uppercase tracking-wider flex items-center gap-1.5">
+                <Tv className="w-3 h-3 text-red-500" />
+                <span>Media &amp; Ingestion APIs (Optional)</span>
+              </span>
+              <span className="font-mono text-[9px] text-[#8A857D]">
+                Built-in free fallbacks active
+              </span>
+            </div>
+
+            {/* YouTube Data API v3 */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-mono text-[9.5px] font-semibold text-[#5A554E] flex items-center gap-1">
+                  <span>YouTube Data API v3 Key</span>
+                </label>
+                <a
+                  href="https://console.cloud.google.com/apis/credentials"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono text-[9px] text-amber-700 hover:underline"
+                >
+                  Get Free Key (10k units/day) ↗
+                </a>
+              </div>
+              <input
+                type="password"
+                value={youtubeKey}
+                onChange={(e) => setYoutubeKey(e.target.value)}
+                placeholder="AIzaSy... (Paste free YouTube key)"
+                className="w-full bg-[#FFFFFF] border border-[#D5D2CC] rounded-xl px-2.5 py-1.5 font-mono text-xs text-[#1A1816] outline-none focus:border-red-500 placeholder:text-[#A8A49E]"
+              />
+            </div>
+
+            {/* Spotify / Custom Audio API */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block font-mono text-[9.5px] font-semibold text-[#5A554E] mb-1 flex items-center gap-1">
+                  <Music className="w-2.5 h-2.5 text-emerald-600" />
+                  <span>Spotify Client ID</span>
+                </label>
+                <input
+                  type="password"
+                  value={spotifyClientId}
+                  onChange={(e) => setSpotifyClientId(e.target.value)}
+                  placeholder="Client ID"
+                  className="w-full bg-[#FFFFFF] border border-[#D5D2CC] rounded-xl px-2.5 py-1.5 font-mono text-xs text-[#1A1816] outline-none focus:border-emerald-600 placeholder:text-[#A8A49E]"
+                />
+              </div>
+              <div>
+                <label className="block font-mono text-[9.5px] font-semibold text-[#5A554E] mb-1">
+                  <span>Spotify Client Secret</span>
+                </label>
+                <input
+                  type="password"
+                  value={spotifyClientSecret}
+                  onChange={(e) => setSpotifyClientSecret(e.target.value)}
+                  placeholder="Client Secret"
+                  className="w-full bg-[#FFFFFF] border border-[#D5D2CC] rounded-xl px-2.5 py-1.5 font-mono text-xs text-[#1A1816] outline-none focus:border-emerald-600 placeholder:text-[#A8A49E]"
+                />
+              </div>
             </div>
           </div>
 

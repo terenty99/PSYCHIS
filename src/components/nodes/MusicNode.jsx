@@ -194,6 +194,8 @@ export const MusicNode = ({
       onPointerLeave={onPointerLeave}
       onClick={onClick}
       style={{
+        left: `${node.position?.x ?? 0}px`,
+        top: `${node.position?.y ?? 0}px`,
         width: `${data.layout?.width || 390}px`,
       }}
       className="border border-grey-medium/80"

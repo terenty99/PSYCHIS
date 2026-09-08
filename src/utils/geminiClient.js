@@ -181,9 +181,60 @@ export function setStoredBackendUrl(url) {
   }
 }
 
+export const STORAGE_KEY_YOUTUBE_KEY = 'psychis_youtube_api_key';
+export const STORAGE_KEY_SPOTIFY_CLIENT_ID = 'psychis_spotify_client_id';
+export const STORAGE_KEY_SPOTIFY_CLIENT_SECRET = 'psychis_spotify_client_secret';
+
+export function getStoredYouTubeKey() {
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem(STORAGE_KEY_YOUTUBE_KEY) || '';
+  }
+  return '';
+}
+
+export function setStoredYouTubeKey(key) {
+  if (typeof localStorage !== 'undefined') {
+    if (key && key.trim()) {
+      localStorage.setItem(STORAGE_KEY_YOUTUBE_KEY, key.trim());
+    } else {
+      localStorage.removeItem(STORAGE_KEY_YOUTUBE_KEY);
+    }
+  }
+}
+
+export function getStoredSpotifyCredentials() {
+  if (typeof localStorage !== 'undefined') {
+    return {
+      clientId: localStorage.getItem(STORAGE_KEY_SPOTIFY_CLIENT_ID) || '',
+      clientSecret: localStorage.getItem(STORAGE_KEY_SPOTIFY_CLIENT_SECRET) || '',
+    };
+  }
+  return { clientId: '', clientSecret: '' };
+}
+
+export function setStoredSpotifyCredentials(clientId, clientSecret) {
+  if (typeof localStorage !== 'undefined') {
+    if (clientId && clientId.trim()) {
+      localStorage.setItem(STORAGE_KEY_SPOTIFY_CLIENT_ID, clientId.trim());
+    } else {
+      localStorage.removeItem(STORAGE_KEY_SPOTIFY_CLIENT_ID);
+    }
+    if (clientSecret && clientSecret.trim()) {
+      localStorage.setItem(STORAGE_KEY_SPOTIFY_CLIENT_SECRET, clientSecret.trim());
+    } else {
+      localStorage.removeItem(STORAGE_KEY_SPOTIFY_CLIENT_SECRET);
+    }
+  }
+}
+
 export function isDirectConceptQuery(query) {
   const q = (query || '').toLowerCase().trim();
   if (!q) return true;
+
+  // Music and video topics must link companion nodes (audio + video sister nodes)
+  const isMusicOrVideo =
+    /\b(band|rock band|artist|track|song|album|music|musician|singer|breakcore|rock|jazz|hiphop|metal|radiohead|queen|painfinder|beatles|nirvana|recipe|cooking|how to cook|how to make|tutorial|fight scene|video essay|trailer)\b/i.test(q);
+  if (isMusicOrVideo) return false;
 
   // If asking for multiple items, ensemble, characters, cast, members, branches, constellation -> NOT single!
   const isMultiItemOrEnsemble =
@@ -205,9 +256,16 @@ CRITICAL ARCHITECTURAL RULES:
    * When the user inquiry contains typos, misspellings, or phonetic approximations of real-world cultural franchises, television series, films, anime, historical figures, or scientific concepts, accurately resolve them to the authentic canonical work or entity.
    * NEVER invent fictional media, fake hosts, or hallucinated facts.
 
-2. DYNAMIC ENSEMBLE & BRANCHING DISCIPLINE:
-   * DEFAULT SINGLE NODE: When the user inquires about a single entity, concept, character, topic, or theorem (e.g. "Lain", "Isaac Newton", "Law of Cosines", "Carrot"), answer it fully on the primary node and return "branchNodes": [] (EMPTY ARRAY, ZERO BRANCHES).
-   * ONLY generate "branchNodes" if the user explicitly asks for exploration, an ensemble, cast, or multiple elements (e.g. "main characters of [title]", "cast of...", "types of...", "each one for one node").
+2. DYNAMIC ENSEMBLE, VIDEO & AUDIO COMPANION BRANCHING MANDATE:
+   * MANDATORY AUDIO & VIDEO LINKAGES:
+     - When the subject is a music artist, band, album, or song (e.g. "Queen", "Radiohead", "Painfinder", "Bohemian Rhapsody", "Creep"):
+       * Primary node MUST be "mediaType": "music", "layout": {"structure": "music_card", "width": 390}, with full "musicData".
+       * MUST generate a coupled branch node for their defining live concert performance, music video, or stage footage ("mediaType": "video", "layout": {"structure": "video_top", "width": 420}, "relationship": "COUPLED_SYSTEM", "relationshipLabel": "live concert // audiovisual", "edgeName": "Audiovisual Masterclass Linkage", "edgeBadge": "LIVE PERFORMANCE // CONCERT", "videoQuery": "[Artist or Track] live concert performance official video").
+     - When the subject is a practical demonstration, step-by-step physical process, recipe, or audiovisual culture (e.g. "how to cook soup", origami, fight scene, movie trailer, anime clip):
+       * Primary node MUST be "mediaType": "video", "layout": {"structure": "video_top", "width": 420}, with "videoQuery".
+       * MUST generate a coupled branch node ("relationship": "COUPLED_SYSTEM") for the companion soundtrack/acoustic theme ("mediaType": "music") or procedural recipe analysis.
+   * For pure single mathematical theorems, laws, or abstract entities (e.g. "Euler formula", "Law of Cosines", "Carrot"):
+     - Return "branchNodes": [] (empty array) unless ensemble/exploration is requested.
    * When ensemble branches are requested:
      - All branch nodes MUST belong strictly to the specific requested subject/franchise.
      - NEVER hallucinate or introduce characters or entities from unrelated television shows or media!
@@ -427,18 +485,37 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
     return false;
   };
 
+  const combinedText = `${query} ${node.title || ''} ${node.category || ''} ${node.description || ''}`.toLowerCase();
+
+  const isMusicTopic =
+    node.mediaType === 'music' ||
+    Boolean(node.musicData) ||
+    node.layout?.structure === 'music_card' ||
+    /\b(track|song|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|genre|rock|jazz|breakcore|pop|metal|hiphop|hip hop|rap|electronic|techno|ambient|classical music|symphony|orchestra)\b/i.test(combinedText) ||
+    /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(combinedText);
+
+  const isVideoTopic =
+    node.mediaType === 'video' ||
+    Boolean(node.videoData) ||
+    Boolean(node.videoQuery) ||
+    node.layout?.structure === 'video_top' ||
+    /\b(how to (cook|make|bake|prepare|assemble|fix|build|fold|play|perform|draw|repair))\b/i.test(combinedText) ||
+    /\b(recipe|cooking|origami|mechanical assembly|lab experiment|sports technique|speedrun|fight scene|anime fight|trailer|movie trailer|video essay|music video|speech|historic footage)\b/i.test(combinedText) ||
+    /\b(video|watch)\b/i.test(combinedText);
+
   // 1A. Video Node Enrichment
-  if (node.mediaType === 'video' || node.layout?.structure === 'video_top' || node.videoQuery) {
+  if (isVideoTopic) {
+    node.mediaType = 'video';
+    if (!node.layout) node.layout = {};
+    node.layout.structure = 'video_top';
+    node.layout.width = 420;
+
     try {
       const vQuery = node.videoQuery || node.title || query;
       const vids = await searchWebVideos(vQuery);
       if (Array.isArray(vids) && vids.length > 0) {
         node.videoData = vids[0];
         node.videos = vids;
-        node.mediaType = 'video';
-        if (!node.layout) node.layout = {};
-        node.layout.structure = 'video_top';
-        node.layout.width = 420;
       }
     } catch (vErr) {
       console.warn('[Video enrichment error]:', vErr.message);
@@ -446,24 +523,85 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
   }
 
   // 1B. Music Node Enrichment
-  if (node.mediaType === 'music' || node.layout?.structure === 'music_card' || node.musicData) {
+  if (isMusicTopic) {
+    node.mediaType = 'music';
+    if (!node.layout) node.layout = {};
+    node.layout.structure = 'music_card';
+    node.layout.width = 390;
+
     try {
       const mQuery = node.musicData?.query || node.musicData?.trackTitle || (node.musicData?.artist ? `${node.musicData.artist} ${node.musicData.trackTitle || ''}` : '') || node.title || query;
       const tracks = await searchMusicTracks(mQuery);
       if (Array.isArray(tracks) && tracks.length > 0) {
         node.musicData = { ...(node.musicData || {}), ...tracks[0] };
         node.tracks = tracks;
-        node.mediaType = 'music';
-        if (!node.layout) node.layout = {};
-        node.layout.structure = 'music_card';
-        node.layout.width = 390;
       }
     } catch (mErr) {
       console.warn('[Music enrichment error]:', mErr.message);
     }
   }
 
-  // 1C. Fetch diverse photos for primary node (if not strictly video or music)
+  // 1C. Auto-link complementary Video / Audio nodes
+  if (!Array.isArray(node.branchNodes)) {
+    node.branchNodes = [];
+  }
+
+  // If this is a music topic, link a companion Video Node (live stage / music video)
+  if (isMusicTopic && !node.branchNodes.some((b) => b.mediaType === 'video' || b.videoData)) {
+    try {
+      const liveQuery = `${node.musicData?.artist || node.title || query} live concert performance official video`;
+      const companionVids = await searchWebVideos(liveQuery);
+      if (Array.isArray(companionVids) && companionVids.length > 0) {
+        const topVid = companionVids[0];
+        node.branchNodes.push({
+          id: `branch-vid-${Date.now()}`,
+          title: `${topVid.title || node.title} // Live Performance`,
+          category: 'audiovisual // live concert & stage',
+          description: `Live stage performance and official audiovisual footage for "${node.title}".`,
+          mediaType: 'video',
+          videoQuery: liveQuery,
+          videoData: topVid,
+          layout: {
+            structure: 'video_top',
+            width: 420,
+          },
+          relationship: 'COUPLED_SYSTEM',
+          relationshipLabel: 'live performance // audiovisual',
+          edgeName: 'Audiovisual Masterclass Linkage',
+          edgeBadge: 'LIVE PERFORMANCE // CONCERT',
+        });
+      }
+    } catch (_) {}
+  }
+
+  // If this is a video topic, link a companion Music Node if thematic audio exists
+  if (isVideoTopic && !node.branchNodes.some((b) => b.mediaType === 'music' || b.musicData)) {
+    try {
+      const audioQuery = `${node.title || query} theme soundtrack`;
+      const companionTracks = await searchMusicTracks(audioQuery);
+      if (Array.isArray(companionTracks) && companionTracks.length > 0 && companionTracks[0].previewUrl) {
+        const topTrack = companionTracks[0];
+        node.branchNodes.push({
+          id: `branch-music-${Date.now()}`,
+          title: `${topTrack.trackTitle} // ${topTrack.artist}`,
+          category: `acoustic synthesis // ${topTrack.genre.toLowerCase()}`,
+          description: `Acoustic companion and sonic atmosphere associated with "${node.title}".`,
+          mediaType: 'music',
+          musicData: topTrack,
+          layout: {
+            structure: 'music_card',
+            width: 390,
+          },
+          relationship: 'COUPLED_SYSTEM',
+          relationshipLabel: 'acoustic companion // theme',
+          edgeName: 'Acoustic Theme Linkage',
+          edgeBadge: 'ACOUSTIC COMPANION',
+        });
+      }
+    } catch (_) {}
+  }
+
+  // 1D. Fetch diverse photos for primary node (if not strictly video or music)
   if (node.mediaType !== 'video' && node.mediaType !== 'music') {
     try {
       const searchTarget = node.visualSearchQuery || node.title || query;
@@ -486,30 +624,56 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
     }
   }
 
-  // 2. Enrich each branch node with DISTINCT, non-repeating photos across the cluster
+  // 2. Enrich each branch node with media (videos, music, or photos)
   if (Array.isArray(node.branchNodes) && node.branchNodes.length > 0) {
     for (const bn of node.branchNodes) {
       try {
-        const branchTarget = bn.visualSearchQuery || bn.title;
-        if (branchTarget) {
-          const branchContext = bn.category || bn.title || '';
-          const bPhotos = await fetchAiCuratedPhotos({
-            query: branchTarget,
-            nodeTitle: bn.title,
-            nodeCategory: bn.category,
-            nodeDescription: bn.description,
-            count: 8,
-            contextHint: branchContext,
-            seenClusterUrls,
-          });
+        if (bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || bn.videoQuery) {
+          if (!bn.videoData) {
+            const vQ = bn.videoQuery || bn.title || query;
+            const bVids = await searchWebVideos(vQ);
+            if (Array.isArray(bVids) && bVids.length > 0) {
+              bn.videoData = bVids[0];
+              bn.mediaType = 'video';
+              if (!bn.layout) bn.layout = {};
+              bn.layout.structure = 'video_top';
+              bn.layout.width = 420;
+            }
+          }
+        } else if (bn.mediaType === 'music' || bn.layout?.structure === 'music_card' || bn.musicData) {
+          if (!bn.musicData?.previewUrl) {
+            const mQ = bn.musicData?.query || bn.musicData?.trackTitle || (bn.musicData?.artist ? `${bn.musicData.artist} ${bn.musicData.trackTitle || ''}` : '') || bn.title || query;
+            const bTracks = await searchMusicTracks(mQ);
+            if (Array.isArray(bTracks) && bTracks.length > 0) {
+              bn.musicData = { ...(bn.musicData || {}), ...bTracks[0] };
+              bn.mediaType = 'music';
+              if (!bn.layout) bn.layout = {};
+              bn.layout.structure = 'music_card';
+              bn.layout.width = 390;
+            }
+          }
+        } else {
+          const branchTarget = bn.visualSearchQuery || bn.title;
+          if (branchTarget) {
+            const branchContext = bn.category || bn.title || '';
+            const bPhotos = await fetchAiCuratedPhotos({
+              query: branchTarget,
+              nodeTitle: bn.title,
+              nodeCategory: bn.category,
+              nodeDescription: bn.description,
+              count: 8,
+              contextHint: branchContext,
+              seenClusterUrls,
+            });
 
-          if (Array.isArray(bPhotos) && bPhotos.length > 0) {
-            bn.photos = bPhotos;
-            bn.primaryPhoto = bPhotos[0];
-            bPhotos.forEach((p) => trackPhoto(p));
-          } else {
-            bn.photos = [];
-            bn.primaryPhoto = null;
+            if (Array.isArray(bPhotos) && bPhotos.length > 0) {
+              bn.photos = bPhotos;
+              bn.primaryPhoto = bPhotos[0];
+              bPhotos.forEach((p) => trackPhoto(p));
+            } else {
+              bn.photos = [];
+              bn.primaryPhoto = null;
+            }
           }
         }
       } catch (e) {}

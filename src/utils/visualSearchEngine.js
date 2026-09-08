@@ -772,6 +772,41 @@ export async function searchLiveVideos(queryText) {
   if (!queryText || typeof queryText !== 'string' || !queryText.trim()) return [];
   const cleanQ = queryText.trim();
 
+  // 0. Official YouTube Data API v3 (if user provided key in settings or env)
+  try {
+    const ytKey = (typeof localStorage !== 'undefined' ? localStorage.getItem('psychis_youtube_api_key') : '') ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_YOUTUBE_API_KEY ? import.meta.env.VITE_YOUTUBE_API_KEY : '');
+    if (ytKey && ytKey.trim()) {
+      const ytRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(cleanQ)}&type=video&key=${ytKey.trim()}`,
+        { signal: AbortSignal.timeout(4500) }
+      );
+      if (ytRes.ok) {
+        const ytData = await ytRes.json();
+        if (Array.isArray(ytData.items) && ytData.items.length > 0) {
+          return ytData.items
+            .filter((item) => item.id?.videoId)
+            .map((item) => ({
+              id: `yt-${item.id.videoId}`,
+              videoId: item.id.videoId,
+              title: item.snippet?.title || cleanQ,
+              publisher: 'YouTube',
+              uploader: item.snippet?.channelTitle || 'YouTube Creator',
+              duration: '',
+              url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+              thumbnail:
+                item.snippet?.thumbnails?.high?.url ||
+                item.snippet?.thumbnails?.medium?.url ||
+                `https://i.ytimg.com/vi/${item.id.videoId}/hqdefault.jpg`,
+              platform: 'youtube',
+            }));
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[Official YouTube API search error]:', e.message);
+  }
+
   // 1. Try local dev proxy endpoint if available
   try {
     const res = await fetch(`/api/search-videos?q=${encodeURIComponent(cleanQ)}`, {
@@ -830,7 +865,46 @@ export async function searchLiveVideos(queryText) {
       }
     }
   } catch (err) {
-    console.warn('[searchLiveVideos error]:', err);
+    // DDG error, fall through
+  }
+
+  // 3. Direct Bing Videos search (reliable fallback when DDG is connection-reset)
+  try {
+    const bingRes = await fetch(`https://www.bing.com/videos/search?q=${encodeURIComponent(cleanQ)}&form=HDRSC3`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (bingRes.ok) {
+      const html = await bingRes.text();
+      const cardMatches = [...html.matchAll(/<div[^>]*?class="[^"]*?mc_vtvc[^"]*?"[^>]*?mmeta="([^"]+)"[^>]*?>(.*?)<\/div>\s*<\/div>/gs)];
+      const bResults = [];
+      for (const m of cardMatches) {
+        try {
+          const mmeta = JSON.parse(m[1].replace(/&quot;/g, '"'));
+          const url = mmeta.murl || mmeta.pgurl || '';
+          const ytM = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&?\/#\s]{11})/i);
+          const videoId = ytM ? ytM[1] : null;
+          if (videoId) {
+            bResults.push({
+              id: `bing-${videoId}-${Date.now()}`,
+              title: mmeta.vt || cleanQ,
+              uploader: 'YouTube Creator',
+              duration: mmeta.dur || '',
+              url,
+              platform: 'youtube',
+              videoId,
+              thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+            });
+          }
+          if (bResults.length >= 15) break;
+        } catch (_) {}
+      }
+      if (bResults.length > 0) return bResults;
+    }
+  } catch (err) {
+    // Silently continue
   }
 
   return [];
@@ -885,6 +959,34 @@ export async function searchMusicTracks(queryText) {
     }
   } catch (err) {
     console.warn('[searchMusicTracks direct iTunes error]:', err);
+  }
+
+  // 3. Fallback: Public Deezer Search API (Free, 30s MP3 previews)
+  try {
+    const dRes = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(cleanQ)}`, {
+      signal: AbortSignal.timeout(4500),
+    });
+    if (dRes.ok) {
+      const dData = await dRes.json();
+      if (Array.isArray(dData.data) && dData.data.length > 0) {
+        const dTracks = dData.data.filter(t => t.title && t.preview).map(t => ({
+          id: `deezer-${t.id}`,
+          trackTitle: t.title,
+          artist: t.artist?.name || 'Unknown Artist',
+          album: t.album?.title || 'Single / EP',
+          year: '',
+          genre: 'Music',
+          previewUrl: t.preview,
+          fullTrackUrl: t.link || '',
+          duration: t.duration || 30,
+          artwork: t.album?.cover_big || t.album?.cover_medium || '',
+          source: 'Deezer',
+        }));
+        if (dTracks.length > 0) return dTracks;
+      }
+    }
+  } catch (err) {
+    console.warn('[searchMusicTracks Deezer error]:', err);
   }
 
   return [];
