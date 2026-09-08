@@ -182,14 +182,17 @@ export function setStoredBackendUrl(url) {
 }
 
 export const STORAGE_KEY_YOUTUBE_KEY = 'psychis_youtube_api_key';
+export const DEFAULT_YOUTUBE_API_KEY = 'AIzaSyCjdgdzuQV0x8eTdugTiAv4qvJwZgjVEbs';
 export const STORAGE_KEY_SPOTIFY_CLIENT_ID = 'psychis_spotify_client_id';
 export const STORAGE_KEY_SPOTIFY_CLIENT_SECRET = 'psychis_spotify_client_secret';
 
 export function getStoredYouTubeKey() {
   if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem(STORAGE_KEY_YOUTUBE_KEY) || '';
+    const val = localStorage.getItem(STORAGE_KEY_YOUTUBE_KEY);
+    if (val !== null && val !== undefined && val.trim()) return val.trim();
+    return DEFAULT_YOUTUBE_API_KEY;
   }
-  return '';
+  return DEFAULT_YOUTUBE_API_KEY;
 }
 
 export function setStoredYouTubeKey(key) {

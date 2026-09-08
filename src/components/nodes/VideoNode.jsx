@@ -231,30 +231,33 @@ export const VideoNode = ({
         <div className="w-full aspect-video min-h-[190px] relative flex items-center justify-center bg-black">
           {/* A. Cover Thumbnail Mode (Default or when paused/idle 30s) */}
           {showPreviewCover ? (
-            <div
-              className="absolute inset-0 w-full h-full cursor-pointer relative group/cover"
+            <button
+              type="button"
+              data-interactive="true"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={handleStartPlay}
+              className="absolute inset-0 w-full h-full cursor-pointer relative group/cover p-0 border-0 bg-transparent block text-left focus:outline-none"
               title={currentTime > 0 ? `Resume from ${formatTime(currentTime)}` : 'Click to play video'}
             >
               <img
                 src={effectiveThumbnail}
                 alt={videoData.title || data.title}
-                className="w-full h-full object-cover group-hover/cover:scale-102 transition-transform duration-500"
+                className="w-full h-full object-cover group-hover/cover:scale-102 transition-transform duration-500 pointer-events-none"
                 onError={(e) => {
                   e.target.src = 'https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=800&auto=format&fit=crop';
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20 group-hover/cover:from-black/70 transition-colors" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20 group-hover/cover:from-black/70 transition-colors pointer-events-none" />
 
               {/* Center Play Beacon */}
-              <div className="absolute inset-0 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="w-13 h-13 rounded-full bg-white/90 group-hover/cover:bg-white text-black flex items-center justify-center shadow-[0_8px_25px_rgba(0,0,0,0.4)] transition-all group-hover/cover:scale-110 active:scale-95">
                   <Play className="w-6 h-6 fill-current ml-0.5 text-black" />
                 </div>
               </div>
 
               {/* Top Source Badge */}
-              <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+              <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 pointer-events-none">
                 <span className="font-mono text-[8px] font-bold uppercase bg-black/80 text-white px-2 py-0.5 rounded backdrop-blur-md border border-white/10 tracking-wider flex items-center gap-1">
                   <Tv className="w-3 h-3 text-red-500" />
                   {platform.toUpperCase()} VIDEO
@@ -268,15 +271,19 @@ export const VideoNode = ({
 
               {/* Bottom Resume Timestamp Indicator */}
               {currentTime > 0 && (
-                <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-amber-500/90 text-black px-2 py-0.5 rounded text-[9px] font-mono font-bold shadow-xs">
+                <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-amber-500/90 text-black px-2 py-0.5 rounded text-[9px] font-mono font-bold shadow-xs pointer-events-none">
                   <RotateCcw className="w-3 h-3" />
                   Resume from {formatTime(currentTime)}
                 </div>
               )}
-            </div>
+            </button>
           ) : (
             /* B. Active Fast In-Built Video Wrapper */
-            <div className="w-full h-full relative">
+            <div
+              data-interactive="true"
+              onPointerDown={(e) => e.stopPropagation()}
+              className="w-full h-full relative"
+            >
               {effectiveVideoId ? (
                 <iframe
                   ref={iframeRef}
@@ -292,6 +299,7 @@ export const VideoNode = ({
                   ref={videoElementRef}
                   src={videoData.url}
                   autoPlay
+                  controls
                   className="w-full h-full object-contain"
                   onTimeUpdate={(e) => {
                     setCurrentTime(e.target.currentTime);
@@ -311,8 +319,11 @@ export const VideoNode = ({
                 }`}
               >
                 {/* Progress Scrubber */}
-                <div
-                  className="w-full h-1.5 bg-white/20 hover:h-2.5 rounded-full overflow-hidden cursor-pointer relative transition-all"
+                <button
+                  type="button"
+                  data-interactive="true"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="w-full h-1.5 bg-white/20 hover:h-2.5 rounded-full overflow-hidden cursor-pointer relative transition-all border-0 p-0 block"
                   onClick={handleSeek}
                   title="Scrub video"
                 >
@@ -320,12 +331,15 @@ export const VideoNode = ({
                     className="h-full bg-amber-500 rounded-full"
                     style={{ width: `${Math.min(100, duration > 0 ? (currentTime / duration) * 100 : (currentTime % 100))}%` }}
                   />
-                </div>
+                </button>
 
                 {/* Control Toolbar */}
                 <div className="flex items-center justify-between text-white text-[11px] font-mono select-none">
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
+                      data-interactive="true"
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={handleTogglePlayPause}
                       className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer text-white"
                       title={isPlaying ? 'Pause' : 'Play'}
@@ -338,6 +352,9 @@ export const VideoNode = ({
                     </span>
 
                     <button
+                      type="button"
+                      data-interactive="true"
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => setIsMuted((m) => !m)}
                       className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer text-white/90 ml-1"
                       title={isMuted ? 'Unmute' : 'Mute'}
@@ -349,6 +366,9 @@ export const VideoNode = ({
                   <div className="flex items-center gap-1.5">
                     {/* 📺 Theater Mode ("T" Button) */}
                     <button
+                      type="button"
+                      data-interactive="true"
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={handleToggleTheater}
                       className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
                         isTheater
@@ -400,11 +420,14 @@ export const VideoNode = ({
             {data.targetedInquiries.slice(0, 3).map((inq, idx) => (
               <button
                 key={idx}
+                type="button"
+                data-interactive="true"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSpecificProbe?.(inq, node.id);
                 }}
-                className="text-left font-mono text-[8.5px] bg-grey-soft/70 hover:bg-amber-500/10 hover:text-amber-900 border border-grey-medium/70 rounded px-1.5 py-0.5 transition-colors truncate max-w-full"
+                className="text-left font-mono text-[8.5px] bg-grey-soft/70 hover:bg-amber-500/10 hover:text-amber-900 border border-grey-medium/70 rounded px-1.5 py-0.5 transition-colors truncate max-w-full cursor-pointer"
               >
                 ↳ {inq}
               </button>
@@ -417,6 +440,9 @@ export const VideoNode = ({
       <div className="pt-2 border-t border-grey-medium/60 flex items-center justify-between text-text-muted font-mono text-[8px]">
         <span className="truncate max-w-[180px]">{data.source || 'PSYCHIS Video Stream'}</span>
         <button
+          type="button"
+          data-interactive="true"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
             onInspect?.(node.id);

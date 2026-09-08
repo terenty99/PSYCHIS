@@ -5,6 +5,8 @@
  * ZERO HARDCODED STOCK IMAGES: returns only genuine, relevant media matching the entity, or empty.
  */
 
+import { getStoredYouTubeKey } from './geminiClient';
+
 export const VISUAL_ARCHIVES = {};
 
 /**
@@ -772,9 +774,10 @@ export async function searchLiveVideos(queryText) {
   if (!queryText || typeof queryText !== 'string' || !queryText.trim()) return [];
   const cleanQ = queryText.trim();
 
-  // 0. Official YouTube Data API v3 (if user provided key in settings or env)
+  // 0. Official YouTube Data API v3 (if user provided key in settings or env or default)
   try {
-    const ytKey = (typeof localStorage !== 'undefined' ? localStorage.getItem('psychis_youtube_api_key') : '') ||
+    const ytKey = getStoredYouTubeKey() ||
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('psychis_youtube_api_key') : '') ||
       (typeof import.meta !== 'undefined' && import.meta.env?.VITE_YOUTUBE_API_KEY ? import.meta.env.VITE_YOUTUBE_API_KEY : '');
     if (ytKey && ytKey.trim()) {
       const ytRes = await fetch(
@@ -801,6 +804,8 @@ export async function searchLiveVideos(queryText) {
               platform: 'youtube',
             }));
         }
+      } else if (ytRes.status === 403) {
+        console.info('[YouTube API]: Key returned 403 (service not yet enabled in GCP). Seamlessly falling back to Bing & DuckDuckGo search.');
       }
     }
   } catch (e) {
@@ -868,30 +873,32 @@ export async function searchLiveVideos(queryText) {
     // DDG error, fall through
   }
 
-  // 3. Direct Bing Videos search (reliable fallback when DDG is connection-reset)
+  // 3. Direct Bing Videos search (reliable multi-source fallback)
   try {
     const bingRes = await fetch(`https://www.bing.com/videos/search?q=${encodeURIComponent(cleanQ)}&form=HDRSC3`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
       signal: AbortSignal.timeout(5000),
     });
     if (bingRes.ok) {
       const html = await bingRes.text();
-      const cardMatches = [...html.matchAll(/<div[^>]*?class="[^"]*?mc_vtvc[^"]*?"[^>]*?mmeta="([^"]+)"[^>]*?>(.*?)<\/div>\s*<\/div>/gs)];
+      const matches = [...html.matchAll(/mmeta="([^"]+)"/g)];
       const bResults = [];
-      for (const m of cardMatches) {
+      for (const m of matches) {
         try {
-          const mmeta = JSON.parse(m[1].replace(/&quot;/g, '"'));
-          const url = mmeta.murl || mmeta.pgurl || '';
+          const jsonStr = m[1].replace(/&quot;/g, '"');
+          const data = JSON.parse(jsonStr);
+          const url = data.murl || data.pgurl || '';
           const ytM = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&?\/#\s]{11})/i);
           const videoId = ytM ? ytM[1] : null;
           if (videoId) {
             bResults.push({
               id: `bing-${videoId}-${Date.now()}`,
-              title: mmeta.vt || cleanQ,
-              uploader: 'YouTube Creator',
-              duration: mmeta.dur || '',
+              title: data.vt || cleanQ,
+              uploader: data.att || 'YouTube Creator',
+              duration: data.dur || '',
               url,
               platform: 'youtube',
               videoId,
