@@ -30,6 +30,7 @@ import {
   setStoredYouTubeKey,
   getStoredSpotifyCredentials,
   setStoredSpotifyCredentials,
+  testSpotifyConnection,
   DEFAULT_GROQ_KEY,
 } from '../../utils/geminiClient';
 
@@ -47,6 +48,9 @@ export const AISettingsModal = ({ isOpen = false, onClose, onSettingsSaved }) =>
   const [youtubeKey, setYoutubeKey] = useState('');
   const [spotifyClientId, setSpotifyClientId] = useState('');
   const [spotifyClientSecret, setSpotifyClientSecret] = useState('');
+  const [showSpotifySecret, setShowSpotifySecret] = useState(false);
+  const [isTestingSpotify, setIsTestingSpotify] = useState(false);
+  const [spotifyTestResult, setSpotifyTestResult] = useState(null);
 
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -113,6 +117,14 @@ export const AISettingsModal = ({ isOpen = false, onClose, onSettingsSaved }) =>
     }
     setIsTesting(false);
     setTestResult(result);
+  };
+
+  const handleTestSpotify = async () => {
+    setIsTestingSpotify(true);
+    setSpotifyTestResult(null);
+    const result = await testSpotifyConnection(spotifyClientId, spotifyClientSecret);
+    setIsTestingSpotify(false);
+    setSpotifyTestResult(result);
   };
 
   const handleSave = (e) => {
@@ -332,32 +344,81 @@ export const AISettingsModal = ({ isOpen = false, onClose, onSettingsSaved }) =>
               />
             </div>
 
-            {/* Spotify / Custom Audio API */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block font-mono text-[9.5px] font-semibold text-[#5A554E] mb-1 flex items-center gap-1">
-                  <Music className="w-2.5 h-2.5 text-emerald-600" />
-                  <span>Spotify Client ID</span>
+            {/* Spotify Web API Integration */}
+            <div className="pt-2 border-t border-[#E5E2DC]/80">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="font-mono text-[9.5px] font-semibold text-[#5A554E] flex items-center gap-1">
+                  <Music className="w-3 h-3 text-emerald-600" />
+                  <span>Spotify Web API (Official Music Metadata &amp; Covers)</span>
                 </label>
-                <input
-                  type="password"
-                  value={spotifyClientId}
-                  onChange={(e) => setSpotifyClientId(e.target.value)}
-                  placeholder="Client ID"
-                  className="w-full bg-[#FFFFFF] border border-[#D5D2CC] rounded-xl px-2.5 py-1.5 font-mono text-xs text-[#1A1816] outline-none focus:border-emerald-600 placeholder:text-[#A8A49E]"
-                />
+                <a
+                  href="https://developer.spotify.com/dashboard"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono text-[9px] text-emerald-600 hover:text-emerald-700 underline flex items-center gap-0.5"
+                >
+                  Get Keys ↗
+                </a>
               </div>
-              <div>
-                <label className="block font-mono text-[9.5px] font-semibold text-[#5A554E] mb-1">
-                  <span>Spotify Client Secret</span>
-                </label>
-                <input
-                  type="password"
-                  value={spotifyClientSecret}
-                  onChange={(e) => setSpotifyClientSecret(e.target.value)}
-                  placeholder="Client Secret"
-                  className="w-full bg-[#FFFFFF] border border-[#D5D2CC] rounded-xl px-2.5 py-1.5 font-mono text-xs text-[#1A1816] outline-none focus:border-emerald-600 placeholder:text-[#A8A49E]"
-                />
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-mono text-[9px] text-[#7A7570] mb-0.5">
+                    Client ID
+                  </label>
+                  <input
+                    type="text"
+                    value={spotifyClientId}
+                    onChange={(e) => setSpotifyClientId(e.target.value)}
+                    placeholder="32-character ID"
+                    className="w-full bg-[#FFFFFF] border border-[#D5D2CC] rounded-xl px-2.5 py-1.5 font-mono text-xs text-[#1A1816] outline-none focus:border-emerald-600 placeholder:text-[#A8A49E]"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <label className="block font-mono text-[9px] text-[#7A7570]">
+                      Client Secret
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowSpotifySecret((prev) => !prev)}
+                      className="text-[#7A7570] hover:text-[#1A1816] text-[9px] font-mono flex items-center gap-0.5 cursor-pointer"
+                    >
+                      {showSpotifySecret ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
+                    </button>
+                  </div>
+                  <input
+                    type={showSpotifySecret ? 'text' : 'password'}
+                    value={spotifyClientSecret}
+                    onChange={(e) => setSpotifyClientSecret(e.target.value)}
+                    placeholder="32-character Secret"
+                    className="w-full bg-[#FFFFFF] border border-[#D5D2CC] rounded-xl px-2.5 py-1.5 font-mono text-xs text-[#1A1816] outline-none focus:border-emerald-600 placeholder:text-[#A8A49E]"
+                  />
+                </div>
+              </div>
+
+              {/* Spotify Test Button & Status */}
+              <div className="mt-2 flex items-center justify-between flex-wrap gap-1">
+                <button
+                  type="button"
+                  onClick={handleTestSpotify}
+                  disabled={isTestingSpotify || !spotifyClientId || !spotifyClientSecret}
+                  className="font-mono text-[10px] px-2.5 py-1 rounded-lg border border-emerald-600/30 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Activity className={`w-3 h-3 ${isTestingSpotify ? 'animate-spin' : ''}`} />
+                  {isTestingSpotify ? 'Connecting...' : 'Test Spotify API'}
+                </button>
+                {spotifyTestResult && (
+                  <span
+                    className={`font-mono text-[9.5px] px-2 py-0.5 rounded ${
+                      spotifyTestResult.success
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {spotifyTestResult.message}
+                  </span>
+                )}
               </div>
             </div>
           </div>
