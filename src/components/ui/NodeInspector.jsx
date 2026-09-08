@@ -47,7 +47,7 @@ import {
   Tv,
 } from 'lucide-react';
 import { MathFormula } from '../../utils/mathRenderer';
-import { fetchLiveArchivalPhotos, fetchWebImageCandidates, cleanDomainFromUrl } from '../../utils/visualSearchEngine';
+import { fetchLiveArchivalPhotos, fetchWebImageCandidates, cleanDomainFromUrl, searchWebVideos, searchMusicTracks } from '../../utils/visualSearchEngine';
 import { generateDynamicKineticAnimation, getKineticPromptSuggestions } from '../../utils/kineticVisualGenerator';
 import { useGlobalAudio } from '../../hooks/useGlobalAudio';
 
@@ -401,8 +401,53 @@ export const NodeInspector = ({
   const [customPhotoCaption, setCustomPhotoCaption] = useState('');
   const [showAddPhotoForm, setShowAddPhotoForm] = useState(false);
 
+  // Dedicated Video & Music Inspector Playback States
+  const [inspectorPlayingVideo, setInspectorPlayingVideo] = useState(false);
+  const [resolvedInspectorVideoId, setResolvedInspectorVideoId] = useState(null);
+  const [resolvedInspectorMusicPreview, setResolvedInspectorMusicPreview] = useState(null);
+  const [resolvedInspectorMusicArtwork, setResolvedInspectorMusicArtwork] = useState(null);
+
   useEffect(() => {
     if (nodeData) {
+      setInspectorPlayingVideo(false);
+
+      // Resolve Video ID
+      const vData = nodeData.data?.videoData || {};
+      const directVidId =
+        vData.videoId ||
+        (vData.url?.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&?/#\s]{11})/i)?.[1]) ||
+        (nodeData.data?.url?.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&?/#\s]{11})/i)?.[1]) ||
+        null;
+      setResolvedInspectorVideoId(directVidId);
+
+      if (!directVidId && (nodeData.type === 'video' || nodeData.data?.mediaType === 'video' || Boolean(nodeData.data?.videoData) || Boolean(nodeData.data?.videoQuery))) {
+        const vq = vData.videoQuery || nodeData.data?.videoQuery || nodeData.data?.title || '';
+        if (vq) {
+          searchWebVideos(vq).then((vids) => {
+            if (Array.isArray(vids) && vids.length > 0 && vids[0].videoId) {
+              setResolvedInspectorVideoId(vids[0].videoId);
+            }
+          }).catch(() => {});
+        }
+      }
+
+      // Resolve Music Preview
+      const mData = nodeData.data?.musicData || {};
+      setResolvedInspectorMusicPreview(mData.previewUrl || null);
+      setResolvedInspectorMusicArtwork(mData.artwork || nodeData.data?.primaryPhoto?.url || null);
+
+      if (!mData.previewUrl && (nodeData.type === 'music' || nodeData.data?.mediaType === 'music' || Boolean(nodeData.data?.musicData) || Boolean(nodeData.data?.tracks))) {
+        const mq = `${mData.artist || ''} ${mData.trackTitle || nodeData.data?.title || ''}`.trim();
+        if (mq) {
+          searchMusicTracks(mq).then((tracks) => {
+            if (Array.isArray(tracks) && tracks.length > 0) {
+              if (tracks[0].previewUrl) setResolvedInspectorMusicPreview(tracks[0].previewUrl);
+              if (tracks[0].artwork) setResolvedInspectorMusicArtwork(tracks[0].artwork);
+            }
+          }).catch(() => {});
+        }
+      }
+
       const existing = nodeData.data?.photos || nodeData.data?.images || DEFAULT_NODE_PHOTOS[nodeData.type] || [];
       setNodePhotos(existing);
       const defaultQuery = nodeData.data?.visualSearchQuery || nodeData.data?.title || '';
@@ -541,6 +586,28 @@ export const NodeInspector = ({
   const TypeIcon = typeConfig.icon;
 
   const data = nodeData.data || {};
+
+  const effectiveInspectorVideoId =
+    resolvedInspectorVideoId ||
+    data.videoData?.videoId ||
+    (data.videoData?.url?.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&?/#\s]{11})/i)?.[1]) ||
+    (data.url?.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&?/#\s]{11})/i)?.[1]) ||
+    null;
+
+  const effectiveInspectorMusicPreview = resolvedInspectorMusicPreview || data.musicData?.previewUrl || '';
+  const effectiveInspectorMusicArtwork =
+    resolvedInspectorMusicArtwork ||
+    data.musicData?.artwork ||
+    data.primaryPhoto?.url ||
+    data.photos?.[0]?.url ||
+    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop';
+
+  const isMusicInspectorPlaying =
+    Boolean(currentTrack) &&
+    ((effectiveInspectorMusicPreview && currentTrack.previewUrl === effectiveInspectorMusicPreview) ||
+      (currentTrack.trackTitle === (data.musicData?.trackTitle || data.title) &&
+        currentTrack.artist === (data.musicData?.artist || '')));
+
   const hasSource = Boolean(data.url || data.source);
   const hasVisuals = isPhysics;
   const hasFormulas = Boolean(data.formula || (data.formulas && data.formulas.length > 0));
@@ -1042,8 +1109,8 @@ export const NodeInspector = ({
 
               
               {/* 🎵 DEEP MUSIC & FULL TRACK INSPECTION PANEL */}
-              {(nodeData?.type === 'music' || data.mediaType === 'music' || Boolean(data.musicData)) && (
-                <section className="bg-gradient-to-br from-[#1A1C24] via-[#12131A] to-[#0D0E14] border border-amber-500/30 rounded-2xl p-4 shadow-md text-white flex flex-col gap-4 select-none">
+              {(nodeData?.type === 'music' || data.mediaType === 'music' || Boolean(data.musicData) || Boolean(data.tracks)) && (
+                <section className="bg-gradient-to-br from-[#181920] via-[#111218] to-[#0A0B0E] border border-amber-500/30 rounded-2xl p-4 shadow-md text-white flex flex-col gap-4 select-none">
                   <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                     <div className="flex items-center gap-2">
                       <Music className="w-4 h-4 text-amber-400" />
@@ -1058,10 +1125,10 @@ export const NodeInspector = ({
 
                   <div className="flex items-start gap-3.5">
                     <div className="relative w-24 h-24 rounded-xl overflow-hidden shrink-0 border border-white/15 bg-black/60 shadow-md flex items-center justify-center">
-                      {data.musicData?.artwork ? (
+                      {effectiveInspectorMusicArtwork ? (
                         <img
-                          src={data.musicData.artwork}
-                          alt={data.musicData.trackTitle || data.title}
+                          src={effectiveInspectorMusicArtwork}
+                          alt={data.musicData?.trackTitle || data.title}
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -1088,9 +1155,10 @@ export const NodeInspector = ({
                     <div className="grid grid-cols-2 gap-2">
                       {/* 1. Play in Global Audio Queue */}
                       <button
+                        type="button"
                         onClick={() => {
-                          const isThisPlaying = currentTrack?.previewUrl === data.musicData?.previewUrl && isGlobalAudioPlaying;
-                          if (isThisPlaying) {
+                          const previewToPlay = effectiveInspectorMusicPreview || data.musicData?.previewUrl || '';
+                          if (isMusicInspectorPlaying) {
                             togglePlayPause();
                           } else {
                             playTrack({
@@ -1100,16 +1168,17 @@ export const NodeInspector = ({
                               album: data.musicData?.album || '',
                               year: data.musicData?.year || '',
                               genre: data.musicData?.genre || 'Music',
-                              previewUrl: data.musicData?.previewUrl || '',
+                              previewUrl: previewToPlay,
                               fullTrackUrl: data.musicData?.fullTrackUrl || data.url,
                               duration: data.musicData?.duration || 30,
-                              artwork: data.musicData?.artwork || '',
+                              artwork: effectiveInspectorMusicArtwork,
+                              source: data.musicData?.source || 'Public Audio Engine',
                             });
                           }
                         }}
-                        className="py-2 px-3 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-mono text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                        className="py-2.5 px-3 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-mono text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
                       >
-                        {currentTrack?.previewUrl === data.musicData?.previewUrl && isGlobalAudioPlaying ? (
+                        {isMusicInspectorPlaying && isGlobalAudioPlaying ? (
                           <>
                             <Pause className="w-3.5 h-3.5 fill-current" />
                             <span>Pause Preview</span>
@@ -1124,6 +1193,7 @@ export const NodeInspector = ({
 
                       {/* 2. Listen to Entire Full Track */}
                       <button
+                        type="button"
                         onClick={() => {
                           const fullUrl =
                             data.musicData?.fullTrackUrl ||
@@ -1131,7 +1201,7 @@ export const NodeInspector = ({
                             `https://www.youtube.com/results?search_query=${encodeURIComponent((data.musicData?.artist || '') + ' ' + (data.musicData?.trackTitle || data.title))}`;
                           onOpenBrowser?.(fullUrl, 'split');
                         }}
-                        className="py-2 px-3 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white font-mono text-[11px] font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all border border-white/15 cursor-pointer"
+                        className="py-2.5 px-3 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white font-mono text-[11px] font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all border border-white/15 cursor-pointer"
                         title="Listen to the complete full-length track via external stream"
                       >
                         <Radio className="w-3.5 h-3.5 text-amber-400" />
@@ -1143,8 +1213,8 @@ export const NodeInspector = ({
               )}
 
               {/* 🎬 DEEP VIDEO MASTERCLASS INSPECTION PANEL */}
-              {(nodeData?.type === 'video' || data.mediaType === 'video' || Boolean(data.videoData)) && (
-                <section className="bg-gradient-to-br from-[#14151B] via-[#0E1015] to-[#0A0B0E] border border-red-500/30 rounded-2xl p-4 shadow-md text-white flex flex-col gap-3 select-none">
+              {(nodeData?.type === 'video' || data.mediaType === 'video' || Boolean(data.videoData) || Boolean(data.videoQuery)) && (
+                <section className="bg-gradient-to-br from-[#16171E] via-[#0F1015] to-[#0A0B0E] border border-red-500/30 rounded-2xl p-4 shadow-md text-white flex flex-col gap-3 select-none">
                   <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                     <div className="flex items-center gap-2">
                       <Tv className="w-4 h-4 text-red-500" />
@@ -1160,35 +1230,67 @@ export const NodeInspector = ({
                   </div>
 
                   {/* 16:9 Video Viewport */}
-                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-black border border-white/10 relative">
-                    {data.videoData?.videoId ? (
+                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-black border border-white/10 relative group/insp-video">
+                    {effectiveInspectorVideoId && inspectorPlayingVideo ? (
                       <iframe
-                        src={`https://www.youtube.com/embed/${data.videoData.videoId}?enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}&rel=0&modestbranding=1&playsinline=1`}
-                        title={data.videoData.title || data.title}
-                        className="w-full h-full border-0"
+                        src={`https://www.youtube-nocookie.com/embed/${effectiveInspectorVideoId}?autoplay=1&enablejsapi=1&rel=0&playsinline=1`}
+                        title={data.videoData?.title || data.title || 'Video Masterclass'}
+                        className="w-full h-full border-0 pointer-events-auto"
                         referrerPolicy="strict-origin-when-cross-origin"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                         allowFullScreen
                       />
-                    ) : (
-                      <img
-                        src={data.videoData?.thumbnail || data.primaryPhoto?.url || ''}
-                        alt={data.title}
-                        className="w-full h-full object-cover"
+                    ) : (data.videoData?.url && data.videoData.url.endsWith('.mp4') && inspectorPlayingVideo) ? (
+                      <video
+                        src={data.videoData.url}
+                        autoPlay
+                        controls
+                        className="w-full h-full object-contain"
                       />
+                    ) : (
+                      <div
+                        onClick={() => setInspectorPlayingVideo(true)}
+                        className="w-full h-full relative cursor-pointer group/insp-cover"
+                        title="Click to play video inside inspector"
+                      >
+                        <img
+                          src={
+                            effectiveInspectorVideoId
+                              ? `https://i.ytimg.com/vi/${effectiveInspectorVideoId}/hqdefault.jpg`
+                              : (data.videoData?.thumbnail || data.primaryPhoto?.url || 'https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=800&auto=format&fit=crop')
+                          }
+                          alt={data.title}
+                          className="w-full h-full object-cover group-hover/insp-cover:scale-102 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20 group-hover/insp-cover:from-black/60 transition-colors" />
+
+                        {/* Large Play Beacon */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-14 h-14 rounded-full bg-red-600 group-hover/insp-cover:bg-red-500 text-white flex items-center justify-center shadow-[0_8px_30px_rgba(239,68,68,0.5)] transition-transform group-hover/insp-cover:scale-110 active:scale-95">
+                            <Play className="w-6 h-6 fill-current ml-0.5 text-white" />
+                          </div>
+                        </div>
+
+                        {/* Overlay Caption & Click indicator */}
+                        <div className="absolute bottom-2.5 inset-x-3 flex items-center justify-between text-[10px] font-mono text-white/90">
+                          <span className="truncate max-w-[280px] font-medium">{data.videoData?.title || data.title}</span>
+                          <span className="bg-black/80 px-2 py-0.5 rounded text-[8.5px] border border-white/10 font-bold text-amber-300">CLICK TO PLAY</span>
+                        </div>
+                      </div>
                     )}
                   </div>
 
                   <div className="flex items-center justify-between pt-1 font-mono text-[10px] text-white/70">
-                    <span className="truncate max-w-[200px]">Uploader: {data.videoData?.uploader || 'Verified Creator'}</span>
+                    <span className="truncate max-w-[200px]">Uploader: {data.videoData?.uploader || 'YouTube Creator'}</span>
                     <button
+                      type="button"
                       onClick={() => {
-                        const vidUrl = data.videoData?.url || data.url || (data.videoData?.videoId ? `https://www.youtube.com/watch?v=${data.videoData.videoId}` : null);
+                        const vidUrl = data.videoData?.url || (effectiveInspectorVideoId ? `https://www.youtube.com/watch?v=${effectiveInspectorVideoId}` : data.url);
                         if (vidUrl) onOpenBrowser?.(vidUrl, 'split');
                       }}
                       className="text-amber-400 hover:text-amber-300 underline flex items-center gap-1 cursor-pointer"
                     >
-                      <span>Open Source Web</span>
+                      <span>Open in Split Browser</span>
                       <ExternalLink className="w-3 h-3" />
                     </button>
                   </div>

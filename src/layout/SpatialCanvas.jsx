@@ -293,10 +293,10 @@ export const SpatialCanvas = ({
         return;
       }
 
-      // If not Ctrl-linking and not Shift-selecting, let button/link/dock clicks proceed normally
+      // If not Ctrl-linking and not Shift-selecting, let button/link/dock/media clicks proceed normally
       if (
         !isCtrl && !isShift &&
-        e.target.closest('button, a, #atelier-action-dock')
+        e.target.closest('button, a, audio, video, iframe, input, textarea, select, [data-interactive="true"], #atelier-action-dock')
       ) {
         return;
       }
@@ -787,6 +787,9 @@ export const SpatialCanvas = ({
         onHoverNodeChange?.(null);
       },
       onClick: (e) => {
+        if (e.target.closest('button, a, audio, video, iframe, input, textarea, select, [data-interactive="true"]')) {
+          return;
+        }
         e.stopPropagation();
         handleNodeClick(node.id, e);
       },
