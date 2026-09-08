@@ -7,10 +7,10 @@ import {
   VolumeX,
   Maximize2,
   RotateCcw,
-  ExternalLink,
   Clock,
   Tv,
 } from 'lucide-react';
+import { searchWebVideos } from '../../utils/visualSearchEngine';
 
 export const VideoNode = ({
   node,
@@ -26,13 +26,39 @@ export const VideoNode = ({
   onClick,
   onInspect,
   onSpecificProbe,
-  onOpenBrowser,
 }) => {
   const data = node.data || {};
   const videoData = data.videoData || {};
   const videoId = videoData.videoId || (videoData.url?.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&?/#\s]{11})/i)?.[1]) || null;
   const platform = videoData.platform || (videoId ? 'youtube' : 'web');
   const thumbnail = videoData.thumbnail || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : (data.primaryPhoto?.url || data.photos?.[0]?.url || ''));
+
+  // Auto-resolve video if videoId missing
+  const [resolvedVideoId, setResolvedVideoId] = useState(videoId);
+  const [resolvedThumbnail, setResolvedThumbnail] = useState(thumbnail);
+
+  useEffect(() => {
+    if (!resolvedVideoId) {
+      const q = videoData.videoQuery || data.videoQuery || data.title || '';
+      if (q) {
+        searchWebVideos(q).then((vids) => {
+          if (Array.isArray(vids) && vids.length > 0) {
+            const first = vids[0];
+            if (first.videoId) {
+              setResolvedVideoId(first.videoId);
+              node.data.videoData = { ...(node.data.videoData || {}), ...first };
+            }
+            if (first.thumbnail) {
+              setResolvedThumbnail(first.thumbnail);
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [resolvedVideoId, videoData.videoQuery, data.videoQuery, data.title, node.data]);
+
+  const effectiveVideoId = resolvedVideoId || videoId;
+  const effectiveThumbnail = resolvedThumbnail || thumbnail || (effectiveVideoId ? `https://i.ytimg.com/vi/${effectiveVideoId}/hqdefault.jpg` : '');
 
   // Playback & Interaction States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -187,6 +213,8 @@ export const VideoNode = ({
       onPointerLeave={onPointerLeave}
       onClick={onClick}
       style={{
+        left: `${node.position?.x ?? 0}px`,
+        top: `${node.position?.y ?? 0}px`,
         width: `${nodeWidth}px`,
         zIndex: isTheater ? 50 : undefined,
         transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease',
@@ -209,7 +237,7 @@ export const VideoNode = ({
               title={currentTime > 0 ? `Resume from ${formatTime(currentTime)}` : 'Click to play video'}
             >
               <img
-                src={thumbnail}
+                src={effectiveThumbnail}
                 alt={videoData.title || data.title}
                 className="w-full h-full object-cover group-hover/cover:scale-102 transition-transform duration-500"
                 onError={(e) => {
@@ -249,10 +277,10 @@ export const VideoNode = ({
           ) : (
             /* B. Active Fast In-Built Video Wrapper */
             <div className="w-full h-full relative">
-              {videoId ? (
+              {effectiveVideoId ? (
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube.com/embed/${videoId}?autoplay=1&start=${Math.floor(currentTime)}&enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}&controls=0&modestbranding=1&rel=0&playsinline=1`}
+                  src={`https://www.youtube-nocookie.com/embed/${effectiveVideoId}?autoplay=1&start=${Math.floor(currentTime)}&enablejsapi=1&rel=0&playsinline=1`}
                   title={data.title || 'Video'}
                   className="w-full h-full border-0 pointer-events-auto"
                   referrerPolicy="strict-origin-when-cross-origin"
@@ -272,15 +300,7 @@ export const VideoNode = ({
                 />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-black">
-                  <span className="text-white text-xs mb-2">Web Video Source</span>
-                  <a
-                    href={videoData.url || data.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-3 py-1 bg-amber-500 text-black text-xs font-mono font-bold rounded flex items-center gap-1"
-                  >
-                    Open Source <ExternalLink className="w-3 h-3" />
-                  </a>
+                  <span className="text-white text-xs mb-2">{videoData.title || data.title || 'Video Stream'}</span>
                 </div>
               )}
 
@@ -327,19 +347,6 @@ export const VideoNode = ({
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    {/* Open in Web Browser */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const vidUrl = videoData.url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : data.url);
-                        if (vidUrl) onOpenBrowser?.(vidUrl);
-                      }}
-                      className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white flex items-center gap-1 transition-all cursor-pointer"
-                      title="Watch in Built-in Browser"
-                    >
-                      <ExternalLink className="w-2.5 h-2.5" />
-                    </button>
-
                     {/* 📺 Theater Mode ("T" Button) */}
                     <button
                       onClick={handleToggleTheater}

@@ -1351,8 +1351,8 @@ export function App() {
         };
       }
 
-      // Enrich with live media if coming from backend or synthesizer without videos/music
-      if (synthesizedData && !synthesizedData.videoData && !synthesizedData.musicData && (synthesizedData.mediaType === 'video' || synthesizedData.mediaType === 'music' || synthesizedData.videoQuery || synthesizedData.musicData)) {
+      // Always enrich synthesized data to guarantee authentic media, video/music classification, and companion branches
+      if (synthesizedData) {
         try {
           synthesizedData = await enrichNodeWithRealPhotos(synthesizedData, text, currentWorkspace?.name || '', nodes);
         } catch (_) {}

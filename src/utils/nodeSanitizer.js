@@ -241,43 +241,56 @@ export function sanitizeNodeData(rawData) {
 
   const primaryPhoto = rawData.primaryPhoto || (Array.isArray(photos) && photos[0]) || null;
 
+  const combinedCorpus = `${title} ${category} ${description}`.toLowerCase();
+  const isSemanticMusic =
+    /\b(band|rock band|artist|track|song|album|music|musician|singer|composer|breakcore|rock|jazz|hiphop|rap|metal|punk|electronic|ambient|symphony|orchestra|dj|ep|single|remix|discography|vocalist|guitarist|drummer|pianist|radiohead|queen|beethoven|mozart|painfinder|nirvana|daft punk|pink floyd|beatles|led zeppelin|chopin|bach)\b/i.test(combinedCorpus);
+
+  const isSemanticVideo =
+    !isSemanticMusic &&
+    (/\b(how to cook|how to make|how to assemble|recipe|cooking|origami|speedrun|gameplay|fight scene|movie trailer|video essay|demonstration|tutorial|masterclass|walkthrough|skateboarding|workout|diy)\b/i.test(combinedCorpus) ||
+    (combinedCorpus.startsWith('how to') && !/\b(prove|calculate|solve|derive)\b/i.test(combinedCorpus)));
+
   // Video & Music Archetype Sanitization
   const isVideo =
     rawData.mediaType === 'video' ||
     Boolean(rawData.videoData) ||
     Boolean(rawData.videoQuery) ||
-    layout?.structure === 'video_top';
+    layout?.structure === 'video_top' ||
+    isSemanticVideo;
 
   const isMusic =
-    rawData.mediaType === 'music' ||
+    !isVideo &&
+    (rawData.mediaType === 'music' ||
     Boolean(rawData.musicData) ||
-    layout?.structure === 'music_card';
+    Boolean(rawData.tracks) ||
+    layout?.structure === 'music_card' ||
+    isSemanticMusic);
 
   const mediaType = isVideo ? 'video' : isMusic ? 'music' : sanitizeString(rawData.mediaType, 'photo');
 
-  const videoData = isVideo && rawData.videoData ? {
-    id: sanitizeString(rawData.videoData.id, `vid-${Date.now()}`),
-    videoId: sanitizeString(rawData.videoData.videoId, null),
-    title: sanitizeString(rawData.videoData.title, title),
-    duration: sanitizeString(rawData.videoData.duration, ''),
-    uploader: sanitizeString(rawData.videoData.uploader, 'Video Source'),
-    url: sanitizeString(rawData.videoData.url, ''),
-    platform: sanitizeString(rawData.videoData.platform, 'youtube'),
-    thumbnail: sanitizeString(rawData.videoData.thumbnail, ''),
+  const videoData = isVideo ? {
+    id: sanitizeString(rawData.videoData?.id, `vid-${Date.now()}`),
+    videoId: sanitizeString(rawData.videoData?.videoId, null),
+    title: sanitizeString(rawData.videoData?.title, title),
+    duration: sanitizeString(rawData.videoData?.duration, ''),
+    uploader: sanitizeString(rawData.videoData?.uploader, 'Video Source'),
+    url: sanitizeString(rawData.videoData?.url, ''),
+    platform: sanitizeString(rawData.videoData?.platform, 'youtube'),
+    thumbnail: sanitizeString(rawData.videoData?.thumbnail, primaryPhoto?.url || ''),
   } : null;
 
-  const musicData = isMusic && rawData.musicData ? {
-    id: sanitizeString(rawData.musicData.id, `music-${Date.now()}`),
-    trackTitle: sanitizeString(rawData.musicData.trackTitle || rawData.musicData.title, title),
-    artist: sanitizeString(rawData.musicData.artist, 'Unknown Artist'),
-    album: sanitizeString(rawData.musicData.album, 'Single / EP'),
-    year: sanitizeString(rawData.musicData.year, ''),
-    genre: sanitizeString(rawData.musicData.genre, 'Music'),
-    previewUrl: sanitizeString(rawData.musicData.previewUrl, ''),
-    fullTrackUrl: sanitizeString(rawData.musicData.fullTrackUrl, ''),
-    duration: typeof rawData.musicData.duration === 'number' ? rawData.musicData.duration : 30,
-    artwork: sanitizeString(rawData.musicData.artwork, ''),
-    source: sanitizeString(rawData.musicData.source, 'Public Audio Engine'),
+  const musicData = isMusic ? {
+    id: sanitizeString(rawData.musicData?.id, `music-${Date.now()}`),
+    trackTitle: sanitizeString(rawData.musicData?.trackTitle || rawData.musicData?.title, title),
+    artist: sanitizeString(rawData.musicData?.artist, title),
+    album: sanitizeString(rawData.musicData?.album, 'Single / Album Release'),
+    year: sanitizeString(rawData.musicData?.year, ''),
+    genre: sanitizeString(rawData.musicData?.genre, 'Music'),
+    previewUrl: sanitizeString(rawData.musicData?.previewUrl, ''),
+    fullTrackUrl: sanitizeString(rawData.musicData?.fullTrackUrl, ''),
+    duration: typeof rawData.musicData?.duration === 'number' ? rawData.musicData.duration : 30,
+    artwork: sanitizeString(rawData.musicData?.artwork, primaryPhoto?.url || ''),
+    source: sanitizeString(rawData.musicData?.source, 'Apple Music / iTunes'),
   } : null;
 
   const savedTimestamp = typeof rawData.savedTimestamp === 'number' && !isNaN(rawData.savedTimestamp)

@@ -264,10 +264,13 @@ def parse_ai_json(raw_text: str) -> Dict[str, Any]:
 def is_direct_concept_query(query: str) -> bool:
     import re
     q = (query or "").lower().strip()
+    is_music_or_video = bool(re.search(r"\b(band|rock band|artist|track|song|album|music|musician|singer|breakcore|rock|jazz|hiphop|metal|radiohead|queen|painfinder|beatles|nirvana|recipe|cooking|how to cook|how to make|tutorial|fight scene|video essay|trailer)\b", q))
+    if is_music_or_video:
+        return False
     is_exploration = bool(re.search(r"\b(explore|map|constellation|branches|ecosystem|connections|compare|network|graph|cluster)\b", q))
     if is_exploration:
         return False
-    is_specific = bool(re.search(r"\b(theorem|law of|formula|equation|definition|what is|how to|prove|derivation|invariant|identity)\b", q)) or any(
+    is_specific = bool(re.search(r"\b(theorem|law of|formula|equation|definition|what is|prove|derivation|invariant|identity)\b", q)) or any(
         k in q for k in ["коси", "синус", "теорем", "формул", "cosin", "sine", "pythagor", "euler", "schrodinger", "newton", "gauss"]
     )
     is_explicit_single = bool(re.search(r"\b(single|one|solo|isolated|standalone)\s+(node|concept|card|entity)\b", q)) or "single node" in q or "one node" in q
@@ -414,11 +417,16 @@ async def execute_spark_query(req: SparkQueryRequest, background_tasks: Backgrou
         raw_text = response.choices[0].message.content.strip()
         node_data = parse_ai_json(raw_text)
 
-        if is_single:
-            node_data["branchNodes"] = []
-
         # Backend Media Enrichment for Video and Music Nodes
         is_video_node = node_data.get("mediaType") == "video" or bool(node_data.get("videoQuery")) or (node_data.get("layout") or {}).get("structure") == "video_top"
+        is_music_node = node_data.get("mediaType") == "music" or bool(node_data.get("musicData")) or (node_data.get("layout") or {}).get("structure") == "music_card"
+
+        if is_single and not (is_video_node or is_music_node):
+            node_data["branchNodes"] = []
+
+        if not isinstance(node_data.get("branchNodes"), list):
+            node_data["branchNodes"] = []
+
         if is_video_node and not node_data.get("videoData"):
             try:
                 v_q = node_data.get("videoQuery") or node_data.get("title") or prompt
@@ -433,7 +441,6 @@ async def execute_spark_query(req: SparkQueryRequest, background_tasks: Backgrou
             except Exception as v_err:
                 print(f"[Backend Video Enrichment Error]: {v_err}")
 
-        is_music_node = node_data.get("mediaType") == "music" or bool(node_data.get("musicData")) or (node_data.get("layout") or {}).get("structure") == "music_card"
         if is_music_node:
             try:
                 m_info = node_data.get("musicData") or {}
@@ -448,6 +455,50 @@ async def execute_spark_query(req: SparkQueryRequest, background_tasks: Backgrou
                     node_data["layout"]["width"] = 390
             except Exception as m_err:
                 print(f"[Backend Music Enrichment Error]: {m_err}")
+
+        # Auto-link complementary branch nodes if missing
+        if is_music_node and not any(b.get("mediaType") == "video" or b.get("videoData") for b in node_data["branchNodes"]):
+            try:
+                artist_name = (node_data.get("musicData") or {}).get("artist") or node_data.get("title") or prompt
+                c_vids = search_web_videos(f"{artist_name} live concert performance official video", count=3)
+                if c_vids:
+                    top_v = c_vids[0]
+                    node_data["branchNodes"].append({
+                        "id": f"branch-vid-{int(time.time())}",
+                        "title": f"{top_v.get('title') or artist_name} // Live Performance",
+                        "category": "audiovisual // live concert & stage",
+                        "description": f"Live concert performance and official stage footage for '{node_data.get('title')}'.",
+                        "mediaType": "video",
+                        "videoQuery": f"{artist_name} live concert performance official video",
+                        "videoData": top_v,
+                        "layout": {
+                            "structure": "video_top",
+                            "width": 420
+                        },
+                        "relationship": "COUPLED_SYSTEM",
+                        "relationshipLabel": "live concert // audiovisual",
+                        "edgeName": "Audiovisual Masterclass Linkage",
+                        "edgeBadge": "LIVE PERFORMANCE // CONCERT"
+                    })
+            except Exception as e_link:
+                print(f"[Backend Companion Video Linkage Error]: {e_link}")
+
+        # Enrich branch nodes
+        for bn in node_data["branchNodes"]:
+            if bn.get("mediaType") == "video" and not bn.get("videoData"):
+                try:
+                    bv = search_web_videos(bn.get("videoQuery") or bn.get("title") or prompt, count=3)
+                    if bv:
+                        bn["videoData"] = bv[0]
+                except Exception:
+                    pass
+            elif bn.get("mediaType") == "music" and not (bn.get("musicData") or {}).get("previewUrl"):
+                try:
+                    bt = search_music_tracks((bn.get("musicData") or {}).get("trackTitle") or bn.get("title") or prompt, count=3)
+                    if bt:
+                        bn["musicData"] = {**(bn.get("musicData") or {}), **bt[0]}
+                except Exception:
+                    pass
         
         # Shadow log to dataset immediately
         shadow_log_training_pair(prompt, req.model_dump() if hasattr(req, 'model_dump') else req.dict(), node_data)
