@@ -1,0 +1,410 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { SmartGlassPanel } from '../ui/SmartGlassPanel';
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize2,
+  RotateCcw,
+  ExternalLink,
+  Clock,
+  Tv,
+} from 'lucide-react';
+
+export const VideoNode = ({
+  node,
+  isSelected,
+  isAnticipating = false,
+  isDragging,
+  isLinkSelected = false,
+  isLinkShaking = false,
+  onPointerDown,
+  onPointerUp,
+  onPointerEnter,
+  onPointerLeave,
+  onClick,
+  onInspect,
+  onSpecificProbe,
+  onOpenBrowser,
+}) => {
+  const data = node.data || {};
+  const videoData = data.videoData || {};
+  const videoId = videoData.videoId || (videoData.url?.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&?/#\s]{11})/i)?.[1]) || null;
+  const platform = videoData.platform || (videoId ? 'youtube' : 'web');
+  const thumbnail = videoData.thumbnail || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : (data.primaryPhoto?.url || data.photos?.[0]?.url || ''));
+
+  // Playback & Interaction States
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [showPreviewCover, setShowPreviewCover] = useState(true);
+  const [currentTime, setCurrentTime] = useState(data.savedTimestamp || 0);
+  const [duration, setDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(0.85);
+  const [isTheater, setIsTheater] = useState(false);
+  const [showControls, setShowControls] = useState(false);
+
+  // References for timers & iframe
+  const idleTimerRef = useRef(null);
+  const playbackIntervalRef = useRef(null);
+  const iframeRef = useRef(null);
+  const videoElementRef = useRef(null);
+  const savedTimeRef = useRef(data.savedTimestamp || 0);
+
+  // Sync saved time ref
+  useEffect(() => {
+    savedTimeRef.current = currentTime;
+    node.data.savedTimestamp = currentTime;
+  }, [currentTime, node.data]);
+
+  // Format seconds -> M:SS
+  const formatTime = (secs) => {
+    if (!secs || isNaN(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  // Reset 30-Second Inactivity / Unwatched Preview Timer
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+    // Only arm idle timer if video is paused or idle
+    if (!isPlaying && !showPreviewCover) {
+      idleTimerRef.current = setTimeout(() => {
+        // Revert to preview thumbnail as if unwatched, preserving timestamp
+        setShowPreviewCover(true);
+      }, 30000);
+    }
+  }, [isPlaying, showPreviewCover]);
+
+  // Reset timer on user interaction
+  const handleUserActivity = useCallback(() => {
+    setShowControls(true);
+    resetIdleTimer();
+  }, [resetIdleTimer]);
+
+  useEffect(() => {
+    resetIdleTimer();
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [resetIdleTimer, isPlaying]);
+
+  // Handle Play / Resume from saved timestamp
+  const handleStartPlay = (e) => {
+    e?.stopPropagation?.();
+    setShowPreviewCover(false);
+    setIsPlaying(true);
+    resetIdleTimer();
+  };
+
+  const handleTogglePlayPause = (e) => {
+    e?.stopPropagation?.();
+    if (showPreviewCover) {
+      handleStartPlay(e);
+      return;
+    }
+    const nextPlay = !isPlaying;
+    setIsPlaying(nextPlay);
+
+    // If using YouTube iframe postMessage
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      const cmd = nextPlay ? 'playVideo' : 'pauseVideo';
+      iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: cmd, args: '' }), '*');
+    }
+    // If HTML5 video
+    if (videoElementRef.current) {
+      if (nextPlay) videoElementRef.current.play();
+      else videoElementRef.current.pause();
+    }
+  };
+
+  // Seek handler
+  const handleSeek = (e) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+    const targetTime = ratio * (duration || 180);
+    setCurrentTime(targetTime);
+    savedTimeRef.current = targetTime;
+
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'seekTo', args: [targetTime, true] }),
+        '*'
+      );
+    }
+    if (videoElementRef.current) {
+      videoElementRef.current.currentTime = targetTime;
+    }
+  };
+
+  // Toggle Theater Mode
+  const handleToggleTheater = (e) => {
+    e.stopPropagation();
+    setIsTheater((prev) => !prev);
+  };
+
+  // Mock progress simulation for YouTube iframe postMessage tracking
+  useEffect(() => {
+    if (isPlaying) {
+      playbackIntervalRef.current = setInterval(() => {
+        setCurrentTime((prev) => {
+          const next = prev + 1;
+          savedTimeRef.current = next;
+          return next;
+        });
+      }, 1000);
+    } else {
+      if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
+    }
+    return () => {
+      if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
+    };
+  }, [isPlaying]);
+
+  // Density & layout classes
+  const density = data.layout?.density || 'comfortable';
+  const descClampClass =
+    density === 'expanded' ? 'line-clamp-6' : density === 'compact' ? 'line-clamp-2' : 'line-clamp-4';
+
+  const nodeWidth = isTheater ? 780 : (data.layout?.width || 420);
+
+  return (
+    <SmartGlassPanel
+      nodeId={node.id}
+      isSelected={isSelected}
+      isAnticipating={isAnticipating}
+      isDragging={isDragging}
+      isLinkSelected={isLinkSelected}
+      isLinkShaking={isLinkShaking}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      onClick={onClick}
+      style={{
+        width: `${nodeWidth}px`,
+        zIndex: isTheater ? 50 : undefined,
+        transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease',
+      }}
+      className={`border border-grey-medium/80 ${isTheater ? 'shadow-[0_20px_50px_rgba(0,0,0,0.25)] ring-1 ring-amber-500/30' : ''}`}
+    >
+      {/* 🎬 1. TOP VIDEO VIEWPORT (Strictly on Top) */}
+      <div
+        className="-mx-4 -mt-4 mb-3.5 relative bg-[#0C0D10] border-b border-[#22242B] overflow-hidden select-none group/player"
+        onMouseMove={handleUserActivity}
+        onMouseEnter={() => setShowControls(true)}
+        onMouseLeave={() => isPlaying && setShowControls(false)}
+      >
+        <div className="w-full aspect-video min-h-[190px] relative flex items-center justify-center bg-black">
+          {/* A. Cover Thumbnail Mode (Default or when paused/idle 30s) */}
+          {showPreviewCover ? (
+            <div
+              className="absolute inset-0 w-full h-full cursor-pointer relative group/cover"
+              onClick={handleStartPlay}
+              title={currentTime > 0 ? `Resume from ${formatTime(currentTime)}` : 'Click to play video'}
+            >
+              <img
+                src={thumbnail}
+                alt={videoData.title || data.title}
+                className="w-full h-full object-cover group-hover/cover:scale-102 transition-transform duration-500"
+                onError={(e) => {
+                  e.target.src = 'https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=800&auto=format&fit=crop';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20 group-hover/cover:from-black/70 transition-colors" />
+
+              {/* Center Play Beacon */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-13 h-13 rounded-full bg-white/90 group-hover/cover:bg-white text-black flex items-center justify-center shadow-[0_8px_25px_rgba(0,0,0,0.4)] transition-all group-hover/cover:scale-110 active:scale-95">
+                  <Play className="w-6 h-6 fill-current ml-0.5 text-black" />
+                </div>
+              </div>
+
+              {/* Top Source Badge */}
+              <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                <span className="font-mono text-[8px] font-bold uppercase bg-black/80 text-white px-2 py-0.5 rounded backdrop-blur-md border border-white/10 tracking-wider flex items-center gap-1">
+                  <Tv className="w-3 h-3 text-red-500" />
+                  {platform.toUpperCase()} VIDEO
+                </span>
+                {videoData.duration && (
+                  <span className="font-mono text-[8px] bg-black/70 text-[#C4C0BA] px-1.5 py-0.5 rounded backdrop-blur-md">
+                    {videoData.duration}
+                  </span>
+                )}
+              </div>
+
+              {/* Bottom Resume Timestamp Indicator */}
+              {currentTime > 0 && (
+                <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-amber-500/90 text-black px-2 py-0.5 rounded text-[9px] font-mono font-bold shadow-xs">
+                  <RotateCcw className="w-3 h-3" />
+                  Resume from {formatTime(currentTime)}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* B. Active Fast In-Built Video Wrapper */
+            <div className="w-full h-full relative">
+              {videoId ? (
+                <iframe
+                  ref={iframeRef}
+                  src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${Math.floor(currentTime)}&enablejsapi=1&controls=0&modestbranding=1&rel=0&playsinline=1&iv_load_policy=3`}
+                  title={data.title || 'Video'}
+                  className="w-full h-full border-0 pointer-events-auto"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : videoData.url && videoData.url.endsWith('.mp4') ? (
+                <video
+                  ref={videoElementRef}
+                  src={videoData.url}
+                  autoPlay
+                  className="w-full h-full object-contain"
+                  onTimeUpdate={(e) => {
+                    setCurrentTime(e.target.currentTime);
+                    if (e.target.duration) setDuration(e.target.duration);
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-black">
+                  <span className="text-white text-xs mb-2">Web Video Source</span>
+                  <a
+                    href={videoData.url || data.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1 bg-amber-500 text-black text-xs font-mono font-bold rounded flex items-center gap-1"
+                  >
+                    Open Source <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+
+              {/* Minimal Glass Overlay Controls */}
+              <div
+                className={`absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col gap-1.5 transition-opacity duration-200 ${
+                  showControls || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+                }`}
+              >
+                {/* Progress Scrubber */}
+                <div
+                  className="w-full h-1.5 bg-white/20 hover:h-2.5 rounded-full overflow-hidden cursor-pointer relative transition-all"
+                  onClick={handleSeek}
+                  title="Scrub video"
+                >
+                  <div
+                    className="h-full bg-amber-500 rounded-full"
+                    style={{ width: `${Math.min(100, duration > 0 ? (currentTime / duration) * 100 : (currentTime % 100))}%` }}
+                  />
+                </div>
+
+                {/* Control Toolbar */}
+                <div className="flex items-center justify-between text-white text-[11px] font-mono select-none">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleTogglePlayPause}
+                      className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer text-white"
+                      title={isPlaying ? 'Pause' : 'Play'}
+                    >
+                      {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                    </button>
+
+                    <span className="text-[10px] text-white/80">
+                      {formatTime(currentTime)} {duration > 0 ? `/ ${formatTime(duration)}` : ''}
+                    </span>
+
+                    <button
+                      onClick={() => setIsMuted((m) => !m)}
+                      className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer text-white/90 ml-1"
+                      title={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {/* 📺 Theater Mode ("T" Button) */}
+                    <button
+                      onClick={handleToggleTheater}
+                      className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        isTheater
+                          ? 'bg-amber-500 text-black shadow-xs'
+                          : 'bg-white/20 hover:bg-white/30 text-white'
+                      }`}
+                      title="Theater mode (T)"
+                      aria-label="Theater mode"
+                    >
+                      <span>T</span>
+                      <Maximize2 className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 📋 2. HEADER & METADATA */}
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+          <span className="font-mono text-[8px] font-bold uppercase tracking-wider text-text-muted truncate">
+            {data.category || 'Audiovisual Masterclass'}
+          </span>
+        </div>
+        <span className="font-mono text-[8px] bg-grey-soft text-text-secondary px-1.5 py-0.5 rounded border border-grey-medium/70 shrink-0">
+          {data.status || 'video dossier'}
+        </span>
+      </div>
+
+      {/* 🏷️ 3. TITLE */}
+      <h3 className="font-display text-[13.5px] font-semibold text-text-primary mb-1.5 leading-snug line-clamp-2">
+        {data.title || 'Practical Video Demonstration'}
+      </h3>
+
+      {/* 📝 4. SYNTHESIS DOSSIER */}
+      <p className={`text-[10px] text-text-secondary leading-[1.5] mb-3 ${descClampClass}`}>
+        {data.detailedSynthesis || data.description || 'Step-by-step practical procedural demonstration and audiovisual analysis.'}
+      </p>
+
+      {/* 🎯 5. TARGETED INQUIRIES */}
+      {Array.isArray(data.targetedInquiries) && data.targetedInquiries.length > 0 && (
+        <div className="pt-2 border-t border-grey-medium/60 flex flex-col gap-1 mb-2.5">
+          <span className="font-mono text-[7.5px] uppercase tracking-wider text-text-muted">Targeted Inquiries</span>
+          <div className="flex flex-wrap gap-1">
+            {data.targetedInquiries.slice(0, 3).map((inq, idx) => (
+              <button
+                key={idx}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSpecificProbe?.(inq, node.id);
+                }}
+                className="text-left font-mono text-[8.5px] bg-grey-soft/70 hover:bg-amber-500/10 hover:text-amber-900 border border-grey-medium/70 rounded px-1.5 py-0.5 transition-colors truncate max-w-full"
+              >
+                ↳ {inq}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 🔗 6. FOOTER */}
+      <div className="pt-2 border-t border-grey-medium/60 flex items-center justify-between text-text-muted font-mono text-[8px]">
+        <span className="truncate max-w-[180px]">{data.source || 'PSYCHIS Video Stream'}</span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onInspect?.(node.id);
+          }}
+          className="hover:text-text-primary underline cursor-pointer transition-colors"
+        >
+          Inspect Dossier →
+        </button>
+      </div>
+    </SmartGlassPanel>
+  );
+};

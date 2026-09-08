@@ -6,6 +6,8 @@
 
 import {
   fetchLiveArchivalPhotos,
+  searchWebVideos,
+  searchMusicTracks,
   GLOBAL_CANVAS_SEEN_PHOTOS,
   GLOBAL_CANVAS_SEEN_AUTHORS,
 } from './visualSearchEngine.js';
@@ -238,12 +240,22 @@ CRITICAL ARCHITECTURAL RULES:
      * "derivationSteps": Array of 2 to 4 step-by-step mathematical proof objects with LaTeX formulas.
      * "schemaSvg": Clean SVG diagram if genuinely appropriate.
 
-4. CONTENT-ADAPTIVE DIVERSE NODE STRUCTURE & GEOMETRY (NO REPETITIVE TEMPLATES):
-   * Content dictates form. Every entity MUST have a tailored "layout.structure" suited to its nature.
-   * ABSOLUTE PROHIBITION ON HOMOGENEOUS FORMATS: The canvas must be visually rich and heterogeneous. NEVER use the same structure for all nodes!
+4. CONTENT-ADAPTIVE DIVERSE NODE STRUCTURE & MEDIA ARCHETYPES:
+   * Content dictates form. Every entity MUST have a tailored "layout.structure" and "mediaType" suited to its nature.
+   * AUTONOMOUS VIDEO DECISION:
+     - Practical demonstrations, how-to guides, and step-by-step physical processes (e.g. "how to cook soup", origami, mechanical assembly, lab experiments, sports technique, tutorials).
+     - Audiovisual culture (music videos, video essays, movie trailers, speeches, anime fight scenes, historic broadcasts, or when explicitly requested).
+     - For video: "mediaType": "video", "layout": {"structure": "video_top", "width": 420}, "videoQuery": "clean search query", "videoPlatform": "youtube"
+   * AUTONOMOUS MUSIC DECISION:
+     - Specific tracks or songs (e.g. "Killer Queen", "Creep" -> displays track info, album, release year, harmonic/lyrical analysis).
+     - Bands / Artists (e.g. "PAINFINDER GROUP", "Radiohead" -> presents artist dossier + their defining track).
+     - Musical genres, albums, and music theory concepts with audio examples.
+     - For music: "mediaType": "music", "layout": {"structure": "music_card", "width": 390}, "musicData": {"trackTitle": "Track Name", "artist": "Artist/Band", "album": "Album", "year": "YYYY", "genre": "Genre", "query": "clean search query"}
    * Available structure types:
-     - "split_media_right": WIDE HORIZONTAL CARD (width: 460px). Text & analysis on the LEFT, vertical photo/media on the RIGHT. (E.g. character profiles, anime, film directors).
-     - "split_media_left": WIDE HORIZONTAL CARD (width: 460px). Photo on the LEFT, text on the RIGHT.
+     - "video_top": Video player strictly spanning the TOP (width: 420px), title & synthesis below.
+     - "music_card": Interactive waveform & acoustic hero card (width: 390px).
+     - "split_media_right": WIDE HORIZONTAL CARD (width: 460px). Text on LEFT, photo on RIGHT.
+     - "split_media_left": WIDE HORIZONTAL CARD (width: 460px). Photo on LEFT, text on RIGHT.
      - "media_top": Vertical card (width: 320-350px). Media at the top, title & concise text below.
      - "media_bottom": Vertical card (width: 320-350px). Header & rich description FIRST, media artifact at the bottom.
      - "split_formula": WIDE MATH CARD (width: 485px). Formula card on the LEFT, geometric/physics SVG schematic on the RIGHT.
@@ -278,6 +290,10 @@ CRITICAL ARCHITECTURAL RULES:
   "url": "https://...",
   "description": "2-3 precise sentences directly answering the inquiry.",
   "detailedSynthesis": "Extended technical dossier or cultural exploration.",
+  "mediaType": "photo",
+  "videoQuery": null,
+  "videoPlatform": "youtube",
+  "musicData": null,
   "connections": [
     {
       "nodeId": "0x01",
@@ -292,7 +308,7 @@ CRITICAL ARCHITECTURAL RULES:
   "connectionLabel": null,
   "connectionFormula": null,
   "layout": {
-    "width": 460,
+    "width": 420,
     "structure": "auto",
     "aspectRatio": "auto",
     "mediaAspect": "auto",
@@ -308,12 +324,11 @@ CRITICAL ARCHITECTURAL RULES:
   "photos": [],
   "targetedInquiries": [
     "Relevant theme inquiry or popular search 1",
-    "Relevant theme inquiry or popular search 2",
-    "Relevant theme inquiry or popular search 3"
+    "Relevant theme inquiry or popular search 2"
   ],
   "branchNodes": []
 }
-Return ONLY valid JSON. Note: "formula", "formulaType", "schemaSvg", "derivationSteps", and "kinetic_mechanism" must be null / [] for any character, humanities, food, biology, or non-physics inquiry. For physics/math, use "structure": "split_formula" or "formula_top".`;
+Return ONLY valid JSON. Note: For video queries, set "mediaType": "video", "layout": {"structure": "video_top"}, "videoQuery": "clean search query". For music queries, set "mediaType": "music", "layout": {"structure": "music_card"}, "musicData": {"trackTitle": "...", "artist": "...", "album": "...", "year": "...", "genre": "...", "query": "..."}.`;
 
 /**
  * Robustly parses AI JSON output, automatically repairing unescaped LaTeX backslashes.
@@ -412,25 +427,63 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
     return false;
   };
 
-  // 1. Fetch diverse photos for primary node
-  try {
-    const searchTarget = node.visualSearchQuery || node.title || query;
-    const realPhotos = await fetchAiCuratedPhotos({
-      query: searchTarget,
-      nodeTitle: node.title,
-      nodeCategory: node.category,
-      nodeDescription: node.description,
-      count: 12,
-      contextHint: node.category || node.title || '',
-      seenClusterUrls,
-    });
-    if (realPhotos && realPhotos.length > 0) {
-      node.photos = realPhotos;
-      node.primaryPhoto = realPhotos[0];
-      realPhotos.forEach((p) => trackPhoto(p));
+  // 1A. Video Node Enrichment
+  if (node.mediaType === 'video' || node.layout?.structure === 'video_top' || node.videoQuery) {
+    try {
+      const vQuery = node.videoQuery || node.title || query;
+      const vids = await searchWebVideos(vQuery);
+      if (Array.isArray(vids) && vids.length > 0) {
+        node.videoData = vids[0];
+        node.videos = vids;
+        node.mediaType = 'video';
+        if (!node.layout) node.layout = {};
+        node.layout.structure = 'video_top';
+        node.layout.width = 420;
+      }
+    } catch (vErr) {
+      console.warn('[Video enrichment error]:', vErr.message);
     }
-  } catch (err) {
-    console.warn('[Primary node photo enrichment error]:', err.message);
+  }
+
+  // 1B. Music Node Enrichment
+  if (node.mediaType === 'music' || node.layout?.structure === 'music_card' || node.musicData) {
+    try {
+      const mQuery = node.musicData?.query || node.musicData?.trackTitle || (node.musicData?.artist ? `${node.musicData.artist} ${node.musicData.trackTitle || ''}` : '') || node.title || query;
+      const tracks = await searchMusicTracks(mQuery);
+      if (Array.isArray(tracks) && tracks.length > 0) {
+        node.musicData = { ...(node.musicData || {}), ...tracks[0] };
+        node.tracks = tracks;
+        node.mediaType = 'music';
+        if (!node.layout) node.layout = {};
+        node.layout.structure = 'music_card';
+        node.layout.width = 390;
+      }
+    } catch (mErr) {
+      console.warn('[Music enrichment error]:', mErr.message);
+    }
+  }
+
+  // 1C. Fetch diverse photos for primary node (if not strictly video or music)
+  if (node.mediaType !== 'video' && node.mediaType !== 'music') {
+    try {
+      const searchTarget = node.visualSearchQuery || node.title || query;
+      const realPhotos = await fetchAiCuratedPhotos({
+        query: searchTarget,
+        nodeTitle: node.title,
+        nodeCategory: node.category,
+        nodeDescription: node.description,
+        count: 12,
+        contextHint: node.category || node.title || '',
+        seenClusterUrls,
+      });
+      if (realPhotos && realPhotos.length > 0) {
+        node.photos = realPhotos;
+        node.primaryPhoto = realPhotos[0];
+        realPhotos.forEach((p) => trackPhoto(p));
+      }
+    } catch (err) {
+      console.warn('[Primary node photo enrichment error]:', err.message);
+    }
   }
 
   // 2. Enrich each branch node with DISTINCT, non-repeating photos across the cluster
@@ -467,6 +520,18 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
   // Rotate every single node (primary and branches) through distinct layout archetypes!
   const assignDiverseLayout = (n) => {
     if (!n.layout) n.layout = {};
+
+    if (n.mediaType === 'video' || n.layout?.structure === 'video_top') {
+      n.layout.structure = 'video_top';
+      n.layout.width = 420;
+      return;
+    }
+    if (n.mediaType === 'music' || n.layout?.structure === 'music_card') {
+      n.layout.structure = 'music_card';
+      n.layout.width = 390;
+      return;
+    }
+
     const isMath = Boolean(n.formula);
     const hasPhotos = Array.isArray(n.photos) && n.photos.length > 0;
 

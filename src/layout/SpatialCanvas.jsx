@@ -5,6 +5,8 @@ import { TransportNode } from '../components/nodes/TransportNode';
 import { TopologicalNode } from '../components/nodes/TopologicalNode';
 import { ContradictionNode } from '../components/nodes/ContradictionNode';
 import { SpawnedNode } from '../components/nodes/SpawnedNode';
+import { VideoNode } from '../components/nodes/VideoNode';
+import { MusicNode } from '../components/nodes/MusicNode';
 import { OrganicLinkageLayer } from '../components/ui/OrganicLinkageLayer';
 import { LinkageOptionsPopover } from '../components/ui/LinkageOptionsPopover';
 import { ConvexHull } from '../components/ui/ConvexHull';
@@ -814,7 +816,18 @@ export const SpatialCanvas = ({
       },
     };
 
+    if (node.type === 'video' || node.data?.mediaType === 'video' || node.data?.layout?.structure === 'video_top') {
+      return <VideoNode {...commonProps} />;
+    }
+    if (node.type === 'music' || node.data?.mediaType === 'music' || node.data?.layout?.structure === 'music_card') {
+      return <MusicNode {...commonProps} />;
+    }
+
     switch (node.type) {
+      case 'video':
+        return <VideoNode {...commonProps} />;
+      case 'music':
+        return <MusicNode {...commonProps} />;
       case 'website':
         return <WebsiteNode {...commonProps} />;
       case 'mechanism':

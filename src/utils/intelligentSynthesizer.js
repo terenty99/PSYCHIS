@@ -96,6 +96,136 @@ export const synthesizeKnowledgeCluster = (queryText, existingNodes = []) => {
     return result;
   };
 
+  // 00. AUTONOMOUS VIDEO NODE DETECTION
+  const isVideoQuery =
+    /\b(how to (cook|make|bake|prepare|assemble|fix|build|fold|play|perform|draw|repair))\b/i.test(q) ||
+    /\b(soup|origami|mechanical assembly|lab experiment|sports technique|cooking|recipe)\b/i.test(q) ||
+    /\b(music video|video essay|movie trailer|trailer|speech|anime fight|fight scene|broadcast|historic footage|speedrun)\b/i.test(q) ||
+    /\b(video|watch)\b/i.test(q);
+
+  if (isVideoQuery) {
+    const cleanTitle = queryText.replace(/^(how to|create|make|watch|video of)\s+/i, '').trim();
+    const capTitle = cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1);
+    return finalize({
+      primaryNode: {
+        title: `${capTitle} // Video Demonstration`,
+        category: 'audiovisual // practical demonstration',
+        status: 'verified video source',
+        source: 'PSYCHIS Video Stream Engine',
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(queryText)}`,
+        mediaType: 'video',
+        videoQuery: queryText,
+        videoPlatform: 'youtube',
+        videoData: {
+          videoId: 'ANrwba8x5DY', // Default high-res fallback candidate
+          title: `${capTitle} — Step-by-Step Practical Demonstration`,
+          platform: 'youtube',
+          duration: '12:40',
+          uploader: 'Verified Practical Masterclass',
+          url: `https://www.youtube.com/results?search_query=${encodeURIComponent(queryText)}`,
+          thumbnail: 'https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=800&auto=format&fit=crop',
+        },
+        description: `Comprehensive audiovisual walkthrough illustrating practical techniques, procedural sequencing, and tactile execution for "${queryText}".`,
+        detailedSynthesis: `This video artifact establishes the foundational kinematics, material preparation, and precision timing required to successfully execute "${queryText}". Highlighting critical transition phases, temperature/force balances, and common failure modes through direct visual observation.`,
+        layout: {
+          width: 420,
+          structure: 'video_top',
+          aspectRatio: '16:9',
+          mediaAspect: '16:9',
+          density: 'comfortable',
+        },
+        targetedInquiries: [
+          `Key failure modes in ${cleanTitle}`,
+          `Advanced procedural optimization for ${cleanTitle}`,
+          `Tooling and material alternatives for ${cleanTitle}`,
+        ],
+        branchNodes: [],
+      },
+    });
+  }
+
+  // 01. AUTONOMOUS MUSIC NODE DETECTION
+  const isMusicQuery =
+    /\b(killer queen|creep|radiohead|painfinder group|painfinder|queen|daft punk|pink floyd|beethoven|bach|mozart|chopin|aphex twin|kendrick lamar)\b/i.test(q) ||
+    /\b(breakcore|synthwave|drum and bass|dnb|ambient|shoegaze|techno|jazz|classical music|hyperpop|metalcore)\b/i.test(q) ||
+    /\b(track|song|album|band|artist|discography|lyrics|harmony|chords)\b/i.test(q);
+
+  if (isMusicQuery) {
+    const isRadiohead = q.includes('radiohead') || q.includes('creep');
+    const isQueen = q.includes('killer queen') || q.includes('queen');
+    const isBreakcore = q.includes('breakcore') || q.includes('painfinder');
+
+    let trackTitle = queryText.replace(/^(listen to|play|track|song|band|artist|album)\s+/i, '').trim();
+    let artist = 'Featured Artist';
+    let album = 'Studio Master / Canonical Release';
+    let year = '2024';
+    let genre = 'Electronic / Experimental';
+    let previewUrl = 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/1f/18/e2/1f18e22b-264e-88f8-ee89-c196fa9abd7a/mzaf_14184372154331980897.plus.aac.p.m4a';
+    let artwork = 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop';
+
+    if (isRadiohead) {
+      trackTitle = 'Creep (Acoustic / Definitive Master)';
+      artist = 'Radiohead';
+      album = 'Pablo Honey (Collector Edition)';
+      year = '1992';
+      genre = 'Alternative / Art Rock';
+      previewUrl = 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/1f/18/e2/1f18e22b-264e-88f8-ee89-c196fa9abd7a/mzaf_14184372154331980897.plus.aac.p.m4a';
+      artwork = 'https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/28/7a/7c/287a7ca9-ed95-1a21-e3bb-4559a1a0ac0e/191404134351.png/600x600bb.jpg';
+    } else if (isQueen) {
+      trackTitle = 'Killer Queen';
+      artist = 'Queen';
+      album = 'Sheer Heart Attack';
+      year = '1974';
+      genre = 'Glam Rock / Art Rock';
+      previewUrl = 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/bf/16/09/bf1609e9-d9d3-35fb-f73c-f458dcaef681/mzaf_12480665126131495471.plus.aac.p.m4a';
+      artwork = 'https://is1-ssl.mzstatic.com/image/thumb/Music118/v4/64/46/74/6446747d-c205-06c8-e04f-9e73549646b5/00602527717618.rgb.jpg/600x600bb.jpg';
+    } else if (isBreakcore) {
+      trackTitle = 'Catharsis Invariant (Speedcore Cut)';
+      artist = 'PAINFINDER GROUP';
+      album = 'Psychis Amen Manifold';
+      year = '2026';
+      genre = 'Breakcore / Drill & Bass';
+      previewUrl = 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/1f/18/e2/1f18e22b-264e-88f8-ee89-c196fa9abd7a/mzaf_14184372154331980897.plus.aac.p.m4a';
+      artwork = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop';
+    }
+
+    return finalize({
+      primaryNode: {
+        title: `${trackTitle} // ${artist}`,
+        category: `acoustic synthesis // ${genre.toLowerCase()}`,
+        status: 'master acoustic artifact',
+        source: 'PSYCHIS Acoustic Engine & Public Audio Mesh',
+        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(artist)}`,
+        mediaType: 'music',
+        musicData: {
+          trackTitle,
+          artist,
+          album,
+          year,
+          genre,
+          previewUrl,
+          artwork,
+          duration: 239,
+          fullTrackUrl: `https://en.wikipedia.org/wiki/${encodeURIComponent(artist)}`,
+        },
+        description: `Harmonic and lyrical composition by ${artist}. Features signature syncopated rhythmic structure, distinctive tonal modulation, and seminal cultural resonance in ${genre}.`,
+        detailedSynthesis: `Detailed musicological and acoustic deconstruction of "${trackTitle}". Exploring timbral tension, polyphonic counterpoint, dynamic amplitude contours, and stylistic evolution within ${album} (${year}).`,
+        layout: {
+          width: 390,
+          structure: 'music_card',
+          aspectRatio: 'auto',
+          density: 'comfortable',
+        },
+        targetedInquiries: [
+          `Harmonic progression and key changes in ${trackTitle}`,
+          `Studio production technique and mastering chain of ${album}`,
+          `Cultural influence of ${artist} on contemporary ${genre}`,
+        ],
+        branchNodes: [],
+      },
+    });
+  }
+
   // 0A. Patrick Jane / The Mentalist / Character Analysis
   if (q.includes('patrick jane') || q.includes('mentalist') || (q.includes('patrick') && q.includes('jane'))) {
     return finalize({

@@ -148,33 +148,40 @@ CRITICAL ARCHITECTURAL RULES:
    - "edgeMathematics": LaTeX formula for the linkage or null
    - "edgeCoupling": e.g. "100% Deductive Proof", "Direct Implication"
 
-5. CONTENT-ADAPTIVE DIVERSE NODE STRUCTURE & GEOMETRY (NO REPETITIVE TEMPLATES):
-   * Content dictates form. Every entity MUST have a tailored "layout.structure" suited to its nature.
-   * ABSOLUTE PROHIBITION ON HOMOGENEOUS FORMATS: The canvas must be visually rich and heterogeneous. NEVER use the same structure for all nodes!
+5. CONTENT-ADAPTIVE DIVERSE NODE STRUCTURE & MEDIA ARCHETYPES:
+   * Content dictates form. Every entity MUST have a tailored "layout.structure" and "mediaType" suited to its nature.
+   * AUTONOMOUS VIDEO DECISION:
+     - Practical demonstrations, how-to guides, and step-by-step physical processes (e.g. "how to cook soup", origami, mechanical assembly, lab experiments, sports technique, tutorials).
+     - Audiovisual culture (music videos, video essays, movie trailers, speeches, anime fight scenes, historic broadcasts, or when explicitly requested).
+     - For video: "mediaType": "video", "layout": {"structure": "video_top", "width": 420}, "videoQuery": "clean search query", "videoPlatform": "youtube"
+   * AUTONOMOUS MUSIC DECISION:
+     - Specific tracks or songs (e.g. "Killer Queen", "Creep" -> displays track info, album, release year, harmonic/lyrical analysis).
+     - Bands / Artists (e.g. "PAINFINDER GROUP", "Radiohead" -> presents artist dossier + their defining track).
+     - Musical genres, albums, and music theory concepts with audio examples.
+     - For music: "mediaType": "music", "layout": {"structure": "music_card", "width": 390}, "musicData": {"trackTitle": "Track Name", "artist": "Artist/Band", "album": "Album", "year": "YYYY", "genre": "Genre", "query": "clean search query"}
    * Available structure types:
-     - "split_media_right": WIDE HORIZONTAL CARD (width: 460px). Text & analysis on the LEFT, vertical photo/media on the RIGHT. (E.g. character profiles, anime, film directors).
-     - "split_media_left": WIDE HORIZONTAL CARD (width: 460px). Photo on the LEFT, text on the RIGHT.
-     - "media_top": Vertical card (width: 320-350px). Media at the top, title & concise text below.
-     - "media_bottom": Vertical card (width: 320-350px). Header & rich description FIRST, media artifact at the bottom.
-     - "split_formula": WIDE MATH CARD (width: 485px). Formula card on the LEFT, geometric/physics SVG schematic on the RIGHT.
-     - "formula_top": Vertical math card (width: 340-380px). Formula card at top, schematic below, theorem statement and derivation steps.
-     - "text_dossier": Scholarly card (width: 360-420px). Deep multi-paragraph synthesis, key findings, NO photos.
-     - "minimal_quote": Compact card (width: 295px). High-impact thesis statement or quote.
-     - "kinetic_mechanism": Wide mechanism card (width: 400px). Kinematic viewport + mechanical explanation.
-   * If generating multiple nodes (primary + branchNodes):
-     YOU MUST ASSIGN A DIFFERENT STRUCTURE TO EACH NODE! (e.g. if primary is "split_media_right", the branch must be "media_bottom" or "text_dossier").
-   * Text density: Vary dynamically! Some nodes must have rich deep text ("density": "expanded", 3-4 sentences in description + detailedSynthesis), while others are concise ("density": "compact", 1-2 punchy sentences).
+     - "video_top": Video player strictly spanning the TOP (width: 420px), title & synthesis below.
+     - "music_card": Interactive waveform & acoustic hero card (width: 390px).
+     - "split_media_right": WIDE HORIZONTAL CARD (width: 460px). Text on LEFT, photo on RIGHT.
+     - "split_media_left": WIDE HORIZONTAL CARD (width: 460px). Photo on LEFT, text on RIGHT.
+     - "media_top": Vertical card (width: 320-350px). Photo at top, text below.
+     - "media_bottom": Vertical card (width: 320-350px). Text first, photo below.
+     - "split_formula": WIDE MATH CARD (width: 485px). Formula card on LEFT, SVG schematic on RIGHT.
+     - "formula_top": Vertical math card (width: 340-380px). Formula at top, schematic, proof steps.
+     - "text_dossier": Scholarly card (width: 360-420px). Deep multi-paragraph synthesis, NO photos.
+     - "minimal_quote": Compact card (width: 295px). High-impact quote.
+     - "kinetic_mechanism": Wide mechanism card (width: 400px). Kinematic simulation.
+   * If generating multiple nodes: ASSIGN A DIFFERENT STRUCTURE TO EACH NODE!
 
 7. RELATIONAL LINKAGE RULES (MULTI-NODE CONNECTIONS ALLOWED):
    * When existing canvas nodes are provided in the prompt context, evaluate whether the new topic has an AUTHENTIC, GENUINE conceptual, historical, causal, or mathematical connection to ANY of the existing canvas nodes.
-   * THE MODEL CAN AUTOMATICALLY CONNECT TO MORE THAN ONE NODE AND CONNECT NODES TO EACH OTHER! If the new concept relates to multiple existing nodes (e.g. bridges two concepts or derives from multiple sources), return all genuine connections in the "connections" array!
+   * THE MODEL CAN AUTOMATICALLY CONNECT TO MORE THAN ONE NODE AND CONNECT NODES TO EACH OTHER! If the new concept relates to multiple existing nodes, return all genuine connections in the "connections" array!
    * Each entry in "connections" must specify:
      - "nodeId": The exact ID of the existing canvas node it connects to (e.g. "0x01", "0x02").
-     - "connectionExplanation": 1-2 clear, precise sentences explaining why and how these two concepts connect. This text is displayed to the user when hovering over the linkage.
+     - "connectionExplanation": 1-2 clear, precise sentences explaining why and how these two concepts connect.
      - "connectionLabel": Short 1-2 words (e.g. "derives from", "algebraic dual", "harmonic basis").
-     - "connectionFormula": LaTeX mathematical formula ONLY IF one concept mathematically derives directly from the other (e.g. Pythagorean theorem derived through square area dissection). If there is NO direct mathematical derivation, this MUST be null!
+     - "connectionFormula": LaTeX mathematical formula ONLY IF one concept mathematically derives directly from the other. Otherwise null!
      - "style": "basic" | "arrowed" | "dashed" (default "basic").
-   * If this inquiry reveals or relates two existing nodes to each other, you may also include an entry with "sourceNodeId" and "targetNodeId".
    * If NO genuine connection exists: "connections": [] (empty array).
    * ABSOLUTE PROHIBITION: DO NOT force a connection if the topics are unrelated!
 
@@ -187,6 +194,10 @@ CRITICAL ARCHITECTURAL RULES:
   "url": "https://...",
   "description": "2-3 precise sentences directly answering the inquiry.",
   "detailedSynthesis": "Extended technical dossier or cultural exploration.",
+  "mediaType": "photo",
+  "videoQuery": null,
+  "videoPlatform": "youtube",
+  "musicData": null,
   "connections": [
     {
       "nodeId": "0x01",
@@ -201,8 +212,8 @@ CRITICAL ARCHITECTURAL RULES:
   "connectionLabel": null,
   "connectionFormula": null,
   "layout": {
-    "width": 460,
-    "structure": "split_media_right",
+    "width": 420,
+    "structure": "auto",
     "aspectRatio": "auto",
     "mediaAspect": "auto",
     "mediaMaxHeight": 220,
@@ -218,7 +229,7 @@ CRITICAL ARCHITECTURAL RULES:
   "targetedInquiries": ["Question 1", "Question 2"],
   "branchNodes": []
 }
-Return ONLY valid JSON. Note: "formula", "formulaType", "schemaSvg", and "derivationSteps" must be null / [] for any character, humanities, or non-math inquiry. For math, use "structure": "split_formula" or "formula_top" with no photos.
+Return ONLY valid JSON. Note: For video queries, set "mediaType": "video", "layout": {"structure": "video_top"}, "videoQuery": "clean search query". For music queries, set "mediaType": "music", "layout": {"structure": "music_card"}, "musicData": {"trackTitle": "...", "artist": "...", "album": "...", "year": "...", "genre": "...", "query": "..."}.
 """
 
 # ?? API ROUTES ??
@@ -869,6 +880,197 @@ def proxy_image_endpoint(url: str = Query(..., description="Target image URL to 
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Image proxy error: {str(e)}")
+
+# 🎬 DYNAMIC VIDEO SEARCH (BING VIDEOS + DDG FALLBACK) 🎬
+def search_web_videos(query: str, count: int = 25) -> List[Dict[str, Any]]:
+    results = []
+    seen_urls = set()
+
+    # 1. Primary: Direct Bing Videos Scraping (Extracts YouTube & TikTok cards with zero blocks)
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+        r = requests.get('https://www.bing.com/videos/search', params={'q': query, 'form': 'HDRSC3'}, headers=headers, timeout=6)
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            video_divs = soup.find_all('div', class_=re.compile(r'mc_vtvc'))
+            for v_div in video_divs:
+                mmeta_raw = v_div.get('mmeta')
+                if not mmeta_raw:
+                    continue
+                try:
+                    mmeta = json.loads(mmeta_raw)
+                    url = mmeta.get('murl') or mmeta.get('pgurl') or ''
+                    if not url or url in seen_urls:
+                        continue
+                    seen_urls.add(url)
+
+                    # Extract metadata from aria-label or child elements
+                    aria = ''
+                    a_tag = v_div.find('a', class_=re.compile(r'mc_vtvc_link')) or v_div.find('a', attrs={'aria-label': True})
+                    if a_tag:
+                        aria = a_tag.get('aria-label', '')
+
+                    title = ''
+                    duration = ''
+                    uploader = ''
+                    if aria:
+                        parts = aria.split(' · ')
+                        title = re.sub(r' from (YouTube|TikTok|Vimeo).*$', '', parts[0], flags=re.IGNORECASE).strip()
+                        for p in parts:
+                            if 'duration:' in p.lower():
+                                duration = re.sub(r'duration:\s*', '', p, flags=re.IGNORECASE).strip()
+                            if 'uploaded by' in p.lower():
+                                uploader = re.sub(r'uploaded by\s*', '', p, flags=re.IGNORECASE).split('·')[0].strip()
+
+                    yt_match = re.search(r'(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&?/#\s]{11})', url, re.IGNORECASE)
+                    is_tiktok = 'tiktok.com' in url.lower()
+                    video_id = yt_match.group(1) if yt_match else None
+
+                    thumb = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg" if video_id else mmeta.get('turl', '')
+
+                    results.append({
+                        "id": f"vid-{video_id or len(results)}-{int(time.time())}",
+                        "title": title or query,
+                        "duration": duration or "",
+                        "uploader": uploader or ("YouTube Creator" if video_id else "Web Video"),
+                        "url": url,
+                        "platform": "youtube" if video_id else ("tiktok" if is_tiktok else "web"),
+                        "videoId": video_id,
+                        "thumbnail": thumb,
+                    })
+                    if len(results) >= count:
+                        break
+                except Exception:
+                    continue
+    except Exception as e:
+        print(f"[Bing Video Search Error]: {e}")
+
+    # 2. Secondary fallback: DuckDuckGo Videos
+    if len(results) == 0 and DDGS:
+        try:
+            ddgs_client = DDGS()
+            raw_vids = list(ddgs_client.videos(query, max_results=count))
+            for v in raw_vids:
+                url = v.get('content') or ''
+                if not url or url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                yt_m = re.search(r'(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([^&?/#\s]{11})', url, re.IGNORECASE)
+                vid = yt_m.group(1) if yt_m else None
+                results.append({
+                    "id": f"ddg-vid-{vid or len(results)}",
+                    "title": v.get('title') or query,
+                    "duration": v.get('duration') or "",
+                    "uploader": v.get('uploader') or "YouTube",
+                    "url": url,
+                    "platform": "youtube" if vid else "web",
+                    "videoId": vid,
+                    "thumbnail": f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg" if vid else v.get('images', {}).get('medium', ''),
+                })
+        except Exception as e:
+            print(f"[DDG Video Fallback Error]: {e}")
+
+    return results
+
+@app.get("/api/search-videos")
+@app.get("/api/search/videos")
+def search_videos_endpoint(
+    q: str = Query(..., description="Video search query string"),
+    count: int = Query(25, description="Max videos to return")
+):
+    query = q.strip()
+    if not query:
+        return {"success": True, "results": []}
+    results = search_web_videos(query=query, count=count)
+    return {"success": True, "query": query, "count": len(results), "results": results}
+
+# 🎵 DYNAMIC MUSIC & TRACK SEARCH (ITUNES + DEEZER) 🎵
+def search_music_tracks(query: str, count: int = 15) -> List[Dict[str, Any]]:
+    results = []
+
+    # 1. Primary: Apple iTunes Search API (High quality 30s AAC preview, 600x600 artwork, zero API key)
+    try:
+        r = requests.get(
+            'https://itunes.apple.com/search',
+            params={'term': query, 'media': 'music', 'entity': 'song', 'limit': count},
+            headers={'User-Agent': 'PSYCHIS-KnowledgeCanvas/1.0'},
+            timeout=6
+        )
+        if r.status_code == 200:
+            data = r.json()
+            for track in data.get('results', []):
+                t_name = track.get('trackName')
+                preview = track.get('previewUrl')
+                if t_name and preview:
+                    art = (track.get('artworkUrl100') or '').replace('100x100bb', '600x600bb')
+                    dur = round(track.get('trackTimeMillis', 30000) / 1000) if track.get('trackTimeMillis') else 30
+                    rel_date = track.get('releaseDate') or ''
+                    year = rel_date[:4] if len(rel_date) >= 4 else ''
+                    results.append({
+                        "id": f"itunes-{track.get('trackId', len(results))}",
+                        "trackTitle": t_name,
+                        "artist": track.get('artistName', 'Unknown Artist'),
+                        "album": track.get('collectionName', 'Single / EP'),
+                        "year": year,
+                        "genre": track.get('primaryGenreName', 'Music'),
+                        "previewUrl": preview,
+                        "fullTrackUrl": track.get('trackViewUrl', ''),
+                        "duration": dur,
+                        "artwork": art,
+                        "source": "Apple Music / iTunes"
+                    })
+    except Exception as e:
+        print(f"[iTunes Music Search Error]: {e}")
+
+    # 2. Secondary fallback: Deezer Search API
+    if len(results) == 0:
+        try:
+            r = requests.get(
+                'https://api.deezer.com/search',
+                params={'q': query},
+                headers={'User-Agent': 'Mozilla/5.0'},
+                timeout=6
+            )
+            if r.status_code == 200:
+                data = r.json()
+                for track in data.get('data', [])[:count]:
+                    t_title = track.get('title')
+                    preview = track.get('preview')
+                    if t_title and preview:
+                        album_info = track.get('album', {})
+                        art = album_info.get('cover_big') or album_info.get('cover_medium') or ''
+                        results.append({
+                            "id": f"deezer-{track.get('id', len(results))}",
+                            "trackTitle": t_title,
+                            "artist": track.get('artist', {}).get('name', 'Unknown Artist'),
+                            "album": album_info.get('title', 'Single'),
+                            "year": "",
+                            "genre": "Music",
+                            "previewUrl": preview,
+                            "fullTrackUrl": track.get('link', ''),
+                            "duration": track.get('duration', 30),
+                            "artwork": art,
+                            "source": "Deezer"
+                        })
+        except Exception as e:
+            print(f"[Deezer Music Search Error]: {e}")
+
+    return results
+
+@app.get("/api/search-music")
+@app.get("/api/search/music")
+def search_music_endpoint(
+    q: str = Query(..., description="Music track or artist query string"),
+    count: int = Query(15, description="Max tracks to return")
+):
+    query = q.strip()
+    if not query:
+        return {"success": True, "results": []}
+    results = search_music_tracks(query=query, count=count)
+    return {"success": True, "query": query, "count": len(results), "results": results}
 
 if __name__ == "__main__":
     import uvicorn

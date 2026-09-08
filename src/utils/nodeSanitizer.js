@@ -93,6 +93,8 @@ export function sanitizeLayout(rawLayout) {
   }
 
   const validStructures = new Set([
+    'video_top',          // Video strictly spanning top, text below (width: 400-440px)
+    'music_card',         // Waveform & acoustic card (width: 380-410px)
     'split_media_right',  // Photo on right, text on left (width: 440-490px)
     'split_media_left',   // Photo on left, text on right (width: 440-490px)
     'media_top',          // Photo/media on top, text below (width: 320-350px)
@@ -116,7 +118,9 @@ export function sanitizeLayout(rawLayout) {
 
   // Calculate intelligent minimum default width based on structure
   let defaultWidth = 335;
-  if (structure === 'split_media_right' || structure === 'split_media_left') defaultWidth = 460;
+  if (structure === 'video_top') defaultWidth = 420;
+  else if (structure === 'music_card') defaultWidth = 390;
+  else if (structure === 'split_media_right' || structure === 'split_media_left') defaultWidth = 460;
   else if (structure === 'split_formula') defaultWidth = 480;
   else if (structure === 'text_dossier' || structure === 'dossier') defaultWidth = 360;
   else if (structure === 'kinetic_mechanism' || structure === 'mechanism') defaultWidth = 400;
@@ -237,6 +241,49 @@ export function sanitizeNodeData(rawData) {
 
   const primaryPhoto = rawData.primaryPhoto || (Array.isArray(photos) && photos[0]) || null;
 
+  // Video & Music Archetype Sanitization
+  const isVideo =
+    rawData.mediaType === 'video' ||
+    Boolean(rawData.videoData) ||
+    Boolean(rawData.videoQuery) ||
+    layout?.structure === 'video_top';
+
+  const isMusic =
+    rawData.mediaType === 'music' ||
+    Boolean(rawData.musicData) ||
+    layout?.structure === 'music_card';
+
+  const mediaType = isVideo ? 'video' : isMusic ? 'music' : sanitizeString(rawData.mediaType, 'photo');
+
+  const videoData = isVideo && rawData.videoData ? {
+    id: sanitizeString(rawData.videoData.id, `vid-${Date.now()}`),
+    videoId: sanitizeString(rawData.videoData.videoId, null),
+    title: sanitizeString(rawData.videoData.title, title),
+    duration: sanitizeString(rawData.videoData.duration, ''),
+    uploader: sanitizeString(rawData.videoData.uploader, 'Video Source'),
+    url: sanitizeString(rawData.videoData.url, ''),
+    platform: sanitizeString(rawData.videoData.platform, 'youtube'),
+    thumbnail: sanitizeString(rawData.videoData.thumbnail, ''),
+  } : null;
+
+  const musicData = isMusic && rawData.musicData ? {
+    id: sanitizeString(rawData.musicData.id, `music-${Date.now()}`),
+    trackTitle: sanitizeString(rawData.musicData.trackTitle || rawData.musicData.title, title),
+    artist: sanitizeString(rawData.musicData.artist, 'Unknown Artist'),
+    album: sanitizeString(rawData.musicData.album, 'Single / EP'),
+    year: sanitizeString(rawData.musicData.year, ''),
+    genre: sanitizeString(rawData.musicData.genre, 'Music'),
+    previewUrl: sanitizeString(rawData.musicData.previewUrl, ''),
+    fullTrackUrl: sanitizeString(rawData.musicData.fullTrackUrl, ''),
+    duration: typeof rawData.musicData.duration === 'number' ? rawData.musicData.duration : 30,
+    artwork: sanitizeString(rawData.musicData.artwork, ''),
+    source: sanitizeString(rawData.musicData.source, 'Public Audio Engine'),
+  } : null;
+
+  const savedTimestamp = typeof rawData.savedTimestamp === 'number' && !isNaN(rawData.savedTimestamp)
+    ? rawData.savedTimestamp
+    : 0;
+
   return {
     title,
     category,
@@ -245,6 +292,12 @@ export function sanitizeNodeData(rawData) {
     detailedSynthesis,
     source,
     url,
+    mediaType,
+    videoData,
+    videoQuery: sanitizeString(rawData.videoQuery, null),
+    videoPlatform: sanitizeString(rawData.videoPlatform, 'youtube'),
+    musicData,
+    savedTimestamp,
     formula,
     formulaType,
     schemaSvg,
