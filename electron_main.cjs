@@ -1,5 +1,7 @@
 const { app, BrowserWindow, session, shell } = require('electron');
 const path = require('path');
+const http = require('http');
+const fs = require('fs');
 
 // Enable hardware acceleration and seamless media/video playback
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -7,7 +9,89 @@ app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-zero-copy');
 app.commandLine.appendSwitch('ignore-certificate-errors');
 
-function createWindow() {
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+};
+
+let localServer = null;
+
+function startLocalServer(distPath) {
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      try {
+        const parsedUrl = new URL(req.url, 'http://127.0.0.1');
+        let pathname = decodeURIComponent(parsedUrl.pathname);
+        if (pathname === '/' || pathname === '') {
+          pathname = '/index.html';
+        }
+
+        let filePath = path.join(distPath, pathname);
+        if (!filePath.startsWith(distPath)) {
+          res.writeHead(403);
+          res.end('Forbidden');
+          return;
+        }
+
+        fs.stat(filePath, (err, stats) => {
+          if (err || !stats.isFile()) {
+            filePath = path.join(distPath, 'index.html');
+          }
+
+          const ext = path.extname(filePath).toLowerCase();
+          const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+          fs.readFile(filePath, (readErr, content) => {
+            if (readErr) {
+              res.writeHead(404);
+              res.end('Not Found');
+            } else {
+              res.writeHead(200, {
+                'Content-Type': contentType,
+                'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 'no-cache',
+              });
+              res.end(content);
+            }
+          });
+        });
+      } catch (_) {
+        res.writeHead(500);
+        res.end('Server Error');
+      }
+    });
+
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      localServer = server;
+      resolve(`http://127.0.0.1:${port}`);
+    });
+
+    server.on('error', (err) => {
+      console.warn('[Local Server Notice]:', err.message);
+      resolve(null);
+    });
+  });
+}
+
+function createWindow(targetUrl) {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -40,7 +124,7 @@ function createWindow() {
     if (!isMain) {
       return; // Allow embedded browser frames to navigate freely
     }
-    if (url !== win.webContents.getURL() && !url.startsWith('file://') && !url.includes('localhost:')) {
+    if (url !== win.webContents.getURL() && !url.startsWith('file://') && !url.includes('localhost:') && !url.includes('127.0.0.1:')) {
       event.preventDefault();
       shell.openExternal(url);
     }
@@ -56,7 +140,11 @@ function createWindow() {
     }
   });
 
-  win.loadFile(path.join(__dirname, 'dist', 'index.html'));
+  if (targetUrl) {
+    win.loadURL(targetUrl);
+  } else {
+    win.loadFile(path.join(__dirname, 'dist', 'index.html'));
+  }
 
   win.once('ready-to-show', () => {
     win.show();
@@ -64,17 +152,12 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  // Strip or spoof Referer to match target host so hotlink protections (Fandom, Wikia, DeviantArt, etc.) never block images,
-  // and ensure YouTube embeds receive a valid Referer/Origin to prevent YouTube Error 153 in Electron file:// sandbox
+  // Strip or spoof Referer only for protected images so hotlink protections (Fandom, Wikia, DeviantArt, etc.) never block images
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     const requestHeaders = { ...details.requestHeaders };
     const url = details.url;
 
-    if (/youtube\.com|youtube-nocookie\.com|googlevideo\.com|ytimg\.com/i.test(url)) {
-      requestHeaders['Referer'] = 'https://www.youtube.com/';
-      requestHeaders['Origin'] = 'https://www.youtube.com';
-      delete requestHeaders['Sec-Fetch-Site'];
-    } else if (
+    if (
       details.resourceType === 'image' ||
       /\.(jpe?g|png|webp|gif|svg|avif)($|\?)/i.test(url) ||
       /wikia\.nocookie|fandom|deviantart|pinimg|pinimg\.com|wikimedia|wp\.com/i.test(url)
@@ -159,13 +242,23 @@ app.whenReady().then(async () => {
     console.warn('Cache clear notice:', err);
   }
 
-  createWindow();
+  let appUrl = null;
+  try {
+    appUrl = await startLocalServer(path.join(__dirname, 'dist'));
+  } catch (err) {
+    console.warn('Local server initialization warning:', err);
+  }
+
+  createWindow(appUrl);
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(appUrl);
   });
 });
 
 app.on('window-all-closed', () => {
+  if (localServer) {
+    try { localServer.close(); } catch (_) {}
+  }
   if (process.platform !== 'darwin') app.quit();
 });
