@@ -928,13 +928,80 @@ export async function searchLiveVideos(queryText) {
 
 export const searchWebVideos = searchLiveVideos;
 
+let cachedSpotifyToken = null;
+let spotifyTokenExpiry = 0;
+
+async function getSpotifyAccessToken(clientId, clientSecret) {
+  if (cachedSpotifyToken && Date.now() < spotifyTokenExpiry) {
+    return cachedSpotifyToken;
+  }
+  try {
+    const creds = btoa(`${clientId}:${clientSecret}`);
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${creds}`,
+      },
+      body: 'grant_type=client_credentials',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.access_token) {
+        cachedSpotifyToken = data.access_token;
+        spotifyTokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
+        return cachedSpotifyToken;
+      }
+    }
+  } catch (err) {
+    console.warn('[Spotify Token Error]:', err.message);
+  }
+  return null;
+}
+
 /**
- * Searches and fetches audio preview tracks and metadata across public endpoints (iTunes / Deezer).
+ * Searches and fetches audio preview tracks and metadata across public endpoints (Spotify / iTunes / Deezer).
  * Returns array of { trackTitle, artist, album, year, genre, previewUrl, fullTrackUrl, duration, artwork }
  */
 export async function searchMusicTracks(queryText) {
   if (!queryText || typeof queryText !== 'string' || !queryText.trim()) return [];
   const cleanQ = queryText.trim();
+
+  // 0. Official Spotify Web API (if user entered Client ID & Client Secret in settings)
+  try {
+    const clientId = typeof localStorage !== 'undefined' ? localStorage.getItem('psychis_spotify_client_id') || '' : '';
+    const clientSecret = typeof localStorage !== 'undefined' ? localStorage.getItem('psychis_spotify_client_secret') || '' : '';
+    if (clientId.trim() && clientSecret.trim()) {
+      const token = await getSpotifyAccessToken(clientId.trim(), clientSecret.trim());
+      if (token) {
+        const sRes = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(cleanQ)}&type=track&limit=10`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          const items = sData.tracks?.items || [];
+          if (items.length > 0) {
+            return items.map((track) => ({
+              id: `spotify-${track.id}`,
+              trackTitle: track.name,
+              artist: track.artists?.map((a) => a.name).join(', ') || 'Unknown Artist',
+              album: track.album?.name || 'Single',
+              year: track.album?.release_date ? track.album.release_date.substring(0, 4) : '',
+              genre: 'Spotify Track',
+              previewUrl: track.preview_url || '',
+              fullTrackUrl: track.external_urls?.spotify || '',
+              duration: track.duration_ms ? Math.round(track.duration_ms / 1000) : 30,
+              artwork: track.album?.images?.[0]?.url || '',
+              source: 'Spotify',
+            }));
+          }
+        }
+      }
+    }
+  } catch (spotErr) {
+    console.warn('[Spotify search error]:', spotErr.message);
+  }
 
   // 1. Try local proxy endpoint first (/api/search-music)
   try {

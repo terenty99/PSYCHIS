@@ -900,6 +900,45 @@ export async function testGroqConnection(apiKey, modelName) {
 }
 
 /**
+ * Tests Spotify Developer credentials (Client ID + Client Secret) using OAuth Client Credentials flow.
+ */
+export async function testSpotifyConnection(clientId, clientSecret) {
+  const cId = (clientId || '').trim();
+  const cSec = (clientSecret || '').trim();
+  if (!cId || !cSec) {
+    return { success: false, message: 'Both Spotify Client ID and Client Secret are required.' };
+  }
+  const startTime = performance.now();
+  try {
+    const creds = btoa(`${cId}:${cSec}`);
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${creds}`,
+      },
+      body: 'grant_type=client_credentials',
+    });
+    const latencyMs = Math.round(performance.now() - startTime);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.access_token) {
+        return { success: true, message: `Connected to Spotify Web API (${latencyMs}ms)`, token: data.access_token };
+      }
+    }
+    const errText = await res.text();
+    let msg = errText;
+    try {
+      const parsed = JSON.parse(errText);
+      msg = parsed.error_description || parsed.error || errText;
+    } catch (_) {}
+    return { success: false, message: `Spotify Error (${res.status}): ${msg}` };
+  } catch (err) {
+    return { success: false, message: `Connection failed: ${err.message}` };
+  }
+}
+
+/**
  * Fetches real, high-resolution media across multi-provider open web indexes (Openverse, Commons, Wikipedia, Archives).
  * Prioritizes live multi-provider archival search with strict timeouts and cluster deduplication.
  */
