@@ -284,6 +284,23 @@ export function sanitizeNodeData(rawData) {
     ? rawData.savedTimestamp
     : 0;
 
+  let effectiveLayout = layout;
+  if (isVideo) {
+    effectiveLayout = {
+      ...(layout || {}),
+      structure: 'video_top',
+      width: layout?.width || 420,
+      aspectRatio: '16:9',
+      mediaAspect: '16:9',
+    };
+  } else if (isMusic) {
+    effectiveLayout = {
+      ...(layout || {}),
+      structure: 'music_card',
+      width: layout?.width || 390,
+    };
+  }
+
   return {
     title,
     category,
@@ -320,6 +337,6 @@ export function sanitizeNodeData(rawData) {
     connectionLabel: sanitizeString(rawData.connectionLabel, null),
     connectionFormula: sanitizeFormula(rawData.connectionFormula),
     connectedNodeId: sanitizeString(rawData.connectedNodeId, null),
-    ...(layout ? { layout } : {}),
+    ...(effectiveLayout ? { layout: effectiveLayout } : {}),
   };
 }

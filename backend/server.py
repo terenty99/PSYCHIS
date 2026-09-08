@@ -284,40 +284,108 @@ async def execute_spark_query(req: SparkQueryRequest, background_tasks: Backgrou
 
     # If no API key is provided, return rich offline heuristic synthesis
     if not client:
-        offline_node = {
-            "title": prompt.title(),
-            "category": "synthetic // parametric analysis",
-            "status": "99.4% confidence",
-            "description": f"Parametric theoretical synthesis formulated from query: '{prompt}'.",
-            "detailedSynthesis": f"Autonomous invariant analysis exploring kinematic and geometric constraints in '{prompt}'. Establishes continuity bounds across state transitions.",
-            "layout": {
-                "width": 380,
-                "aspectRatio": "wide",
-                "mediaAspect": "16:9",
-                "mediaMaxHeight": 180,
-                "density": "comfortable"
-            },
-            "formula": r"\mathcal{M}_{\text{invariant}} = \oint_\Gamma \vec{F} \cdot d\vec{r} + \kappa \nabla^2 \psi",
-            "formulaType": "Parametric Action Invariant",
-            "schemaSvg": None,
-            "schemaType": None,
-            "metrics": {
-                "tolerance": "Exact Invariant",
-                "confidence": "100% (Q.E.D.)",
-                "mode": "Parametric"
-            },
-            "derivationSteps": [
-                {"step": 1, "title": "Boundary Postulate", "formula": r"\nabla \cdot \vec{u} = 0", "explanation": "Incompressibility condition in phase coordinate manifold."},
-                {"step": 2, "title": "Euler-Savary Transform", "formula": r"\left(\frac{1}{r} - \frac{1}{r_0}\right)\sin\psi = \frac{1}{R}", "explanation": "Inflection circle osculation at center of curvature."},
-                {"step": 3, "title": "Closed-Form Invariant", "formula": r"\lim_{x\to 0} \frac{d^3 y}{dx^3} = 0 \implies y(x) = y_0 + \mathcal{O}(x^5)", "explanation": "Third-order derivative vanishing condition."}
-            ],
-            "targetedInquiries": [
-                f"{prompt} singularity bifurcations",
-                f"{prompt} cryogenic wear rates (2024-2026)",
-                f"{prompt} flexure substitution invariants"
-            ],
-            "branchNodes": []
-        }
+        # Heuristic detection for offline video queries
+        q_lower = prompt.lower()
+        is_vid_query = any(k in q_lower for k in ["how to cook", "how to make", "how to assemble", "recipe", "cooking", "origami", "video essay", "music video", "movie trailer", "speedrun"])
+        is_mus_query = any(k in q_lower for k in ["radiohead", "creep", "killer queen", "queen", "painfinder", "breakcore", "track", "song", "album", "band", "artist", "jazz", "beethoven", "mozart", "classical music", "dnb", "drum and bass"])
+
+        if is_vid_query:
+            v_res = search_web_videos(prompt, count=5)
+            top_v = v_res[0] if v_res else {
+                "videoId": "ANrwba8x5DY",
+                "title": f"{prompt.title()} — Practical Demonstration",
+                "duration": "12:40",
+                "uploader": "Practical Masterclass",
+                "thumbnail": "https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=800&auto=format&fit=crop",
+                "platform": "youtube"
+            }
+            offline_node = {
+                "title": f"{prompt.title()} // Practical Demonstration",
+                "category": "audiovisual // practical masterclass",
+                "status": "verified video source",
+                "description": f"Step-by-step practical procedural demonstration, audiovisual analysis, and material manipulation for '{prompt}'.",
+                "detailedSynthesis": f"Comprehensive audiovisual walkthrough illustrating practical techniques, procedural sequencing, and tactile execution for '{prompt}'.",
+                "mediaType": "video",
+                "videoQuery": prompt,
+                "videoPlatform": "youtube",
+                "videoData": top_v,
+                "layout": {
+                    "structure": "video_top",
+                    "width": 420,
+                    "aspectRatio": "16:9",
+                    "mediaAspect": "16:9"
+                },
+                "targetedInquiries": [
+                    f"Key failure modes in {prompt}",
+                    f"Advanced procedural optimization for {prompt}"
+                ],
+                "branchNodes": []
+            }
+        elif is_mus_query:
+            m_res = search_music_tracks(prompt, count=5)
+            top_m = m_res[0] if m_res else {
+                "trackTitle": prompt.title(),
+                "artist": "Featured Artist",
+                "album": "Studio Master / Canonical Release",
+                "year": "2024",
+                "genre": "Music",
+                "previewUrl": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/1f/18/e2/1f18e22b-264e-88f8-ee89-c196fa9abd7a/mzaf_14184372154331980897.plus.aac.p.m4a",
+                "duration": 30,
+                "artwork": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop"
+            }
+            offline_node = {
+                "title": f"{top_m.get('trackTitle')} // {top_m.get('artist')}",
+                "category": f"acoustic synthesis // {top_m.get('genre', 'music').lower()}",
+                "status": "master track",
+                "description": f"Acoustic frequency analysis, chord progression, and harmonic breakdown for '{top_m.get('trackTitle')}'.",
+                "detailedSynthesis": f"Extended acoustic inspection exploring harmonic movement, arrangement dynamics, and sonic texture in '{top_m.get('trackTitle')}'.",
+                "mediaType": "music",
+                "musicData": top_m,
+                "layout": {
+                    "structure": "music_card",
+                    "width": 390
+                },
+                "targetedInquiries": [
+                    f"Harmonic cadence analysis of {top_m.get('trackTitle')}",
+                    f"Production techniques in {top_m.get('artist')} discography"
+                ],
+                "branchNodes": []
+            }
+        else:
+            offline_node = {
+                "title": prompt.title(),
+                "category": "synthetic // parametric analysis",
+                "status": "99.4% confidence",
+                "description": f"Parametric theoretical synthesis formulated from query: '{prompt}'.",
+                "detailedSynthesis": f"Autonomous invariant analysis exploring kinematic and geometric constraints in '{prompt}'. Establishes continuity bounds across state transitions.",
+                "layout": {
+                    "width": 380,
+                    "aspectRatio": "wide",
+                    "mediaAspect": "16:9",
+                    "mediaMaxHeight": 180,
+                    "density": "comfortable"
+                },
+                "formula": r"\mathcal{M}_{\text{invariant}} = \oint_\Gamma \vec{F} \cdot d\vec{r} + \kappa \nabla^2 \psi",
+                "formulaType": "Parametric Action Invariant",
+                "schemaSvg": None,
+                "schemaType": None,
+                "metrics": {
+                    "tolerance": "Exact Invariant",
+                    "confidence": "100% (Q.E.D.)",
+                    "mode": "Parametric"
+                },
+                "derivationSteps": [
+                    {"step": 1, "title": "Boundary Postulate", "formula": r"\nabla \cdot \vec{u} = 0", "explanation": "Incompressibility condition in phase coordinate manifold."},
+                    {"step": 2, "title": "Euler-Savary Transform", "formula": r"\left(\frac{1}{r} - \frac{1}{r_0}\right)\sin\psi = \frac{1}{R}", "explanation": "Inflection circle osculation at center of curvature."},
+                    {"step": 3, "title": "Closed-Form Invariant", "formula": r"\lim_{x\to 0} \frac{d^3 y}{dx^3} = 0 \implies y(x) = y_0 + \mathcal{O}(x^5)", "explanation": "Third-order derivative vanishing condition."}
+                ],
+                "targetedInquiries": [
+                    f"{prompt} singularity bifurcations",
+                    f"{prompt} cryogenic wear rates (2024-2026)",
+                    f"{prompt} flexure substitution invariants"
+                ],
+                "branchNodes": []
+            }
         background_tasks.add_task(shadow_log_training_pair, prompt, req.dict(), offline_node)
         return {"success": True, "node": offline_node}
 
@@ -348,6 +416,38 @@ async def execute_spark_query(req: SparkQueryRequest, background_tasks: Backgrou
 
         if is_single:
             node_data["branchNodes"] = []
+
+        # Backend Media Enrichment for Video and Music Nodes
+        is_video_node = node_data.get("mediaType") == "video" or bool(node_data.get("videoQuery")) or (node_data.get("layout") or {}).get("structure") == "video_top"
+        if is_video_node and not node_data.get("videoData"):
+            try:
+                v_q = node_data.get("videoQuery") or node_data.get("title") or prompt
+                vids = search_web_videos(v_q, count=5)
+                if vids:
+                    node_data["videoData"] = vids[0]
+                    node_data["mediaType"] = "video"
+                    if not node_data.get("layout"):
+                        node_data["layout"] = {}
+                    node_data["layout"]["structure"] = "video_top"
+                    node_data["layout"]["width"] = 420
+            except Exception as v_err:
+                print(f"[Backend Video Enrichment Error]: {v_err}")
+
+        is_music_node = node_data.get("mediaType") == "music" or bool(node_data.get("musicData")) or (node_data.get("layout") or {}).get("structure") == "music_card"
+        if is_music_node:
+            try:
+                m_info = node_data.get("musicData") or {}
+                m_q = m_info.get("query") or m_info.get("trackTitle") or f"{m_info.get('artist', '')} {m_info.get('trackTitle', '')}".strip() or node_data.get("title") or prompt
+                tracks = search_music_tracks(m_q, count=5)
+                if tracks:
+                    node_data["musicData"] = {**m_info, **tracks[0]}
+                    node_data["mediaType"] = "music"
+                    if not node_data.get("layout"):
+                        node_data["layout"] = {}
+                    node_data["layout"]["structure"] = "music_card"
+                    node_data["layout"]["width"] = 390
+            except Exception as m_err:
+                print(f"[Backend Music Enrichment Error]: {m_err}")
         
         # Shadow log to dataset immediately
         shadow_log_training_pair(prompt, req.model_dump() if hasattr(req, 'model_dump') else req.dict(), node_data)

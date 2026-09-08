@@ -531,6 +531,56 @@ export const NODE_TEMPLATES = {
       ],
     },
   },
+  video: {
+    type: 'video',
+    category: 'audiovisual // masterclass',
+    status: 'video source',
+    width: 420,
+    height: 380,
+    defaultData: {
+      title: 'Practical Video Demonstration',
+      mediaType: 'video',
+      layout: {
+        structure: 'video_top',
+        width: 420,
+      },
+      videoPlatform: 'youtube',
+      videoData: {
+        videoId: 'ANrwba8x5DY',
+        title: 'Step-by-Step Practical Demonstration',
+        uploader: 'Practical Masterclass',
+        duration: '12:40',
+        thumbnail: 'https://images.unsplash.com/photo-1547592180-85f173990554?q=80&w=800&auto=format&fit=crop',
+      },
+      description: 'Step-by-step practical procedural demonstration, audiovisual analysis, and material manipulation.',
+    },
+  },
+  music: {
+    type: 'music',
+    category: 'acoustic // sound synthesis',
+    status: 'master track',
+    width: 390,
+    height: 340,
+    defaultData: {
+      title: 'Creep // Radiohead',
+      mediaType: 'music',
+      layout: {
+        structure: 'music_card',
+        width: 390,
+      },
+      musicData: {
+        trackTitle: 'Creep (Acoustic)',
+        artist: 'Radiohead',
+        album: 'Pablo Honey',
+        year: '1992',
+        genre: 'Alternative Rock',
+        previewUrl: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/1f/18/e2/1f18e22b-264e-88f8-ee89-c196fa9abd7a/mzaf_14184372154331980897.plus.aac.p.m4a',
+        duration: 30,
+        artwork: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop',
+      },
+      description: 'Acoustic waveform analysis, chord progression, and harmonic frequency breakdown.',
+    },
+  },
 };
 
 /**

@@ -109,6 +109,23 @@ export const actions = {
         audioState.isPlaying = false;
         notify();
       });
+    } else if (trackObj.trackTitle || trackObj.artist) {
+      // Dynamically resolve preview URL on demand if missing
+      import('../utils/visualSearchEngine.js').then(({ searchMusicTracks }) => {
+        const q = `${trackObj.artist || ''} ${trackObj.trackTitle || ''}`.trim();
+        searchMusicTracks(q).then((tracks) => {
+          if (Array.isArray(tracks) && tracks.length > 0 && tracks[0].previewUrl) {
+            trackObj.previewUrl = tracks[0].previewUrl;
+            if (!trackObj.artwork && tracks[0].artwork) trackObj.artwork = tracks[0].artwork;
+            audio.src = trackObj.previewUrl;
+            audio.load();
+            audio.play().then(() => {
+              audioState.isPlaying = true;
+              notify();
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+      });
     }
   },
 
