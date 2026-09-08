@@ -104,6 +104,9 @@ export const SpatialCanvas = ({
   const [isCtrlDown, setIsCtrlDown] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [linkSourceNodeId, setLinkSourceNodeId] = useState(null);
+  const [dragLinkSourceId, setDragLinkSourceId] = useState(null);
+  const [dragLinkPointer, setDragLinkPointer] = useState(null);
+  const [mouseCanvasPos, setMouseCanvasPos] = useState(null);
   const [editingEdgeId, setEditingEdgeId] = useState(null);
   const [measuredDims, setMeasuredDims] = useState({});
   const nodesContainerRef = useRef(null);
@@ -188,14 +191,12 @@ export const SpatialCanvas = ({
         setIsSpaceDown(true);
       }
 
-      if (e.key === 'v' || e.key === 'V') {
-        onToolModeChange?.('select');
-      } else if (e.key === 'h' || e.key === 'H') {
-        onToolModeChange?.('hand');
-      } else if (e.key === 'Escape') {
-        if (!editingEdgeIdRef.current) {
-          setLinkSourceNodeId(null);
-        }
+      if (e.key === 'Escape') {
+        setLinkSourceNodeId(null);
+        setDragLinkSourceId(null);
+        setDragLinkPointer(null);
+        setMouseCanvasPos(null);
+        setEditingEdgeId(null);
         onClearSelection?.();
         setAnticipatingNodeIds(new Set());
         setIsMarqueeActive(false);
@@ -204,11 +205,8 @@ export const SpatialCanvas = ({
     };
 
     const handleKeyUp = (e) => {
-      if (!e.ctrlKey && !e.metaKey) {
+      if (e.key === 'Control' || e.key === 'Meta' || (!e.ctrlKey && !e.metaKey)) {
         setIsCtrlDown(false);
-        if (!editingEdgeIdRef.current) {
-          setLinkSourceNodeId(null);
-        }
       }
       if (e.code === 'Space') {
         setIsSpaceDown(false);
@@ -221,6 +219,9 @@ export const SpatialCanvas = ({
       if (!editingEdgeIdRef.current) {
         setLinkSourceNodeId(null);
       }
+      setDragLinkSourceId(null);
+      setDragLinkPointer(null);
+      setMouseCanvasPos(null);
       setHoveredNodeId(null);
       onHoverNodeChange?.(null);
     };
@@ -279,10 +280,21 @@ export const SpatialCanvas = ({
   // Pointer Down for Nodes or Canvas Background
   const handlePointerDown = useCallback(
     (e, nodeId = null) => {
+      const isCtrl = e.ctrlKey || e.metaKey || isCtrlDown;
+      const isShift = e.shiftKey;
+
       if (
         e.target.closest(
-          'button, input, a, textarea, #spark-terminal, aside, footer, [role="search"], [role="dialog"], #atelier-action-dock'
+          'input, textarea, #spark-terminal, aside, footer, [role="search"], [role="dialog"]'
         )
+      ) {
+        return;
+      }
+
+      // If not Ctrl-linking and not Shift-selecting, let button/link/dock clicks proceed normally
+      if (
+        !isCtrl && !isShift &&
+        e.target.closest('button, a, #atelier-action-dock')
       ) {
         return;
       }
@@ -290,11 +302,16 @@ export const SpatialCanvas = ({
       if (nodeId) {
         e.stopPropagation();
 
-        const isCtrl = e.ctrlKey || e.metaKey || isCtrlDown;
-        const isShift = e.shiftKey;
+        // Holding Shift: toggle multi-selection without dragging or inspecting
+        if (isShift) {
+          onSelectNode?.(nodeId, true);
+          suppressClickRef.current = true;
+          return;
+        }
 
-        // Holding Ctrl: Tactile Link Creation
+        // Holding Ctrl OR Link Source is active: Tactile Link Creation / Drag Link
         if (isCtrl || linkSourceNodeId) {
+          const sourceId = linkSourceNodeId || nodeId;
           dragStartRef.current = {
             startX: e.clientX,
             startY: e.clientY,
@@ -304,12 +321,11 @@ export const SpatialCanvas = ({
             startTime: Date.now(),
           };
           suppressClickRef.current = false;
-          return;
-        }
-
-        // Shift-click toggles selection without dragging
-        if (isShift) {
-          onSelectNode?.(nodeId, true);
+          setDragLinkSourceId(sourceId);
+          setDragLinkPointer({
+            x: (e.clientX - pan.x) / zoom,
+            y: (e.clientY - pan.y) / zoom,
+          });
           return;
         }
 
@@ -321,8 +337,8 @@ export const SpatialCanvas = ({
         const shouldDragConstellation = isAlreadySelected && effectiveSelectedIds.length > 1;
 
         if (!isAlreadySelected) {
-          // If clicking an unselected node without shift, select it as primary
-          onSelectNode?.(nodeId, false);
+          // If grabbing an unselected node without shift, select it as primary, but DO NOT open inspector
+          onSelectNode?.(nodeId, false, false);
         }
 
         dragStartRef.current = {
@@ -354,8 +370,13 @@ export const SpatialCanvas = ({
         e.currentTarget.setPointerCapture(e.pointerId);
       } else {
         // Clicking on canvas background
-        setEditingEdgeId(null);
-        setLinkSourceNodeId(null);
+        if (!isCtrl) {
+          setEditingEdgeId(null);
+          setLinkSourceNodeId(null);
+          setMouseCanvasPos(null);
+        }
+        setDragLinkSourceId(null);
+        setDragLinkPointer(null);
 
         // Disambiguate Pan vs Marquee
         const shouldMarquee = (toolMode === 'select' && !isSpaceDown) || e.shiftKey;
@@ -412,6 +433,26 @@ export const SpatialCanvas = ({
 
   const handlePointerMove = useCallback(
     (e) => {
+      if (dragLinkSourceId) {
+        const dx = e.clientX - dragStartRef.current.startX;
+        const dy = e.clientY - dragStartRef.current.startY;
+        if (Math.hypot(dx, dy) > 5) {
+          dragStartRef.current.hasMoved = true;
+        }
+        setDragLinkPointer({
+          x: (e.clientX - pan.x) / zoom,
+          y: (e.clientY - pan.y) / zoom,
+        });
+        return;
+      }
+
+      if (linkSourceNodeId) {
+        setMouseCanvasPos({
+          x: (e.clientX - pan.x) / zoom,
+          y: (e.clientY - pan.y) / zoom,
+        });
+      }
+
       if (isMarqueeActive) {
         // Update Marquee Selection in real time
         const rect = containerRef.current?.getBoundingClientRect() || { left: 0, top: 0 };
@@ -508,6 +549,8 @@ export const SpatialCanvas = ({
       }
     },
     [
+      dragLinkSourceId,
+      linkSourceNodeId,
       isMarqueeActive,
       draggingNodeId,
       isDraggingConstellation,
@@ -525,6 +568,41 @@ export const SpatialCanvas = ({
 
   const handlePointerUp = useCallback(
     (e) => {
+      if (dragLinkSourceId) {
+        if (dragStartRef.current.hasMoved) {
+          // Tactile Drag-to-Link completed! Detect target node under pointer
+          const elem = document.elementFromPoint(e.clientX, e.clientY);
+          const targetArticle = elem?.closest?.('[data-node-id]');
+          const targetId = targetArticle?.getAttribute?.('data-node-id');
+
+          if (targetId && targetId !== dragLinkSourceId) {
+            const activeEditingEdge = edges.find((ed) => ed.id === editingEdgeId);
+            const newEdgeId = `edge-${dragLinkSourceId}-${targetId}-${Date.now()}`;
+            const newEdge = {
+              id: newEdgeId,
+              source: dragLinkSourceId,
+              target: targetId,
+              relationshipType: 'USER_DEFINED',
+              color: activeEditingEdge?.color || '#7A7570',
+              style: activeEditingEdge?.style || 'basic',
+              label: activeEditingEdge?.label || '',
+              description: activeEditingEdge?.description || '',
+              mathematics: null,
+            };
+            onCreateEdge?.(newEdge);
+            setEditingEdgeId(newEdgeId);
+            setLinkSourceNodeId(null);
+            setMouseCanvasPos(null);
+            suppressClickRef.current = true;
+            setTimeout(() => {
+              suppressClickRef.current = false;
+            }, 120);
+          }
+        }
+        setDragLinkSourceId(null);
+        setDragLinkPointer(null);
+      }
+
       if (isMarqueeActive) {
         setIsMarqueeActive(false);
         const count = anticipatingNodeIds.size;
@@ -568,6 +646,10 @@ export const SpatialCanvas = ({
       }
     },
     [
+      dragLinkSourceId,
+      edges,
+      editingEdgeId,
+      onCreateEdge,
       isMarqueeActive,
       anticipatingNodeIds,
       draggingNodeId,
@@ -611,6 +693,8 @@ export const SpatialCanvas = ({
 
         onCreateEdge?.(newEdge);
         setEditingEdgeId(newEdgeId);
+        setLinkSourceNodeId(null);
+        setMouseCanvasPos(null);
         return;
       }
 
@@ -618,6 +702,7 @@ export const SpatialCanvas = ({
       if (isCtrl && linkSourceNodeId === nodeId) {
         setLinkSourceNodeId(null);
         setEditingEdgeId(null);
+        setMouseCanvasPos(null);
         return;
       }
 
@@ -628,9 +713,9 @@ export const SpatialCanvas = ({
         return;
       }
 
-      // Case 4: Normal click -> select node
+      // Case 4: Normal static click -> select node and open inspector
       if (!isCtrl && !linkSourceNodeId) {
-        onSelectNode?.(nodeId, false);
+        onSelectNode?.(nodeId, false, true);
       }
     },
     [isCtrlDown, linkSourceNodeId, editingEdgeId, edges, onCreateEdge, onSelectNode]
@@ -703,7 +788,21 @@ export const SpatialCanvas = ({
         e.stopPropagation();
         handleNodeClick(node.id, e);
       },
-      onInspect: () => onInspectNode?.(node.id),
+      onInspect: (e) => {
+        if (
+          suppressClickRef.current ||
+          dragStartRef.current?.hasMoved ||
+          e?.ctrlKey ||
+          e?.metaKey ||
+          e?.shiftKey ||
+          isCtrlDown ||
+          linkSourceNodeId ||
+          dragLinkSourceId
+        ) {
+          return;
+        }
+        onInspectNode?.(node.id);
+      },
       onSpecificProbe: (inquiry, nId) => onSpecificProbe?.(inquiry, nId || node.id),
       onOpenBrowser: (url) => {
         const targetUrl =
@@ -732,6 +831,39 @@ export const SpatialCanvas = ({
         return <MechanismNode {...commonProps} />;
     }
   };
+
+  // Live tactile linkage preview curve (active during drag-linking or when link source is active)
+  const activeLinkSourceId = dragLinkSourceId || (!editingEdgeId ? linkSourceNodeId : null);
+  const activeLinkTargetPos = dragLinkPointer || (linkSourceNodeId && !editingEdgeId ? mouseCanvasPos : null);
+
+  const previewLinkD = useMemo(() => {
+    if (!activeLinkSourceId || !activeLinkTargetPos) return null;
+    const srcNode = nodes.find((n) => n.id === activeLinkSourceId);
+    if (!srcNode) return null;
+
+    const dims = measuredDims[srcNode.id] || getNodeDimensions(srcNode);
+    const sx = (srcNode.position?.x || 0) + (dims.width || 280) / 2;
+    const sy = (srcNode.position?.y || 0) + (dims.height || 220) / 2;
+    const tx = activeLinkTargetPos.x;
+    const ty = activeLinkTargetPos.y;
+
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 4) return null;
+
+    const curvature = Math.min(Math.max(dist * 0.25, 40), 160);
+    const c1x = sx + (dx > 0 ? curvature : -curvature);
+    const c1y = sy;
+    const c2x = tx - (dx > 0 ? curvature : -curvature);
+    const c2y = ty;
+
+    return {
+      d: `M ${sx},${sy} C ${c1x},${c1y} ${c2x},${c2y} ${tx},${ty}`,
+      tx,
+      ty,
+    };
+  }, [activeLinkSourceId, activeLinkTargetPos, nodes, measuredDims]);
 
   // Find active editing edge and calculate screen coordinates for popover
   const currentEditingEdge = editingEdgeId
@@ -808,26 +940,29 @@ export const SpatialCanvas = ({
       onPointerLeave={() => {
         setHoveredNodeId(null);
         onHoverNodeChange?.(null);
+        setMouseCanvasPos(null);
       }}
     >
       {/* Living Atmospheric Reactive Background with Dots, Parallax & Ambient Daylight */}
       <DynamicAtmosphericBackground pan={pan} zoom={zoom} />
 
-      {/* Spatial Transformed Viewport */}
+      {/* Infinite Canvas Transform Plane */}
       <div
-        className="absolute inset-0 origin-top-left will-change-transform"
         style={{
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-          transition:
-            isPanningCanvas || draggingNodeId || isMarqueeActive ? 'none' : 'transform 0.05s linear',
+          transformOrigin: '0 0',
+          width: '5000px',
+          height: '4000px',
         }}
+        className="absolute inset-0 pointer-events-none"
       >
-        {/* Dynamic Multi-Cluster Organic Convex Hulls */}
+        {/* Multi-Cluster Morphic Membranes System */}
         <ConvexHull
           clusters={clusters}
           ghostClusters={ghostClusters}
           nodes={nodes}
           measuredDims={measuredDims}
+          selectedNodeIds={effectiveSelectedIds}
           onToggleCollapse={onToggleClusterCollapse}
           onSynthesize={onSynthesizeCluster}
           onAutoTidy={onAutoTidyCluster}
@@ -849,6 +984,39 @@ export const SpatialCanvas = ({
           onCutEdge={handleCutEdge}
           onEdgeClick={handleEditEdge}
         />
+
+        {/* Dynamic Elastic Live Link Preview Wire */}
+        {previewLinkD && (
+          <svg
+            className="absolute inset-0 pointer-events-none z-25 overflow-visible"
+            style={{ width: '5000px', height: '4000px' }}
+          >
+            <path
+              d={previewLinkD.d}
+              fill="none"
+              stroke="#FFFFFF"
+              strokeWidth="6"
+              strokeLinecap="round"
+              opacity="0.85"
+            />
+            <path
+              d={previewLinkD.d}
+              fill="none"
+              stroke="#4A4540"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeDasharray="6 4"
+            />
+            <circle
+              cx={previewLinkD.tx}
+              cy={previewLinkD.ty}
+              r="4.5"
+              fill="#2E2A27"
+              stroke="#FFFFFF"
+              strokeWidth="2"
+            />
+          </svg>
+        )}
 
         {/* Spatial Nodes */}
         <div ref={nodesContainerRef} className="absolute inset-0 z-20 pointer-events-none">

@@ -59,6 +59,7 @@ export const ContradictionNode = ({
         <div
           className="h-[135px] bg-[#1E1B18] rounded-xl mb-2 flex flex-col items-center justify-center p-1 shadow-inner relative overflow-hidden group/sim cursor-pointer"
           onClick={(e) => {
+            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
             e.stopPropagation();
             onInspect?.(node.id);
           }}
@@ -139,6 +140,7 @@ export const ContradictionNode = ({
           </span>
           <button
             onClick={(e) => {
+              if (e.ctrlKey || e.metaKey || e.shiftKey) return;
               e.stopPropagation();
               onInspect?.(node.id);
             }}

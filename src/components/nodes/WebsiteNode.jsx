@@ -168,6 +168,7 @@ export const WebsiteNode = ({
       <div className="flex gap-1.5 pt-1.5 border-t border-grey-soft">
         <button
           onClick={(e) => {
+            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
             e.stopPropagation();
             onOpenBrowser?.(node.data.url);
           }}
@@ -179,6 +180,7 @@ export const WebsiteNode = ({
         </button>
         <button
           onClick={(e) => {
+            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
             e.stopPropagation();
             onInspect?.(node.id);
           }}

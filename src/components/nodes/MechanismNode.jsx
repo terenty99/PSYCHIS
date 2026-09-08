@@ -84,6 +84,7 @@ export const MechanismNode = ({
         role="img"
         aria-label="Animated mechanism simulation"
         onClick={(e) => {
+          if (e.ctrlKey || e.metaKey || e.shiftKey) return;
           e.stopPropagation();
           onInspect?.(node.id);
         }}
@@ -210,6 +211,7 @@ export const MechanismNode = ({
           <button
             type="button"
             onClick={(e) => {
+              if (e.ctrlKey || e.metaKey || e.shiftKey) return;
               e.stopPropagation();
               onOpenBrowser?.(node.data?.url || node.data?.sourceUrl || `https://en.wikipedia.org/wiki/${encodeURIComponent(node.data?.title || 'Kinematics')}`);
             }}
@@ -221,6 +223,7 @@ export const MechanismNode = ({
           <button
             type="button"
             onClick={(e) => {
+              if (e.ctrlKey || e.metaKey || e.shiftKey) return;
               e.stopPropagation();
               onInspect?.(node.id);
             }}
