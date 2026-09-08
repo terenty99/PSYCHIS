@@ -287,7 +287,7 @@ export const VideoNode = ({
               {effectiveVideoId ? (
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube-nocookie.com/embed/${effectiveVideoId}?autoplay=1&start=${Math.floor(currentTime)}&enablejsapi=1&rel=0&playsinline=1`}
+                  src={`https://www.youtube.com/embed/${effectiveVideoId}?autoplay=1&start=${Math.floor(currentTime)}&enablejsapi=1&rel=0&playsinline=1`}
                   title={data.title || 'Video'}
                   className="w-full h-full border-0 pointer-events-auto"
                   referrerPolicy="strict-origin-when-cross-origin"
