@@ -86,13 +86,19 @@ export function getNodeDimensions(nodeOrData) {
     }
   }
 
+  const isVideo = data.mediaType === 'video' || effectiveStructure === 'video_top';
+  const isMusic = data.mediaType === 'music' || effectiveStructure === 'music_card';
   const isSplitMedia = effectiveStructure === 'split_media_right' || effectiveStructure === 'split_media_left';
   const isSplitFormula = effectiveStructure === 'split_formula';
 
   // 1. DYNAMIC WIDTH
   let width = layout.width || nodeOrData.width;
   if (!width || typeof width !== 'number' || isNaN(width) || width < 250) {
-    if (isSplitMedia) {
+    if (isVideo) {
+      width = 420;
+    } else if (isMusic) {
+      width = 390;
+    } else if (isSplitMedia) {
       width = 460;
     } else if (isSplitFormula) {
       width = 485;
@@ -122,7 +128,11 @@ export function getNodeDimensions(nodeOrData) {
     if (layout.density === 'expanded') estHeight += 40;
     else if (layout.density === 'compact') estHeight -= 20;
 
-    if (isSplitMedia) {
+    if (isVideo) {
+      estHeight = 380;
+    } else if (isMusic) {
+      estHeight = 340;
+    } else if (isSplitMedia) {
       // In horizontal split layout, media is side-by-side with text rather than stacked
       estHeight = Math.max(160, estHeight + (data.detailedSynthesis ? 40 : 15));
     } else if (isGif || effectiveStructure === 'kinetic_mechanism') {

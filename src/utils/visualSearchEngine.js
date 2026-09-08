@@ -836,3 +836,57 @@ export async function searchLiveVideos(queryText) {
   return [];
 }
 
+export const searchWebVideos = searchLiveVideos;
+
+/**
+ * Searches and fetches audio preview tracks and metadata across public endpoints (iTunes / Deezer).
+ * Returns array of { trackTitle, artist, album, year, genre, previewUrl, fullTrackUrl, duration, artwork }
+ */
+export async function searchMusicTracks(queryText) {
+  if (!queryText || typeof queryText !== 'string' || !queryText.trim()) return [];
+  const cleanQ = queryText.trim();
+
+  // 1. Try local proxy endpoint first (/api/search-music)
+  try {
+    const res = await fetch(`/api/search-music?q=${encodeURIComponent(cleanQ)}`, {
+      signal: AbortSignal.timeout(4500),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.results) && data.results.length > 0) {
+        return data.results;
+      }
+    }
+  } catch (e) {
+    // Continue to direct public iTunes API
+  }
+
+  // 2. Direct public iTunes Search API (Free, CORS-open, zero API key)
+  try {
+    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanQ)}&media=music&entity=song&limit=10`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const tracks = (data.results || []).filter(t => t.trackName && t.previewUrl).map(track => ({
+        id: `itunes-${track.trackId}`,
+        trackTitle: track.trackName,
+        artist: track.artistName || 'Unknown Artist',
+        album: track.collectionName || 'Single / EP',
+        year: track.releaseDate ? track.releaseDate.substring(0, 4) : '',
+        genre: track.primaryGenreName || 'Music',
+        previewUrl: track.previewUrl,
+        fullTrackUrl: track.trackViewUrl || '',
+        duration: track.trackTimeMillis ? Math.round(track.trackTimeMillis / 1000) : 30,
+        artwork: (track.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
+        source: 'Apple Music / iTunes',
+      }));
+      if (tracks.length > 0) return tracks;
+    }
+  } catch (err) {
+    console.warn('[searchMusicTracks direct iTunes error]:', err);
+  }
+
+  return [];
+}
+

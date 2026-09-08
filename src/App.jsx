@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect, lazy, Suspense } from 'react';
 import { SpatialCanvas } from './layout/SpatialCanvas';
 import { TopNavDock } from './components/ui/TopNavDock';
+import { GlobalMusicPlayer } from './components/ui/GlobalMusicPlayer';
 import { EmbeddedBrowser } from './components/ui/EmbeddedBrowser';
 import { NodeInspector } from './components/ui/NodeInspector';
 import { SparkTerminal } from './components/ui/SparkTerminal';
@@ -1344,7 +1345,13 @@ export function App() {
 
       const primaryNode = {
         id: newId,
-        type: isUrl ? 'website' : 'spawned',
+        type: isUrl
+          ? 'website'
+          : cleanSynthesized.mediaType === 'video' || cleanSynthesized.layout?.structure === 'video_top'
+          ? 'video'
+          : cleanSynthesized.mediaType === 'music' || cleanSynthesized.layout?.structure === 'music_card'
+          ? 'music'
+          : 'spawned',
         width: primaryDims.width,
         height: primaryDims.height,
         position: safePrimaryPos,
@@ -1506,7 +1513,13 @@ export function App() {
 
         createdNodes.push({
           id: branchId,
-          type: cleanBn.relationship === 'CONTRADICTS' ? 'contradiction' : 'spawned',
+          type: cleanBn.relationship === 'CONTRADICTS'
+            ? 'contradiction'
+            : cleanBn.mediaType === 'video' || cleanBn.layout?.structure === 'video_top'
+            ? 'video'
+            : cleanBn.mediaType === 'music' || cleanBn.layout?.structure === 'music_card'
+            ? 'music'
+            : 'spawned',
           width: bDims.width,
           height: bDims.height,
           position: branchPos,
@@ -1731,6 +1744,9 @@ export function App() {
         onOpenBrowser={() => openBrowserWithUrl(browserUrl || 'https://en.wikipedia.org/wiki/Special:Search')}
         onFitView={handleFitView}
       />
+
+      {/* Floating Telegram-Style Corner Music Queue & Persistent Audio Player */}
+      <GlobalMusicPlayer />
 
       {/* Spatial Canvas Container with Touchpad Pan & Zoom */}
       <SpatialCanvas

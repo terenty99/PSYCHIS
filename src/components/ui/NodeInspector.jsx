@@ -40,10 +40,16 @@ import {
   Columns,
   Eye,
   Video,
+  Music,
+  Disc,
+  Volume2,
+  Radio,
+  Tv,
 } from 'lucide-react';
 import { MathFormula } from '../../utils/mathRenderer';
 import { fetchLiveArchivalPhotos, fetchWebImageCandidates, cleanDomainFromUrl } from '../../utils/visualSearchEngine';
 import { generateDynamicKineticAnimation, getKineticPromptSuggestions } from '../../utils/kineticVisualGenerator';
+import { useGlobalAudio } from '../../hooks/useGlobalAudio';
 
 export function isPhysicsApplicable(nodeData) {
   if (!nodeData) return false;
@@ -313,6 +319,18 @@ const getNodeTypeConfig = (type) => {
         label: 'Refutation // Counter-Thesis',
         badge: 'REFUTATION',
       };
+    case 'video':
+      return {
+        icon: Tv,
+        label: 'Audiovisual Masterclass // Video Node',
+        badge: 'VIDEO',
+      };
+    case 'music':
+      return {
+        icon: Music,
+        label: 'Acoustic Synthesis // Music Node',
+        badge: 'MUSIC',
+      };
     case 'spawned':
       return {
         icon: Sparkles,
@@ -344,6 +362,14 @@ export const NodeInspector = ({
   isInvestigating = false,
   investigationMessage = '',
 }) => {
+  // Global Audio Controller
+  const {
+    currentTrack,
+    isPlaying: isGlobalAudioPlaying,
+    playTrack,
+    togglePlayPause,
+  } = useGlobalAudio();
+
   // Navigation & View States
   const [activeTab, setActiveTab] = useState('study'); // 'study' | 'proofs' | 'visuals' | 'research'
   const [isPinned, setIsPinned] = useState(false);
@@ -1015,6 +1041,159 @@ export const NodeInspector = ({
               )}
 
               
+              {/* 🎵 DEEP MUSIC & FULL TRACK INSPECTION PANEL */}
+              {(nodeData?.type === 'music' || data.mediaType === 'music' || Boolean(data.musicData)) && (
+                <section className="bg-gradient-to-br from-[#1A1C24] via-[#12131A] to-[#0D0E14] border border-amber-500/30 rounded-2xl p-4 shadow-md text-white flex flex-col gap-4 select-none">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Music className="w-4 h-4 text-amber-400" />
+                      <span className="font-mono text-[11px] font-bold text-white uppercase tracking-wider">
+                        Acoustic Inspection &amp; Master Stream
+                      </span>
+                    </div>
+                    <span className="font-mono text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold uppercase">
+                      {data.musicData?.genre || 'Music'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-start gap-3.5">
+                    <div className="relative w-24 h-24 rounded-xl overflow-hidden shrink-0 border border-white/15 bg-black/60 shadow-md flex items-center justify-center">
+                      {data.musicData?.artwork ? (
+                        <img
+                          src={data.musicData.artwork}
+                          alt={data.musicData.trackTitle || data.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Disc className="w-10 h-10 text-amber-400" />
+                      )}
+                    </div>
+
+                    <div className="flex flex-col min-w-0 flex-1 leading-snug">
+                      <span className="text-[10px] font-mono text-amber-300/80 uppercase tracking-wider">Master Track</span>
+                      <h4 className="font-display text-[15px] font-bold text-white truncate" title={data.musicData?.trackTitle || data.title}>
+                        {data.musicData?.trackTitle || data.title}
+                      </h4>
+                      <span className="text-[12px] text-white/80 font-medium truncate mt-0.5">
+                        {data.musicData?.artist || 'Unknown Artist'}
+                      </span>
+                      <span className="text-[10px] text-white/50 font-mono truncate mt-1">
+                        Album: {data.musicData?.album || 'Single Release'} {data.musicData?.year ? `(${data.musicData.year})` : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Playback Actions */}
+                  <div className="flex flex-col gap-2 pt-1 border-t border-white/10">
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* 1. Play in Global Audio Queue */}
+                      <button
+                        onClick={() => {
+                          const isThisPlaying = currentTrack?.previewUrl === data.musicData?.previewUrl && isGlobalAudioPlaying;
+                          if (isThisPlaying) {
+                            togglePlayPause();
+                          } else {
+                            playTrack({
+                              id: nodeData.id,
+                              trackTitle: data.musicData?.trackTitle || data.title,
+                              artist: data.musicData?.artist || 'Artist',
+                              album: data.musicData?.album || '',
+                              year: data.musicData?.year || '',
+                              genre: data.musicData?.genre || 'Music',
+                              previewUrl: data.musicData?.previewUrl || '',
+                              fullTrackUrl: data.musicData?.fullTrackUrl || data.url,
+                              duration: data.musicData?.duration || 30,
+                              artwork: data.musicData?.artwork || '',
+                            });
+                          }
+                        }}
+                        className="py-2 px-3 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-mono text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                      >
+                        {currentTrack?.previewUrl === data.musicData?.previewUrl && isGlobalAudioPlaying ? (
+                          <>
+                            <Pause className="w-3.5 h-3.5 fill-current" />
+                            <span>Pause Preview</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                            <span>Play in Queue</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* 2. Listen to Entire Full Track */}
+                      <button
+                        onClick={() => {
+                          const fullUrl =
+                            data.musicData?.fullTrackUrl ||
+                            data.url ||
+                            `https://www.youtube.com/results?search_query=${encodeURIComponent((data.musicData?.artist || '') + ' ' + (data.musicData?.trackTitle || data.title))}`;
+                          onOpenBrowser?.(fullUrl, 'split');
+                        }}
+                        className="py-2 px-3 bg-white/10 hover:bg-white/20 active:scale-[0.98] text-white font-mono text-[11px] font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all border border-white/15 cursor-pointer"
+                        title="Listen to the complete full-length track via external stream"
+                      >
+                        <Radio className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Listen Full Track</span>
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* 🎬 DEEP VIDEO MASTERCLASS INSPECTION PANEL */}
+              {(nodeData?.type === 'video' || data.mediaType === 'video' || Boolean(data.videoData)) && (
+                <section className="bg-gradient-to-br from-[#14151B] via-[#0E1015] to-[#0A0B0E] border border-red-500/30 rounded-2xl p-4 shadow-md text-white flex flex-col gap-3 select-none">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Tv className="w-4 h-4 text-red-500" />
+                      <span className="font-mono text-[11px] font-bold text-white uppercase tracking-wider">
+                        Audiovisual Stream &amp; Masterclass
+                      </span>
+                    </div>
+                    {data.videoData?.duration && (
+                      <span className="font-mono text-[9px] bg-red-500/20 text-red-300 border border-red-500/30 px-2 py-0.5 rounded-full font-bold">
+                        {data.videoData.duration}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 16:9 Video Viewport */}
+                  <div className="w-full aspect-video rounded-xl overflow-hidden bg-black border border-white/10 relative">
+                    {data.videoData?.videoId ? (
+                      <iframe
+                        src={`https://www.youtube-nocookie.com/embed/${data.videoData.videoId}?enablejsapi=1&rel=0&modestbranding=1`}
+                        title={data.videoData.title || data.title}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <img
+                        src={data.videoData?.thumbnail || data.primaryPhoto?.url || ''}
+                        alt={data.title}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 font-mono text-[10px] text-white/70">
+                    <span className="truncate max-w-[200px]">Uploader: {data.videoData?.uploader || 'Verified Creator'}</span>
+                    <button
+                      onClick={() => {
+                        const vidUrl = data.videoData?.url || data.url || (data.videoData?.videoId ? `https://www.youtube.com/watch?v=${data.videoData.videoId}` : null);
+                        if (vidUrl) onOpenBrowser?.(vidUrl, 'split');
+                      }}
+                      className="text-amber-400 hover:text-amber-300 underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Open Source Web</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  </div>
+                </section>
+              )}
+
               {/* ATTACHED PHOTOGRAPHY & web archive VISUAL FEED */}
               <section className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
