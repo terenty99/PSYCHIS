@@ -182,14 +182,16 @@ export function setStoredBackendUrl(url) {
 }
 
 export const STORAGE_KEY_YOUTUBE_KEY = 'psychis_youtube_api_key';
-export const DEFAULT_YOUTUBE_API_KEY = 'AIzaSyCjdgdzuQV0x8eTdugTiAv4qvJwZgjVEbs';
+export const DEFAULT_YOUTUBE_API_KEY = 'AIzaSyBm9mDhXzr8ygzCU4wTH4C3HKSTlckWTMQ';
 export const STORAGE_KEY_SPOTIFY_CLIENT_ID = 'psychis_spotify_client_id';
 export const STORAGE_KEY_SPOTIFY_CLIENT_SECRET = 'psychis_spotify_client_secret';
 
 export function getStoredYouTubeKey() {
   if (typeof localStorage !== 'undefined') {
     const val = localStorage.getItem(STORAGE_KEY_YOUTUBE_KEY);
-    if (val !== null && val !== undefined && val.trim()) return val.trim();
+    if (val && val.trim() && val.trim() !== 'AIzaSyCjdgdzuQV0x8eTdugTiAv4qvJwZgjVEbs') {
+      return val.trim();
+    }
     return DEFAULT_YOUTUBE_API_KEY;
   }
   return DEFAULT_YOUTUBE_API_KEY;
@@ -236,7 +238,10 @@ export function isDirectConceptQuery(query) {
 
   // Music and video topics must link companion nodes (audio + video sister nodes)
   const isMusicOrVideo =
-    /\b(band|rock band|artist|track|song|album|music|musician|singer|breakcore|rock|jazz|hiphop|metal|radiohead|queen|painfinder|beatles|nirvana|recipe|cooking|how to cook|how to make|tutorial|fight scene|video essay|trailer)\b/i.test(q);
+    /\b(band|rock band|artist|track|song|album|music|musician|singer|composer|record|soundtrack|discography|single|remix|pop|rock|jazz|hiphop|hip hop|rap|metal|breakcore|techno|electronic|orchestra|symphony|audio)\b/i.test(q) ||
+    /\b(video|movie|film|trailer|clip|gameplay|speedrun|animation|anime|fight|broadcast|speech|interview|documentary|mrbeast|youtube)\b/i.test(q) ||
+    /\b(how to|tutorial|recipe|cooking|origami|demonstration|assembly|experiment)\b/i.test(q) ||
+    /\b(radiohead|queen|painfinder|beatles|nirvana|daft punk|beethoven|mozart|bach|chopin|kendrick lamar|pink floyd|aphex twin|drake|taylor swift|eminem)\b/i.test(q);
   if (isMusicOrVideo) return false;
 
   // If asking for multiple items, ensemble, characters, cast, members, branches, constellation -> NOT single!
@@ -490,24 +495,26 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
 
   const combinedText = `${query} ${node.title || ''} ${node.category || ''} ${node.description || ''}`.toLowerCase();
 
-  const isMusicTopic =
-    node.mediaType === 'music' ||
-    Boolean(node.musicData) ||
-    node.layout?.structure === 'music_card' ||
-    /\b(track|song|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|genre|rock|jazz|breakcore|pop|metal|hiphop|hip hop|rap|electronic|techno|ambient|classical music|symphony|orchestra)\b/i.test(combinedText) ||
-    /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(combinedText);
-
-  const isVideoTopic =
+  const isVideoExplicit =
     node.mediaType === 'video' ||
     Boolean(node.videoData) ||
     Boolean(node.videoQuery) ||
     node.layout?.structure === 'video_top' ||
+    /\b(music video|mv|official video|video essay|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|interview)\b/i.test(combinedText) ||
     /\b(how to (cook|make|bake|prepare|assemble|fix|build|fold|play|perform|draw|repair))\b/i.test(combinedText) ||
-    /\b(recipe|cooking|origami|mechanical assembly|lab experiment|sports technique|speedrun|fight scene|anime fight|trailer|movie trailer|video essay|music video|speech|historic footage)\b/i.test(combinedText) ||
+    /\b(recipe|cooking|origami|mechanical assembly|lab experiment|sports technique)\b/i.test(combinedText) ||
     /\b(video|watch)\b/i.test(combinedText);
 
+  const isMusicExplicit =
+    !isVideoExplicit &&
+    (node.mediaType === 'music' ||
+      Boolean(node.musicData) ||
+      node.layout?.structure === 'music_card' ||
+      /\b(track|song|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|genre|rock|jazz|breakcore|pop|metal|hiphop|hip hop|rap|electronic|techno|ambient|classical music|symphony|orchestra)\b/i.test(combinedText) ||
+      /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(combinedText));
+
   // 1A. Video Node Enrichment
-  if (isVideoTopic) {
+  if (isVideoExplicit) {
     node.mediaType = 'video';
     if (!node.layout) node.layout = {};
     node.layout.structure = 'video_top';
@@ -523,10 +530,8 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
     } catch (vErr) {
       console.warn('[Video enrichment error]:', vErr.message);
     }
-  }
-
-  // 1B. Music Node Enrichment
-  if (isMusicTopic) {
+  } else if (isMusicExplicit) {
+    // 1B. Music Node Enrichment
     node.mediaType = 'music';
     if (!node.layout) node.layout = {};
     node.layout.structure = 'music_card';
@@ -550,7 +555,7 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
   }
 
   // If this is a music topic, link a companion Video Node (live stage / music video)
-  if (isMusicTopic && !node.branchNodes.some((b) => b.mediaType === 'video' || b.videoData)) {
+  if (isMusicExplicit && !node.branchNodes.some((b) => b.mediaType === 'video' || b.videoData)) {
     try {
       const liveQuery = `${node.musicData?.artist || node.title || query} live concert performance official video`;
       const companionVids = await searchWebVideos(liveQuery);
@@ -569,7 +574,7 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
             width: 420,
           },
           relationship: 'COUPLED_SYSTEM',
-          relationshipLabel: 'live performance // audiovisual',
+          relationshipLabel: 'live concert // audiovisual',
           edgeName: 'Audiovisual Masterclass Linkage',
           edgeBadge: 'LIVE PERFORMANCE // CONCERT',
         });
@@ -578,7 +583,7 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
   }
 
   // If this is a video topic, link a companion Music Node if thematic audio exists
-  if (isVideoTopic && !node.branchNodes.some((b) => b.mediaType === 'music' || b.musicData)) {
+  if (isVideoExplicit && !node.branchNodes.some((b) => b.mediaType === 'music' || b.musicData)) {
     try {
       const audioQuery = `${node.title || query} theme soundtrack`;
       const companionTracks = await searchMusicTracks(audioQuery);

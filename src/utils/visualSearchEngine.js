@@ -776,9 +776,18 @@ export async function searchLiveVideos(queryText) {
 
   // 0. Official YouTube Data API v3 (if user provided key in settings or env or default)
   try {
-    const ytKey = getStoredYouTubeKey() ||
-      (typeof localStorage !== 'undefined' ? localStorage.getItem('psychis_youtube_api_key') : '') ||
-      (typeof import.meta !== 'undefined' && import.meta.env?.VITE_YOUTUBE_API_KEY ? import.meta.env.VITE_YOUTUBE_API_KEY : '');
+    let ytKey = '';
+    try {
+      ytKey = typeof getStoredYouTubeKey === 'function' ? getStoredYouTubeKey() : '';
+    } catch (_) {}
+    if (!ytKey || ytKey === 'AIzaSyCjdgdzuQV0x8eTdugTiAv4qvJwZgjVEbs') {
+      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('psychis_youtube_api_key') : '';
+      if (stored && stored.trim() && stored.trim() !== 'AIzaSyCjdgdzuQV0x8eTdugTiAv4qvJwZgjVEbs') {
+        ytKey = stored.trim();
+      } else {
+        ytKey = 'AIzaSyBm9mDhXzr8ygzCU4wTH4C3HKSTlckWTMQ';
+      }
+    }
     if (ytKey && ytKey.trim()) {
       const ytRes = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=15&q=${encodeURIComponent(cleanQ)}&type=video&key=${ytKey.trim()}`,

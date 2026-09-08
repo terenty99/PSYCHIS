@@ -64,12 +64,17 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  // Strip or spoof Referer to match target host so hotlink protections (Fandom, Wikia, DeviantArt, etc.) never block images
+  // Strip or spoof Referer to match target host so hotlink protections (Fandom, Wikia, DeviantArt, etc.) never block images,
+  // and ensure YouTube embeds receive a valid Referer/Origin to prevent YouTube Error 153 in Electron file:// sandbox
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     const requestHeaders = { ...details.requestHeaders };
     const url = details.url;
 
-    if (
+    if (/youtube\.com|youtube-nocookie\.com|googlevideo\.com|ytimg\.com/i.test(url)) {
+      requestHeaders['Referer'] = 'https://www.youtube.com/';
+      requestHeaders['Origin'] = 'https://www.youtube.com';
+      delete requestHeaders['Sec-Fetch-Site'];
+    } else if (
       details.resourceType === 'image' ||
       /\.(jpe?g|png|webp|gif|svg|avif)($|\?)/i.test(url) ||
       /wikia\.nocookie|fandom|deviantart|pinimg|pinimg\.com|wikimedia|wp\.com/i.test(url)

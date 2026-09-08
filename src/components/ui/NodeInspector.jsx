@@ -1233,7 +1233,7 @@ export const NodeInspector = ({
                   <div className="w-full aspect-video rounded-xl overflow-hidden bg-black border border-white/10 relative group/insp-video">
                     {effectiveInspectorVideoId && inspectorPlayingVideo ? (
                       <iframe
-                        src={`https://www.youtube-nocookie.com/embed/${effectiveInspectorVideoId}?autoplay=1&enablejsapi=1&rel=0&playsinline=1`}
+                        src={`https://www.youtube.com/embed/${effectiveInspectorVideoId}?autoplay=1&enablejsapi=1&rel=0&playsinline=1`}
                         title={data.videoData?.title || data.title || 'Video Masterclass'}
                         className="w-full h-full border-0 pointer-events-auto"
                         referrerPolicy="strict-origin-when-cross-origin"

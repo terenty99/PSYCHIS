@@ -51,7 +51,7 @@ export const getVideoMetadata = (url) => {
       type: 'youtube',
       videoId,
       // embedUrl for fallback iframe player
-      embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?enablejsapi=1&rel=0&modestbranding=1`,
+      embedUrl: `https://www.youtube.com/embed/${videoId}?enablejsapi=1&rel=0&modestbranding=1`,
       title: 'YouTube HD Player',
     };
   }
@@ -294,6 +294,7 @@ const TabFrameItem = ({
           className={`w-full h-full border-none select-auto ${videoMeta ? 'bg-black' : 'bg-white-pure'}`}
           onLoad={() => onLoadingChange?.(tab.id, false)}
           onError={() => onLoadingChange?.(tab.id, false)}
+          referrerPolicy="strict-origin-when-cross-origin"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
           allowFullScreen={true}
         />
