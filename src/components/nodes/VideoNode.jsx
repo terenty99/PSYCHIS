@@ -252,10 +252,11 @@ export const VideoNode = ({
               {videoId ? (
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${Math.floor(currentTime)}&enablejsapi=1&controls=0&modestbranding=1&rel=0&playsinline=1&iv_load_policy=3`}
+                  src={`https://www.youtube.com/embed/${videoId}?autoplay=1&start=${Math.floor(currentTime)}&enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}&controls=0&modestbranding=1&rel=0&playsinline=1`}
                   title={data.title || 'Video'}
                   className="w-full h-full border-0 pointer-events-auto"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 />
               ) : videoData.url && videoData.url.endsWith('.mp4') ? (
@@ -326,6 +327,19 @@ export const VideoNode = ({
                   </div>
 
                   <div className="flex items-center gap-1.5">
+                    {/* Open in Web Browser */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const vidUrl = videoData.url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : data.url);
+                        if (vidUrl) onOpenBrowser?.(vidUrl);
+                      }}
+                      className="px-1.5 py-0.5 rounded font-mono text-[10px] font-bold bg-white/20 hover:bg-white/30 text-white flex items-center gap-1 transition-all cursor-pointer"
+                      title="Watch in Built-in Browser"
+                    >
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </button>
+
                     {/* 📺 Theater Mode ("T" Button) */}
                     <button
                       onClick={handleToggleTheater}

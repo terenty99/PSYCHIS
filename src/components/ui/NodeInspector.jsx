@@ -1163,10 +1163,11 @@ export const NodeInspector = ({
                   <div className="w-full aspect-video rounded-xl overflow-hidden bg-black border border-white/10 relative">
                     {data.videoData?.videoId ? (
                       <iframe
-                        src={`https://www.youtube-nocookie.com/embed/${data.videoData.videoId}?enablejsapi=1&rel=0&modestbranding=1`}
+                        src={`https://www.youtube.com/embed/${data.videoData.videoId}?enablejsapi=1&origin=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin : '')}&rel=0&modestbranding=1&playsinline=1`}
                         title={data.videoData.title || data.title}
                         className="w-full h-full border-0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                         allowFullScreen
                       />
                     ) : (

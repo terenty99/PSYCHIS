@@ -86,8 +86,8 @@ export function getNodeDimensions(nodeOrData) {
     }
   }
 
-  const isVideo = data.mediaType === 'video' || effectiveStructure === 'video_top';
-  const isMusic = data.mediaType === 'music' || effectiveStructure === 'music_card';
+  const isVideo = data.mediaType === 'video' || effectiveStructure === 'video_top' || Boolean(data.videoData) || Boolean(data.videoQuery);
+  const isMusic = data.mediaType === 'music' || effectiveStructure === 'music_card' || Boolean(data.musicData) || Boolean(data.tracks);
   const isSplitMedia = effectiveStructure === 'split_media_right' || effectiveStructure === 'split_media_left';
   const isSplitFormula = effectiveStructure === 'split_formula';
 

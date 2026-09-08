@@ -816,18 +816,28 @@ export const SpatialCanvas = ({
       },
     };
 
-    if (node.type === 'video' || node.data?.mediaType === 'video' || node.data?.layout?.structure === 'video_top') {
+    const isVideoNode =
+      node.type === 'video' ||
+      node.data?.mediaType === 'video' ||
+      node.data?.layout?.structure === 'video_top' ||
+      Boolean(node.data?.videoData) ||
+      Boolean(node.data?.videoQuery);
+
+    const isMusicNode =
+      node.type === 'music' ||
+      node.data?.mediaType === 'music' ||
+      node.data?.layout?.structure === 'music_card' ||
+      Boolean(node.data?.musicData) ||
+      Boolean(node.data?.tracks);
+
+    if (isVideoNode) {
       return <VideoNode {...commonProps} />;
     }
-    if (node.type === 'music' || node.data?.mediaType === 'music' || node.data?.layout?.structure === 'music_card') {
+    if (isMusicNode) {
       return <MusicNode {...commonProps} />;
     }
 
     switch (node.type) {
-      case 'video':
-        return <VideoNode {...commonProps} />;
-      case 'music':
-        return <MusicNode {...commonProps} />;
       case 'website':
         return <WebsiteNode {...commonProps} />;
       case 'mechanism':

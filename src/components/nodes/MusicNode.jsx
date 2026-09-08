@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
 import { useGlobalAudio } from '../../hooks/useGlobalAudio';
+import { searchMusicTracks } from '../../utils/visualSearchEngine';
 import {
   Play,
   Pause,
@@ -37,6 +38,34 @@ export const MusicNode = ({
   const artwork = musicData.artwork || data.primaryPhoto?.url || data.photos?.[0]?.url || null;
   const previewUrl = musicData.previewUrl || '';
 
+  // Auto-resolve audio preview and artwork if missing
+  const [resolvedPreview, setResolvedPreview] = useState(previewUrl);
+  const [resolvedArtwork, setResolvedArtwork] = useState(artwork);
+
+  useEffect(() => {
+    if (!resolvedPreview && (trackTitle || artist || data.title)) {
+      const q = `${artist || ''} ${trackTitle || data.title || ''}`.trim();
+      if (q && q !== 'Featured Artist Acoustic Composition') {
+        searchMusicTracks(q).then((tracks) => {
+          if (Array.isArray(tracks) && tracks.length > 0) {
+            const first = tracks[0];
+            if (first.previewUrl) {
+              setResolvedPreview(first.previewUrl);
+              musicData.previewUrl = first.previewUrl;
+            }
+            if (first.artwork && !resolvedArtwork) {
+              setResolvedArtwork(first.artwork);
+              musicData.artwork = first.artwork;
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [resolvedPreview, trackTitle, artist, data.title, resolvedArtwork]);
+
+  const effectivePreview = resolvedPreview || previewUrl;
+  const effectiveArtwork = resolvedArtwork || artwork || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop';
+
   // Connect to Global Audio
   const {
     currentTrack,
@@ -51,7 +80,7 @@ export const MusicNode = ({
   // Is THIS specific node's track currently active in global audio?
   const isThisTrackActive =
     Boolean(currentTrack) &&
-    (currentTrack.previewUrl === previewUrl ||
+    ((effectivePreview && currentTrack.previewUrl === effectivePreview) ||
       (currentTrack.trackTitle === trackTitle && currentTrack.artist === artist));
 
   const isPlaying = isThisTrackActive && globalIsPlaying;
@@ -100,10 +129,10 @@ export const MusicNode = ({
         album,
         year,
         genre,
-        previewUrl,
+        previewUrl: effectivePreview,
         fullTrackUrl: musicData.fullTrackUrl || data.url,
         duration: musicData.duration || 30,
-        artwork,
+        artwork: effectiveArtwork,
         source: musicData.source || 'Public Audio Engine',
       });
     } else {
@@ -127,10 +156,10 @@ export const MusicNode = ({
         album,
         year,
         genre,
-        previewUrl,
+        previewUrl: effectivePreview,
         fullTrackUrl: musicData.fullTrackUrl || data.url,
         duration: activeDuration,
-        artwork,
+        artwork: effectiveArtwork,
       });
       setTimeout(() => seek(targetSeconds), 80);
     } else {
@@ -172,10 +201,10 @@ export const MusicNode = ({
       {/* 🎵 1. TOP ACOUSTIC HERO CARD */}
       <div className="-mx-4 -mt-4 mb-3 p-3 bg-gradient-to-br from-[#18191E] via-[#121318] to-[#0D0E12] border-b border-white/10 text-white select-none relative overflow-hidden">
         {/* Background Ambient Blur Glow */}
-        {artwork && (
+        {effectiveArtwork && (
           <div
             className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full opacity-25 blur-2xl pointer-events-none"
-            style={{ backgroundImage: `url(${artwork})`, backgroundSize: 'cover' }}
+            style={{ backgroundImage: `url(${effectiveArtwork})`, backgroundSize: 'cover' }}
           />
         )}
 
@@ -186,9 +215,9 @@ export const MusicNode = ({
             onClick={handlePlayToggle}
             title={isPlaying ? 'Pause' : 'Play 30s High-Res Preview'}
           >
-            {artwork ? (
+            {effectiveArtwork ? (
               <img
-                src={artwork}
+                src={effectiveArtwork}
                 alt={trackTitle}
                 className="w-full h-full object-cover group-hover/art:scale-105 transition-transform duration-300"
                 onError={(e) => {
