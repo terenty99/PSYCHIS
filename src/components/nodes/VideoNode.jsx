@@ -2,12 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
 import {
   Play,
-  Pause,
-  Volume2,
-  VolumeX,
   Maximize2,
   RotateCcw,
-  Clock,
   Tv,
 } from 'lucide-react';
 import { searchWebVideos } from '../../utils/visualSearchEngine';
@@ -64,11 +60,7 @@ export const VideoNode = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPreviewCover, setShowPreviewCover] = useState(true);
   const [currentTime, setCurrentTime] = useState(data.savedTimestamp || 0);
-  const [duration, setDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(0.85);
   const [isTheater, setIsTheater] = useState(false);
-  const [showControls, setShowControls] = useState(false);
 
   // References for timers & iframe
   const idleTimerRef = useRef(null);
@@ -126,71 +118,13 @@ export const VideoNode = ({
     resetIdleTimer();
   };
 
-  const handleTogglePlayPause = (e) => {
-    e?.stopPropagation?.();
-    if (showPreviewCover) {
-      handleStartPlay(e);
-      return;
-    }
-    const nextPlay = !isPlaying;
-    setIsPlaying(nextPlay);
 
-    // If using YouTube iframe postMessage
-    if (iframeRef.current && iframeRef.current.contentWindow) {
-      const cmd = nextPlay ? 'playVideo' : 'pauseVideo';
-      iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: cmd, args: '' }), '*');
-    }
-    // If HTML5 video
-    if (videoElementRef.current) {
-      if (nextPlay) videoElementRef.current.play();
-      else videoElementRef.current.pause();
-    }
-  };
-
-  // Seek handler
-  const handleSeek = (e) => {
-    e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-    const targetTime = ratio * (duration || 180);
-    setCurrentTime(targetTime);
-    savedTimeRef.current = targetTime;
-
-    if (iframeRef.current && iframeRef.current.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({ event: 'command', func: 'seekTo', args: [targetTime, true] }),
-        '*'
-      );
-    }
-    if (videoElementRef.current) {
-      videoElementRef.current.currentTime = targetTime;
-    }
-  };
 
   // Toggle Theater Mode
   const handleToggleTheater = (e) => {
     e.stopPropagation();
     setIsTheater((prev) => !prev);
   };
-
-  // Mock progress simulation for YouTube iframe postMessage tracking
-  useEffect(() => {
-    if (isPlaying) {
-      playbackIntervalRef.current = setInterval(() => {
-        setCurrentTime((prev) => {
-          const next = prev + 1;
-          savedTimeRef.current = next;
-          return next;
-        });
-      }, 1000);
-    } else {
-      if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
-    }
-    return () => {
-      if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
-    };
-  }, [isPlaying]);
 
   // Density & layout classes
   const density = data.layout?.density || 'comfortable';
@@ -228,7 +162,7 @@ export const VideoNode = ({
         onMouseEnter={() => setShowControls(true)}
         onMouseLeave={() => isPlaying && setShowControls(false)}
       >
-        <div className="w-full aspect-video min-h-[190px] relative flex items-center justify-center bg-black">
+        <div className="w-full aspect-video min-h-[190px] relative bg-black overflow-hidden">
           {/* A. Cover Thumbnail Mode (Default or when paused/idle 30s) */}
           {showPreviewCover ? (
             <button
@@ -282,14 +216,14 @@ export const VideoNode = ({
             <div
               data-interactive="true"
               onPointerDown={(e) => e.stopPropagation()}
-              className="w-full h-full relative"
+              className="absolute inset-0 w-full h-full overflow-hidden"
             >
               {effectiveVideoId ? (
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube.com/embed/${effectiveVideoId}?autoplay=1&start=${Math.floor(currentTime)}&enablejsapi=1&rel=0&playsinline=1`}
+                  src={`https://www.youtube.com/embed/${effectiveVideoId}?autoplay=1&enablejsapi=1&rel=0&playsinline=1`}
                   title={data.title || 'Video'}
-                  className="w-full h-full border-0 pointer-events-auto"
+                  className="w-full h-full border-0 pointer-events-auto block"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
@@ -311,81 +245,28 @@ export const VideoNode = ({
                   <span className="text-white text-xs mb-2">{videoData.title || data.title || 'Video Stream'}</span>
                 </div>
               )}
-
-              {/* Minimal Glass Overlay Controls */}
-              <div
-                className={`absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col gap-1.5 transition-opacity duration-200 ${
-                  showControls || !isPlaying ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-                }`}
-              >
-                {/* Progress Scrubber */}
-                <button
-                  type="button"
-                  data-interactive="true"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  className="w-full h-1.5 bg-white/20 hover:h-2.5 rounded-full overflow-hidden cursor-pointer relative transition-all border-0 p-0 block"
-                  onClick={handleSeek}
-                  title="Scrub video"
-                >
-                  <div
-                    className="h-full bg-amber-500 rounded-full"
-                    style={{ width: `${Math.min(100, duration > 0 ? (currentTime / duration) * 100 : (currentTime % 100))}%` }}
-                  />
-                </button>
-
-                {/* Control Toolbar */}
-                <div className="flex items-center justify-between text-white text-[11px] font-mono select-none">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      data-interactive="true"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={handleTogglePlayPause}
-                      className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer text-white"
-                      title={isPlaying ? 'Pause' : 'Play'}
-                    >
-                      {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                    </button>
-
-                    <span className="text-[10px] text-white/80">
-                      {formatTime(currentTime)} {duration > 0 ? `/ ${formatTime(duration)}` : ''}
-                    </span>
-
-                    <button
-                      type="button"
-                      data-interactive="true"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => setIsMuted((m) => !m)}
-                      className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer text-white/90 ml-1"
-                      title={isMuted ? 'Unmute' : 'Mute'}
-                    >
-                      {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {/* 📺 Theater Mode ("T" Button) */}
-                    <button
-                      type="button"
-                      data-interactive="true"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={handleToggleTheater}
-                      className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                        isTheater
-                          ? 'bg-amber-500 text-black shadow-xs'
-                          : 'bg-white/20 hover:bg-white/30 text-white'
-                      }`}
-                      title="Theater mode (T)"
-                      aria-label="Theater mode"
-                    >
-                      <span>T</span>
-                      <Maximize2 className="w-2.5 h-2.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
+
+          {/* 📺 Top-Right Theater Mode Toggle (Available in both cover and playing mode) */}
+          <div className="absolute top-2.5 right-2.5 z-20 pointer-events-auto">
+            <button
+              type="button"
+              data-interactive="true"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={handleToggleTheater}
+              className={`px-2 py-1 rounded font-mono text-[9px] font-bold flex items-center gap-1 transition-all cursor-pointer backdrop-blur-md shadow-md ${
+                isTheater
+                  ? 'bg-amber-500 text-black shadow-amber-500/30'
+                  : 'bg-black/80 hover:bg-black text-white/90 border border-white/15 hover:text-white'
+              }`}
+              title="Toggle Theater Mode (Expands card to 780px)"
+              aria-label="Theater mode"
+            >
+              <span>{isTheater ? 'COMPACT' : 'THEATER'}</span>
+              <Maximize2 className="w-2.5 h-2.5" />
+            </button>
+          </div>
         </div>
       </div>
 

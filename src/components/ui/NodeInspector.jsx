@@ -1249,7 +1249,21 @@ export const NodeInspector = ({
                       />
                     ) : (
                       <div
-                        onClick={() => setInspectorPlayingVideo(true)}
+                        onClick={() => {
+                          if (!effectiveInspectorVideoId) {
+                            const vq = data.videoData?.videoQuery || data.videoQuery || data.title || '';
+                            if (vq) {
+                              searchWebVideos(vq).then((vids) => {
+                                if (Array.isArray(vids) && vids.length > 0 && vids[0].videoId) {
+                                  setResolvedInspectorVideoId(vids[0].videoId);
+                                  setInspectorPlayingVideo(true);
+                                }
+                              }).catch(() => {});
+                            }
+                          } else {
+                            setInspectorPlayingVideo(true);
+                          }
+                        }}
                         className="w-full h-full relative cursor-pointer group/insp-cover"
                         title="Click to play video inside inspector"
                       >
@@ -1307,15 +1321,6 @@ export const NodeInspector = ({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => onOpenBrowser?.(nodeData?.data?.url || nodeData?.data?.title, 'split')}
-                      className="font-mono text-[9.5px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1 shadow-3xs"
-                      title="Open Web Browser for node references"
-                    >
-                      <Globe className="w-2.5 h-2.5 text-amber-600" />
-                      <span>Browse Web</span>
-                    </button>
                     <button
                       onClick={() => setShowAddPhotoForm(!showAddPhotoForm)}
                       className="font-mono text-[9.5px] font-semibold text-text-secondary bg-white-pure hover:bg-grey-soft border border-grey-medium px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1"
