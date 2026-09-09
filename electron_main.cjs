@@ -178,8 +178,8 @@ app.whenReady().then(async () => {
   // Strip framing barriers and security restrictions across all header casings
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const url = details.url || '';
-    // Preserve YouTube and Google Video headers intact so native embeds and player streams work seamlessly
-    if (/youtube\.com|googlevideo\.com|ytimg\.com/i.test(url)) {
+    // Preserve YouTube, Google Video, and Spotify headers intact so native embeds and player streams work seamlessly
+    if (/youtube\.com|googlevideo\.com|ytimg\.com|spotify\.com|scdn\.co/i.test(url)) {
       callback({ cancel: false });
       return;
     }

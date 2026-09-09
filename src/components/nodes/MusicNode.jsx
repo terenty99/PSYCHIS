@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
 import { useGlobalAudio } from '../../hooks/useGlobalAudio';
-import { searchMusicTracks } from '../../utils/visualSearchEngine';
+import { searchMusicTracks, resolveSpotifyTrackId } from '../../utils/visualSearchEngine';
 import {
   Play,
   Pause,
@@ -10,6 +10,7 @@ import {
   Radio,
   Sliders,
   Volume2,
+  X,
 } from 'lucide-react';
 
 export const MusicNode = ({
@@ -37,9 +38,17 @@ export const MusicNode = ({
   const artwork = musicData.artwork || data.primaryPhoto?.url || data.photos?.[0]?.url || null;
   const previewUrl = musicData.previewUrl || '';
 
-  // Auto-resolve audio preview and artwork if missing
+  // Auto-resolve audio preview, artwork, and Spotify ID if missing
   const [resolvedPreview, setResolvedPreview] = useState(previewUrl);
   const [resolvedArtwork, setResolvedArtwork] = useState(artwork);
+  const [resolvedSpotifyId, setResolvedSpotifyId] = useState(
+    musicData.spotifyId ||
+    (musicData.id && String(musicData.id).startsWith('spotify-') ? String(musicData.id).replace(/^spotify-/, '') : null) ||
+    (musicData.fullTrackUrl?.match(/(?:track\/|track:)([a-zA-Z0-9]{22})/i)?.[1]) ||
+    (data.url?.match(/(?:track\/|track:)([a-zA-Z0-9]{22})/i)?.[1]) ||
+    null
+  );
+  const [showSpotifyFull, setShowSpotifyFull] = useState(false);
 
   useEffect(() => {
     if (!resolvedPreview && (trackTitle || artist || data.title)) {
@@ -56,13 +65,18 @@ export const MusicNode = ({
               setResolvedArtwork(first.artwork);
               musicData.artwork = first.artwork;
             }
+            if (first.spotifyId && !resolvedSpotifyId) {
+              setResolvedSpotifyId(first.spotifyId);
+              musicData.spotifyId = first.spotifyId;
+            }
           }
         }).catch(() => {});
       }
     }
-  }, [resolvedPreview, trackTitle, artist, data.title, resolvedArtwork]);
+  }, [resolvedPreview, trackTitle, artist, data.title, resolvedArtwork, resolvedSpotifyId]);
 
   const effectivePreview = resolvedPreview || previewUrl;
+  const effectiveSpotifyId = resolvedSpotifyId || musicData.spotifyId;
   const effectiveArtwork = resolvedArtwork || artwork || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop';
 
   // Connect to Global Audio Singleton
@@ -286,9 +300,43 @@ export const MusicNode = ({
               <Radio className={`w-3 h-3 ${isPlaying ? 'text-amber-400' : 'text-white/40'}`} />
               AUDIO PREVIEW (30S)
             </span>
-            <span className="font-bold text-white/80">
-              {formatTime(activeTime)} / {formatTime(activeDuration)}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-white/80">
+                {formatTime(activeTime)} / {formatTime(activeDuration)}
+              </span>
+              <button
+                type="button"
+                data-interactive="true"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (showSpotifyFull) {
+                    setShowSpotifyFull(false);
+                    return;
+                  }
+                  if (globalIsPlaying) {
+                    togglePlayPause();
+                  }
+                  setShowSpotifyFull(true);
+                  if (!effectiveSpotifyId) {
+                    const q = `${artist || ''} ${trackTitle || data.title || ''}`.trim();
+                    const sid = await resolveSpotifyTrackId(musicData || q);
+                    if (sid) {
+                      setResolvedSpotifyId(sid);
+                      musicData.spotifyId = sid;
+                    }
+                  }
+                }}
+                className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold transition-all cursor-pointer border ${
+                  showSpotifyFull
+                    ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/40'
+                    : 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border-emerald-500/30'
+                }`}
+                title="Stream full track via Spotify Player API"
+              >
+                {showSpotifyFull ? 'Hide Full' : 'Full Track'}
+              </button>
+            </div>
           </div>
 
           {/* Interactive Waveform Container */}
@@ -329,6 +377,48 @@ export const MusicNode = ({
               </div>
             )}
           </div>
+
+          {/* Spotify Full Player Embed */}
+          {showSpotifyFull && (
+            <div className="mt-2.5 rounded-xl overflow-hidden border border-emerald-500/40 bg-[#121212] shadow-md relative z-10 animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-center justify-between px-2.5 py-1 bg-black/60 border-b border-white/10 text-[9px] font-mono text-emerald-400">
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-bold uppercase tracking-wider">Spotify Full Track API</span>
+                </div>
+                <button
+                  type="button"
+                  data-interactive="true"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowSpotifyFull(false);
+                  }}
+                  className="text-white/60 hover:text-white p-0.5 rounded cursor-pointer"
+                  title="Close Spotify Player"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              {effectiveSpotifyId ? (
+                <iframe
+                  src={`https://open.spotify.com/embed/track/${effectiveSpotifyId}?utm_source=generator&theme=0`}
+                  width="100%"
+                  height="152"
+                  frameBorder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  className="w-full border-0 block"
+                  title={trackTitle}
+                />
+              ) : (
+                <div className="p-4 text-center text-[10px] font-mono text-white/70 flex flex-col items-center justify-center gap-1.5">
+                  <Disc className="w-4 h-4 animate-spin text-emerald-400" />
+                  <span>Connecting to Spotify API...</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

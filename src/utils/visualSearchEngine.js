@@ -1075,3 +1075,51 @@ export async function searchMusicTracks(queryText) {
   return [];
 }
 
+/**
+ * Resolves a Spotify track ID (22 alphanumeric characters) from a track object or query string.
+ * Uses built-in Spotify API credentials.
+ */
+export async function resolveSpotifyTrackId(trackOrQuery) {
+  if (!trackOrQuery) return null;
+
+  // If already an object
+  if (typeof trackOrQuery === 'object') {
+    if (trackOrQuery.spotifyId && /^[a-zA-Z0-9]{22}$/.test(trackOrQuery.spotifyId)) {
+      return trackOrQuery.spotifyId;
+    }
+    if (trackOrQuery.id) {
+      const cleanId = String(trackOrQuery.id).replace(/^spotify-/, '');
+      if (/^[a-zA-Z0-9]{22}$/.test(cleanId)) {
+        return cleanId;
+      }
+    }
+    const fullUrl = trackOrQuery.fullTrackUrl || trackOrQuery.url || '';
+    const m = fullUrl.match(/(?:track\/|track:)([a-zA-Z0-9]{22})/i);
+    if (m && m[1]) return m[1];
+
+    const q = `${trackOrQuery.artist || ''} ${trackOrQuery.trackTitle || trackOrQuery.title || ''}`.trim();
+    if (q) {
+      const tracks = await searchMusicTracks(q);
+      if (tracks.length > 0 && tracks[0].spotifyId) {
+        return tracks[0].spotifyId;
+      }
+    }
+    return null;
+  }
+
+  // If string
+  if (typeof trackOrQuery === 'string') {
+    const s = trackOrQuery.trim();
+    if (/^[a-zA-Z0-9]{22}$/.test(s)) return s;
+    const m = s.match(/(?:track\/|track:)([a-zA-Z0-9]{22})/i);
+    if (m && m[1]) return m[1];
+
+    const tracks = await searchMusicTracks(s);
+    if (tracks.length > 0 && tracks[0].spotifyId) {
+      return tracks[0].spotifyId;
+    }
+  }
+
+  return null;
+}
+
