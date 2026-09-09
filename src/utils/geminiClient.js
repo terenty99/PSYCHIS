@@ -185,6 +185,8 @@ export const STORAGE_KEY_YOUTUBE_KEY = 'psychis_youtube_api_key';
 export const DEFAULT_YOUTUBE_API_KEY = 'AIzaSyBm9mDhXzr8ygzCU4wTH4C3HKSTlckWTMQ';
 export const STORAGE_KEY_SPOTIFY_CLIENT_ID = 'psychis_spotify_client_id';
 export const STORAGE_KEY_SPOTIFY_CLIENT_SECRET = 'psychis_spotify_client_secret';
+export const DEFAULT_SPOTIFY_CLIENT_ID = '1d15702e09ae4b8783abf14368295a9b';
+export const DEFAULT_SPOTIFY_CLIENT_SECRET = 'ad1aba9a4f034b0f9fde8dee87b041ec';
 
 export function getStoredYouTubeKey() {
   if (typeof localStorage !== 'undefined') {
@@ -209,12 +211,17 @@ export function setStoredYouTubeKey(key) {
 
 export function getStoredSpotifyCredentials() {
   if (typeof localStorage !== 'undefined') {
+    const storedId = localStorage.getItem(STORAGE_KEY_SPOTIFY_CLIENT_ID);
+    const storedSecret = localStorage.getItem(STORAGE_KEY_SPOTIFY_CLIENT_SECRET);
     return {
-      clientId: localStorage.getItem(STORAGE_KEY_SPOTIFY_CLIENT_ID) || '',
-      clientSecret: localStorage.getItem(STORAGE_KEY_SPOTIFY_CLIENT_SECRET) || '',
+      clientId: (storedId && storedId.trim()) ? storedId.trim() : DEFAULT_SPOTIFY_CLIENT_ID,
+      clientSecret: (storedSecret && storedSecret.trim()) ? storedSecret.trim() : DEFAULT_SPOTIFY_CLIENT_SECRET,
     };
   }
-  return { clientId: '', clientSecret: '' };
+  return {
+    clientId: DEFAULT_SPOTIFY_CLIENT_ID,
+    clientSecret: DEFAULT_SPOTIFY_CLIENT_SECRET,
+  };
 }
 
 export function setStoredSpotifyCredentials(clientId, clientSecret) {

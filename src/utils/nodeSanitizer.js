@@ -290,7 +290,7 @@ export function sanitizeNodeData(rawData) {
     fullTrackUrl: sanitizeString(rawData.musicData?.fullTrackUrl, ''),
     duration: typeof rawData.musicData?.duration === 'number' ? rawData.musicData.duration : 30,
     artwork: sanitizeString(rawData.musicData?.artwork, primaryPhoto?.url || ''),
-    source: sanitizeString(rawData.musicData?.source, 'Apple Music / iTunes'),
+    source: sanitizeString(rawData.musicData?.source, 'Spotify'),
   } : null;
 
   const savedTimestamp = typeof rawData.savedTimestamp === 'number' && !isNaN(rawData.savedTimestamp)
