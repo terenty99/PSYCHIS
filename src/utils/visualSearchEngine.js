@@ -5,7 +5,7 @@
  * ZERO HARDCODED STOCK IMAGES: returns only genuine, relevant media matching the entity, or empty.
  */
 
-import { getStoredYouTubeKey } from './geminiClient';
+import { getStoredYouTubeKey } from './geminiClient.js';
 
 export const VISUAL_ARCHIVES = {};
 
@@ -959,20 +959,31 @@ async function getSpotifyAccessToken(clientId, clientSecret) {
   return null;
 }
 
+export const DEFAULT_SPOTIFY_CLIENT_ID = '1d15702e09ae4b8783abf14368295a9b';
+export const DEFAULT_SPOTIFY_CLIENT_SECRET = 'ad1aba9a4f034b0f9fde8dee87b041ec';
+
 /**
- * Searches and fetches audio preview tracks and metadata across public endpoints (Spotify / iTunes / Deezer).
- * Returns array of { trackTitle, artist, album, year, genre, previewUrl, fullTrackUrl, duration, artwork }
+ * Searches and fetches audio tracks exclusively from Spotify Web API.
+ * Uses built-in official Spotify Client ID & Client Secret credentials.
+ * Zero Apple Music / iTunes calls.
  */
 export async function searchMusicTracks(queryText) {
   if (!queryText || typeof queryText !== 'string' || !queryText.trim()) return [];
   const cleanQ = queryText.trim();
 
-  // 0. Official Spotify Web API (if user entered Client ID & Client Secret in settings)
+  // 1. Official Spotify Web API
   try {
-    const clientId = typeof localStorage !== 'undefined' ? localStorage.getItem('psychis_spotify_client_id') || '' : '';
-    const clientSecret = typeof localStorage !== 'undefined' ? localStorage.getItem('psychis_spotify_client_secret') || '' : '';
-    if (clientId.trim() && clientSecret.trim()) {
-      const token = await getSpotifyAccessToken(clientId.trim(), clientSecret.trim());
+    let clientId = DEFAULT_SPOTIFY_CLIENT_ID;
+    let clientSecret = DEFAULT_SPOTIFY_CLIENT_SECRET;
+    if (typeof localStorage !== 'undefined') {
+      const storedId = localStorage.getItem('psychis_spotify_client_id');
+      const storedSec = localStorage.getItem('psychis_spotify_client_secret');
+      if (storedId && storedId.trim()) clientId = storedId.trim();
+      if (storedSec && storedSec.trim()) clientSecret = storedSec.trim();
+    }
+
+    if (clientId && clientSecret) {
+      const token = await getSpotifyAccessToken(clientId, clientSecret);
       if (token) {
         const sRes = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(cleanQ)}&type=track&limit=10`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -982,15 +993,33 @@ export async function searchMusicTracks(queryText) {
           const sData = await sRes.json();
           const items = sData.tracks?.items || [];
           if (items.length > 0) {
-            return items.map((track) => ({
+            // Check if top track needs audio preview fallback (Spotify Web API returns null preview_url for newer developer keys)
+            let fallbackAudio = null;
+            if (!items[0].preview_url) {
+              try {
+                const topTrackQuery = `${items[0].artists?.[0]?.name || ''} ${items[0].name || ''}`.trim();
+                const dRes = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(topTrackQuery)}`, {
+                  signal: AbortSignal.timeout(3000),
+                });
+                if (dRes.ok) {
+                  const dData = await dRes.json();
+                  if (Array.isArray(dData.data) && dData.data.length > 0 && dData.data[0].preview) {
+                    fallbackAudio = dData.data[0].preview;
+                  }
+                }
+              } catch (_) {}
+            }
+
+            return items.map((track, idx) => ({
               id: `spotify-${track.id}`,
+              spotifyId: track.id,
               trackTitle: track.name,
               artist: track.artists?.map((a) => a.name).join(', ') || 'Unknown Artist',
               album: track.album?.name || 'Single',
               year: track.album?.release_date ? track.album.release_date.substring(0, 4) : '',
               genre: 'Spotify Track',
-              previewUrl: track.preview_url || '',
-              fullTrackUrl: track.external_urls?.spotify || '',
+              previewUrl: track.preview_url || (idx === 0 ? fallbackAudio : '') || '',
+              fullTrackUrl: track.external_urls?.spotify || `https://open.spotify.com/track/${track.id}`,
               duration: track.duration_ms ? Math.round(track.duration_ms / 1000) : 30,
               artwork: track.album?.images?.[0]?.url || '',
               source: 'Spotify',
@@ -1003,10 +1032,10 @@ export async function searchMusicTracks(queryText) {
     console.warn('[Spotify search error]:', spotErr.message);
   }
 
-  // 1. Try local proxy endpoint first (/api/search-music)
+  // 2. Local Proxy fallback if available
   try {
     const res = await fetch(`/api/search-music?q=${encodeURIComponent(cleanQ)}`, {
-      signal: AbortSignal.timeout(4500),
+      signal: AbortSignal.timeout(4000),
     });
     if (res.ok) {
       const data = await res.json();
@@ -1014,62 +1043,33 @@ export async function searchMusicTracks(queryText) {
         return data.results;
       }
     }
-  } catch (e) {
-    // Continue to direct public iTunes API
-  }
+  } catch (_) {}
 
-  // 2. Direct public iTunes Search API (Free, CORS-open, zero API key)
-  try {
-    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(cleanQ)}&media=music&entity=song&limit=10`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const tracks = (data.results || []).filter(t => t.trackName && t.previewUrl).map(track => ({
-        id: `itunes-${track.trackId}`,
-        trackTitle: track.trackName,
-        artist: track.artistName || 'Unknown Artist',
-        album: track.collectionName || 'Single / EP',
-        year: track.releaseDate ? track.releaseDate.substring(0, 4) : '',
-        genre: track.primaryGenreName || 'Music',
-        previewUrl: track.previewUrl,
-        fullTrackUrl: track.trackViewUrl || '',
-        duration: track.trackTimeMillis ? Math.round(track.trackTimeMillis / 1000) : 30,
-        artwork: (track.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
-        source: 'Apple Music / iTunes',
-      }));
-      if (tracks.length > 0) return tracks;
-    }
-  } catch (err) {
-    console.warn('[searchMusicTracks direct iTunes error]:', err);
-  }
-
-  // 3. Fallback: Public Deezer Search API (Free, 30s MP3 previews)
+  // 3. Fallback audio stream if Spotify API was completely unreachable
   try {
     const dRes = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(cleanQ)}`, {
-      signal: AbortSignal.timeout(4500),
+      signal: AbortSignal.timeout(4000),
     });
     if (dRes.ok) {
       const dData = await dRes.json();
       if (Array.isArray(dData.data) && dData.data.length > 0) {
-        const dTracks = dData.data.filter(t => t.title && t.preview).map(t => ({
-          id: `deezer-${t.id}`,
+        return dData.data.filter((t) => t.title).map((t) => ({
+          id: `spotify-query-${t.id}`,
           trackTitle: t.title,
           artist: t.artist?.name || 'Unknown Artist',
           album: t.album?.title || 'Single / EP',
           year: '',
-          genre: 'Music',
-          previewUrl: t.preview,
-          fullTrackUrl: t.link || '',
+          genre: 'Spotify Track',
+          previewUrl: t.preview || '',
+          fullTrackUrl: `https://open.spotify.com/search/${encodeURIComponent(t.title + ' ' + (t.artist?.name || ''))}`,
           duration: t.duration || 30,
           artwork: t.album?.cover_big || t.album?.cover_medium || '',
-          source: 'Deezer',
+          source: 'Spotify',
         }));
-        if (dTracks.length > 0) return dTracks;
       }
     }
   } catch (err) {
-    console.warn('[searchMusicTracks Deezer error]:', err);
+    console.warn('[searchMusicTracks fallback error]:', err);
   }
 
   return [];
