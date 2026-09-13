@@ -12,6 +12,7 @@ import {
   ArrowUpRight,
   Trash2,
   Globe,
+  Lock,
   Settings,
   Zap,
   Triangle,
@@ -409,9 +410,17 @@ export const NodeInspector = ({
   const [resolvedSpotifyTrackId, setResolvedSpotifyTrackId] = useState(null);
   const [showSpotifyEmbed, setShowSpotifyEmbed] = useState(false);
 
+  // Live Source Mini Browser States
+  const [miniBrowserKey, setMiniBrowserKey] = useState(0);
+  const [miniBrowserLoading, setMiniBrowserLoading] = useState(true);
+  const [miniBrowserFailed, setMiniBrowserFailed] = useState(false);
+
   useEffect(() => {
     if (nodeData) {
       setInspectorPlayingVideo(false);
+      setMiniBrowserLoading(true);
+      setMiniBrowserFailed(false);
+      setMiniBrowserKey((k) => k + 1);
 
       // Resolve Video ID
       const vData = nodeData.data?.videoData || {};
@@ -822,137 +831,25 @@ export const NodeInspector = ({
         aria-label="Node knowledge study deck"
       >
         {/* 1. NODE IDENTITY & CONTEXT BAR (Persistent Header) */}
-        <header className="p-4 px-5 border-b border-grey-medium bg-white-warm/95 backdrop-blur-md select-none shadow-2xs shrink-0">
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-grey-soft border border-grey-medium flex items-center justify-center text-text-primary shadow-2xs">
-                <TypeIcon className="w-3.5 h-3.5" />
-              </div>
-              <button
-                onClick={handleCopyId}
-                className="font-mono text-[10px] font-semibold text-text-secondary bg-grey-soft hover:bg-grey-medium border border-grey-medium px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
-                title="Click to copy Node ID"
-              >
-                <span>{nodeData.id}</span>
-                {copiedId ? <Check className="w-2.5 h-2.5 text-green-600" /> : <Copy className="w-2.5 h-2.5 text-text-muted" />}
-              </button>
-              <span className="font-mono text-[9.5px] font-semibold tracking-wider text-text-secondary uppercase bg-white-pure px-2 py-0.5 rounded-md border border-grey-medium/80">
-                {typeConfig.badge}
-              </span>
+        <header className="p-3.5 px-5 border-b border-grey-medium bg-white-warm/95 backdrop-blur-md select-none shadow-2xs shrink-0">
+          {/* Title & Subtitle with Close Button */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="font-display text-[17px] font-medium text-text-primary leading-snug">
+                {data.title || 'Untitled Knowledge Node'}
+              </h1>
+              <p className="font-mono text-[11px] text-text-muted mt-0.5">
+                {typeConfig.label} &bull; {data.status || 'Verified State'}
+              </p>
             </div>
 
-            {/* View Mode Toggle (Inspector / Split / Browser) */}
-            <div className="flex items-center bg-grey-soft/70 border border-grey-medium/60 rounded-xl p-0.5 gap-0.5 shadow-3xs">
-              <button
-                onClick={() => onSwitchViewMode?.('inspector')}
-                className={`px-2.5 py-1 rounded-lg font-sans text-[11px] font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer ${
-                  viewMode === 'inspector'
-                    ? 'bg-white-pure text-text-primary font-semibold shadow-xs border border-grey-medium/70 ring-1 ring-black/[0.02]'
-                    : 'text-text-muted hover:text-text-primary hover:bg-white-pure/40'
-                }`}
-                title="Study-Focused Mode"
-              >
-                <FileText className="w-3 h-3" />
-                <span className="hidden sm:inline">Study</span>
-              </button>
-
-              <button
-                onClick={() => onSwitchViewMode?.('split')}
-                className={`px-2.5 py-1 rounded-lg font-sans text-[11px] font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer ${
-                  viewMode === 'split'
-                    ? 'bg-white-pure text-text-primary font-semibold shadow-xs border border-grey-medium/70 ring-1 ring-black/[0.02]'
-                    : 'text-text-muted hover:text-text-primary hover:bg-white-pure/40'
-                }`}
-                title="Split View (Side-by-side with Source Browser)"
-              >
-                <Columns className="w-3 h-3" />
-                <span className="hidden sm:inline">Split</span>
-              </button>
-
-              <button
-                onClick={() => onSwitchViewMode?.('browser')}
-                className={`px-2.5 py-1 rounded-lg font-sans text-[11px] font-medium flex items-center gap-1.5 transition-all duration-150 cursor-pointer ${
-                  viewMode === 'browser'
-                    ? 'bg-white-pure text-text-primary font-semibold shadow-xs border border-grey-medium/70 ring-1 ring-black/[0.02]'
-                    : 'text-text-muted hover:text-text-primary hover:bg-white-pure/40'
-                }`}
-                title="Source Browser Mode"
-              >
-                <BookOpen className="w-3 h-3" />
-                <span className="hidden sm:inline">Source</span>
-              </button>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setIsPinned(!isPinned)}
-                className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer ${
-                  isPinned
-                    ? 'bg-grey-medium border-text-primary/30 text-text-primary'
-                    : 'border-grey-medium/60 bg-white-pure/80 hover:bg-grey-soft text-text-secondary hover:text-text-primary'
-                }`}
-                title={isPinned ? 'Pinned to canvas' : 'Pin node'}
-              >
-                {isPinned ? <PinOff className="w-3.5 h-3.5 text-text-primary" /> : <Pin className="w-3.5 h-3.5 text-text-secondary" />}
-              </button>
-
-              {onDuplicateNode && (
-                <button
-                  onClick={() => onDuplicateNode(nodeData)}
-                  className="w-7 h-7 rounded-lg border border-grey-medium/60 bg-white-pure/80 hover:bg-grey-soft text-text-secondary hover:text-text-primary flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
-                  title="Duplicate Node"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              {/* Direct In-App Browser Button */}
-              <button
-                onClick={() => handleOpenSourceInBrowser(data.url)}
-                className="h-7 px-2 rounded-lg border border-grey-medium/70 bg-white-pure hover:bg-grey-soft text-text-primary flex items-center gap-1 transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer font-sans text-[11px] font-medium"
-                title="Open in In-App Research Browser"
-              >
-                <Globe className="w-3.5 h-3.5 text-blue-600" />
-                <span className="hidden sm:inline">Browser</span>
-              </button>
-
-              <button
-                onClick={handleExportCard}
-                className="w-7 h-7 rounded-lg border border-grey-medium/60 bg-white-pure/80 hover:bg-grey-soft text-text-secondary hover:text-text-primary flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
-                title="Export Node Card (.json)"
-              >
-                <Download className="w-3.5 h-3.5" />
-              </button>
-
-              {onDeleteNode && (
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="w-7 h-7 rounded-lg border border-grey-medium/60 bg-white-pure/80 hover:bg-red-50 hover:border-red-200 text-text-secondary hover:text-red-600 flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
-                  title="Delete node (Del / Backspace)"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              <button
-                onClick={onClose}
-                className="w-7 h-7 rounded-lg border border-grey-medium/60 bg-white-pure/80 hover:bg-grey-soft text-text-secondary hover:text-text-primary flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer ml-1"
-                aria-label="Close inspector"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Title & Subtitle */}
-          <div>
-            <h1 className="font-display text-[17px] font-medium text-text-primary leading-snug">
-              {data.title || 'Untitled Knowledge Node'}
-            </h1>
-            <p className="font-mono text-[11px] text-text-muted mt-0.5">
-              {typeConfig.label} &bull; {data.status || 'Verified State'}
-            </p>
+            <button
+              onClick={onClose}
+              className="w-7 h-7 rounded-lg border border-grey-medium/60 bg-white-pure/80 hover:bg-grey-soft text-text-secondary hover:text-text-primary flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer shrink-0 mt-0.5"
+              aria-label="Close inspector"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           {/* Section Tabs Bar */}
@@ -1040,49 +937,130 @@ export const NodeInspector = ({
           {/* TAB 1: OVERVIEW & SYNTHESIS */}
           {activeTab === 'study' && (
             <div className="flex flex-col gap-5">
-              {/* SOURCE ATTRIBUTION & VITAL PROPERTIES */}
-              <section className="bg-white-warm border border-grey-medium rounded-2xl p-4 shadow-2xs flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-[10px] font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
-                    <BookOpen className="w-3 h-3 text-text-muted" />
-                    Source Provenance &amp; Literature Link
-                  </span>
-                  <span className="font-mono text-[9.5px] text-text-muted bg-grey-soft px-2 py-0.5 rounded border border-grey-medium/70">
-                    verified signal
-                  </span>
-                </div>
+              {/* INTERACTIVE MINI SOURCE WEBSITE WINDOW */}
+              {(() => {
+                const rawSourceUrl = data.url || data.sourceUrl || data.originUrl || '';
+                const isInvalidOrSearch =
+                  !rawSourceUrl ||
+                  rawSourceUrl.includes('Special:Search') ||
+                  rawSourceUrl.includes('wikipedia.org/wiki/Special') ||
+                  rawSourceUrl.includes('example.com');
 
-                <div className="flex flex-col gap-1">
-                  <span className="text-[13px] font-medium text-text-primary">
-                    {data.institution || data.source || 'Applied Mechanics Laboratory'}
-                  </span>
+                const effectiveSourceUrl = !isInvalidOrSearch
+                  ? (/^https?:\/\//i.test(rawSourceUrl) ? rawSourceUrl : `https://${rawSourceUrl}`)
+                  : (data.title
+                    ? `https://html.duckduckgo.com/html/?q=${encodeURIComponent(data.title.trim())}`
+                    : 'https://html.duckduckgo.com/');
+                
+                let embedUrl = effectiveSourceUrl;
+                if (embedUrl.includes('wikipedia.org/wiki/')) {
+                  embedUrl = embedUrl.replace('//en.wikipedia.org/', '//en.m.wikipedia.org/');
+                }
 
-                  {/* Actionable URL */}
-                  <button
-                    onClick={() => handleOpenSourceInBrowser(data.url)}
-                    className="group flex items-center gap-1.5 font-mono text-xs text-text-primary hover:text-text-secondary cursor-pointer transition-colors text-left mt-0.5"
-                    title="Open paper side-by-side in Embedded Browser"
-                  >
-                    <span className="text-text-muted">Source:</span>
-                    <span className="underline underline-offset-3 decoration-grey-strong group-hover:decoration-text-primary font-medium">
-                      {data.url ? data.url.replace(/^https?:\/\//, '') : 'arxiv.org/abs/2307.12008'}
-                    </span>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-text-muted group-hover:text-text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </button>
-                </div>
-              </section>
+                let displayHost = 'Source Webpage';
+                try {
+                  displayHost = new URL(effectiveSourceUrl).hostname.replace(/^www\./, '');
+                } catch (_) {
+                  displayHost = data.source || 'Live Source';
+                }
 
-              {/* DETAILED SYNTHESIS */}
-              <section className="flex flex-col gap-2">
-                <span className="font-mono text-[10px] font-bold text-text-secondary uppercase tracking-wider">
-                  Conceptual Synthesis &amp; Analysis
-                </span>
-                <div className="bg-grey-soft/80 border border-grey-medium rounded-2xl p-4 shadow-2xs">
-                  <p className="text-[12.5px] leading-[1.75] text-text-primary font-normal">
-                    {data.detailedSynthesis || data.description}
-                  </p>
-                </div>
-              </section>
+                return (
+                  <section className="bg-white-warm border border-grey-medium rounded-2xl overflow-hidden shadow-2xs flex flex-col transition-all duration-200">
+                    {/* Browser Chrome Header */}
+                    <div className="bg-[#EFECE8] border-b border-grey-medium/80 px-3.5 py-2.5 flex items-center justify-between gap-2 select-none">
+                      {/* Traffic Lights & URL Pill */}
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#E06C75]/85" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#E5C07B]/85" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#98C379]/85" />
+                        </div>
+
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-primary bg-white-pure border border-grey-medium/70 px-2.5 py-1 rounded-lg shadow-3xs min-w-0 flex-1 max-w-[340px]">
+                          <Lock className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span className="truncate text-text-primary font-medium select-text">
+                            {effectiveSourceUrl.replace(/^https?:\/\//, '')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Browser Actions */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMiniBrowserLoading(true);
+                            setMiniBrowserFailed(false);
+                            setMiniBrowserKey((k) => k + 1);
+                          }}
+                          className="p-1.5 text-text-secondary hover:text-text-primary rounded-lg hover:bg-white-pure/80 transition-all cursor-pointer"
+                          title="Reload live source website"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSourceInBrowser(effectiveSourceUrl)}
+                          className="p-1.5 text-text-secondary hover:text-text-primary rounded-lg hover:bg-white-pure/80 transition-all cursor-pointer"
+                          title="Open in side-by-side Embedded Browser"
+                        >
+                          <Maximize2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => window.open(effectiveSourceUrl, '_blank', 'noopener,noreferrer')}
+                          className="p-1.5 text-text-secondary hover:text-text-primary rounded-lg hover:bg-white-pure/80 transition-all cursor-pointer"
+                          title="Open in external browser window"
+                        >
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Interactive Web Viewport */}
+                    <div className="relative w-full h-[600px] bg-white-pure overflow-hidden">
+                      {miniBrowserLoading && (
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white-pure/90 backdrop-blur-xs gap-2 select-none">
+                          <Compass className="w-6 h-6 animate-spin text-text-secondary" />
+                          <span className="font-mono text-[11px] text-text-muted">Loading live source ({displayHost})...</span>
+                        </div>
+                      )}
+
+                      {miniBrowserFailed ? (
+                        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white-warm p-6 text-center gap-3">
+                          <Globe className="w-8 h-8 text-text-muted" />
+                          <p className="font-sans text-xs text-text-secondary max-w-[280px] leading-relaxed">
+                            This website restricts embedding inside frames. You can open it directly in the full reader drawer:
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSourceInBrowser(effectiveSourceUrl)}
+                            className="px-4 py-2 bg-[#2B2724] hover:bg-[#1E1B18] text-white-pure font-sans text-xs rounded-xl font-medium cursor-pointer shadow-xs transition-all"
+                          >
+                            Open in Full Reader Drawer
+                          </button>
+                        </div>
+                      ) : (
+                        <iframe
+                          key={miniBrowserKey}
+                          src={embedUrl}
+                          className="w-full h-full border-0"
+                          title={`Live Source: ${data.title || 'Source'}`}
+                          sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          onLoad={() => setMiniBrowserLoading(false)}
+                          onError={() => {
+                            setMiniBrowserLoading(false);
+                            setMiniBrowserFailed(true);
+                          }}
+                        />
+                      )}
+                    </div>
+                  </section>
+                );
+              })()}
 
               {/* KINETIC DYNAMICS ACTION BUTTON (PHYSICS NODES ONLY) */}
               {isPhysics && (
@@ -1921,11 +1899,11 @@ export const NodeInspector = ({
                   <div className="flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-text-primary" />
                     <span className="font-mono text-[11px] font-bold text-text-primary uppercase tracking-wider">
-                      AI Literature Probe
+                      Tavily Web Probe
                     </span>
                   </div>
                   <span className="font-mono text-[9.5px] text-text-secondary bg-grey-soft border border-grey-medium px-2 py-0.5 rounded">
-                    arXiv / IEEE Live
+                    Tavily Live Web
                   </span>
                 </div>
 
@@ -1938,18 +1916,18 @@ export const NodeInspector = ({
                   {isInvestigating ? (
                     <>
                       <Compass className="w-4 h-4 text-text-primary animate-spin" />
-                      <span>{investigationMessage || 'Investigating live literature...'}</span>
+                      <span>{investigationMessage || 'Investigating live web via Tavily...'}</span>
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4 text-text-secondary" />
-                      <span>Investigate Deeper on the Web</span>
+                      <span>Investigate Deeper via Tavily Web</span>
                     </>
                   )}
                 </button>
 
                 <p className="font-sans text-[11px] text-text-muted text-center leading-relaxed">
-                  Crawls 2026 preprint literature to discover connected theorems and spawn verified topological nodes.
+                  Searches the open web in real-time via Tavily to extract authentic facts, verify links, and spawn topological discovery nodes.
                 </p>
 
                 {/* Recommended Theme Inquiries & Popular Explorations */}

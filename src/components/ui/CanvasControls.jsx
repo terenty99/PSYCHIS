@@ -30,11 +30,11 @@ export const CanvasControls = ({
 }) => {
   return (
     <div
-      className="fixed bottom-[76px] left-5 z-40 bg-white-pure/95 backdrop-blur-xl border border-grey-medium/80 rounded-2xl p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.08),0_2px_6px_rgba(0,0,0,0.04)] flex items-center gap-1.5 select-none font-sans text-xs"
+      className="fixed bottom-6 left-5 z-40 bg-white-pure/95 backdrop-blur-xl border border-grey-medium/80 rounded-2xl p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.08),0_2px_6px_rgba(0,0,0,0.04)] flex flex-col items-center gap-1.5 select-none font-sans text-xs"
       aria-label="Canvas zoom and view controls"
     >
       {/* Tool Switcher: Hand Mode (H) vs Selection Marquee Mode (V) */}
-      <div className="flex items-center gap-0.5 bg-grey-soft/80 p-0.5 rounded-xl border border-grey-medium/60 mr-1">
+      <div className="flex flex-col items-center gap-0.5 bg-grey-soft/80 p-0.5 rounded-xl border border-grey-medium/60">
         <button
           type="button"
           onClick={() => onToolModeChange?.('hand')}
@@ -62,44 +62,51 @@ export const CanvasControls = ({
           <BoxSelect className="w-3.5 h-3.5" />
         </button>
       </div>
-      <button
-        onClick={onZoomOut}
-        className="w-8 h-8 rounded-xl bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-primary flex items-center justify-center transition-all duration-150 active:scale-90 shadow-3xs cursor-pointer"
-        aria-label="Zoom out (-)"
-        title="Zoom Out (-)"
-      >
-        <span className="text-base leading-none font-semibold">−</span>
-      </button>
 
-      <button
-        onClick={onResetZoom}
-        className="h-8 px-2.5 rounded-xl bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-primary font-mono font-semibold text-[11px] flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
-        aria-label="Reset zoom to 100%"
-        title="Reset View (0)"
-      >
-        {Math.round(zoom * 100)}%
-      </button>
+      <div className="w-4 h-[1px] bg-grey-medium/70 my-0.5" />
 
+      {/* Zoom In (+) */}
       <button
         onClick={onZoomIn}
-        className="w-8 h-8 rounded-xl bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-primary flex items-center justify-center transition-all duration-150 active:scale-90 shadow-3xs cursor-pointer"
+        className="w-7 h-7 rounded-xl bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-primary flex items-center justify-center transition-all duration-150 active:scale-90 shadow-3xs cursor-pointer"
         aria-label="Zoom in (+)"
         title="Zoom In (+)"
       >
         <span className="text-base leading-none font-semibold">+</span>
       </button>
 
+      {/* Reset Zoom to 100% */}
+      <button
+        onClick={onResetZoom}
+        className="h-6 px-1 rounded-lg bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-primary font-mono font-semibold text-[10px] flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
+        aria-label="Reset zoom to 100%"
+        title="Reset View (0)"
+      >
+        {Math.round(zoom * 100)}%
+      </button>
+
+      {/* Zoom Out (-) */}
+      <button
+        onClick={onZoomOut}
+        className="w-7 h-7 rounded-xl bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-primary flex items-center justify-center transition-all duration-150 active:scale-90 shadow-3xs cursor-pointer"
+        aria-label="Zoom out (-)"
+        title="Zoom Out (-)"
+      >
+        <span className="text-base leading-none font-semibold">−</span>
+      </button>
+
+      <div className="w-4 h-[1px] bg-grey-medium/70 my-0.5" />
+
       {/* Fit View / Find Nodes Action Button */}
       {onFitView && (
         <button
           type="button"
           onClick={onFitView}
-          className="h-8 px-2.5 rounded-xl bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-secondary hover:text-text-primary font-sans text-[11.5px] font-medium flex items-center gap-1.5 transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
+          className="w-7 h-7 rounded-xl bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-secondary hover:text-text-primary flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
           aria-label="Fit all nodes in view (F)"
           title="Find & Center All Nodes (F)"
         >
           <Focus className="w-3.5 h-3.5 text-text-secondary" />
-          <span>Fit View (F)</span>
         </button>
       )}
 
@@ -108,7 +115,7 @@ export const CanvasControls = ({
         <button
           type="button"
           onClick={onToggleMinimap}
-          className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer ${
+          className={`w-7 h-7 rounded-xl border flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer ${
             isMinimapOpen
               ? 'bg-text-primary text-white border-text-primary'
               : 'bg-white-pure hover:bg-grey-soft/90 border-grey-medium/70 text-text-secondary hover:text-text-primary'
@@ -120,21 +127,19 @@ export const CanvasControls = ({
         </button>
       )}
 
-      <div className="w-[1px] h-4.5 bg-grey-medium/70 mx-0.5" />
-
+      {/* Keyboard Shortcuts Button */}
       <button
         onClick={onOpenShortcuts}
-        className="h-8 px-3 rounded-xl bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-secondary hover:text-text-primary font-sans text-[11.5px] font-medium flex items-center gap-1.5 transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
+        className="w-7 h-7 rounded-xl bg-white-pure hover:bg-grey-soft/90 border border-grey-medium/70 hover:border-text-primary/30 text-text-secondary hover:text-text-primary flex items-center justify-center transition-all duration-150 active:scale-95 shadow-3xs cursor-pointer"
         aria-label="Show shortcuts and trackpad guide"
-        title="Shortcuts (?)"
+        title="Keyboard Shortcuts (?)"
       >
         <Keyboard className="w-3.5 h-3.5 text-text-secondary" />
-        <span>Shortcuts</span>
       </button>
 
       {currentWorkspace && (
         <>
-          <div className="w-[1px] h-4 bg-grey-medium mx-0.5" />
+          <div className="w-4 h-[1px] bg-grey-medium/70 my-0.5" />
           <WorkspaceSwitcher
             currentWorkspace={currentWorkspace}
             workspaces={workspaces}

@@ -95,27 +95,6 @@ export const TopologicalNode = ({
         />
       </div>
 
-      {/* Clickable AI Probe Questions */}
-      {Array.isArray(node.data?.targetedInquiries) && node.data.targetedInquiries.length > 0 && (
-        <div className="mb-2 flex flex-col gap-1.5">
-          {node.data.targetedInquiries.slice(0, 2).map((inquiry, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSpecificProbe?.(inquiry, node.id);
-              }}
-              className="w-full text-left px-3 py-1.5 rounded-xl bg-[#FBFBFA] hover:bg-white border border-[#E5E3DF] hover:border-grey-strong text-[#5C5650] hover:text-[#2B2724] font-mono text-[10px] transition-all duration-150 active:scale-[0.98] shadow-3xs cursor-pointer flex items-center gap-1.5"
-              title={`Investigate: "${inquiry}"`}
-            >
-              <span className="text-[#8F8A83] shrink-0 leading-none">→</span>
-              <span className="truncate leading-tight">{inquiry}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className="flex items-center justify-between font-mono text-[9px] text-text-muted pt-1 border-t border-grey-soft">
         <span>Inflection R = 1.414a</span>
         <span className="text-text-secondary font-medium">3rd-order vanish</span>

@@ -397,3 +397,68 @@ webview {
   height: 100% !important;
 }
 
+/* In-Canvas Blueprint Node Construction Preview */
+@keyframes blueprintScan {
+  0% {
+    top: 4%;
+    opacity: 0.8;
+  }
+  50% {
+    top: 94%;
+    opacity: 0.95;
+  }
+  100% {
+    top: 4%;
+    opacity: 0.8;
+  }
+}
+
+@keyframes blueprintRadarSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes materializeSettle {
+  0% {
+    transform: scale(0.96);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.5), 0 20px 45px rgba(0, 0, 0, 0.25);
+  }
+  60% {
+    transform: scale(1.015);
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.25), 0 12px 30px rgba(0, 0, 0, 0.15);
+  }
+  100% {
+    transform: scale(1.0);
+  }
+}
+
+.animate-blueprint-scan {
+  animation: blueprintScan 2.4s ease-in-out infinite;
+}
+
+.animate-radar-spin {
+  animation: blueprintRadarSpin 6s linear infinite;
+}
+
+.animate-materialize {
+  animation: materializeSettle 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+

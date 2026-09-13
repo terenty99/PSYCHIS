@@ -210,7 +210,7 @@ export const MusicNode = ({
         top: `${node.position?.y ?? 0}px`,
         width: `${data.layout?.width || 380}px`,
       }}
-      className="border border-grey-medium/80 shadow-md"
+      className={`border border-grey-medium/80 shadow-md ${node.data?.justMaterialized ? 'animate-materialize' : ''}`}
     >
       {/* 🎵 1. TOP ACOUSTIC HERO DECK (Compact ~135px, Not Stretched Skyscraper) */}
       <div className="-mx-4 -mt-4 mb-3 p-3.5 bg-gradient-to-b from-[#181920] via-[#121318] to-[#0A0B0E] border-b border-white/10 text-white select-none relative overflow-hidden rounded-t-[14px]">
@@ -444,30 +444,6 @@ export const MusicNode = ({
       <p className={`text-[10px] text-text-secondary leading-[1.5] mb-3 ${descClampClass}`}>
         {data.detailedSynthesis || data.description || `Harmonic analysis, rhythmic syncopation, and stylistic genesis of ${trackTitle}.`}
       </p>
-
-      {/* 🎯 5. TARGETED INQUIRIES */}
-      {Array.isArray(data.targetedInquiries) && data.targetedInquiries.length > 0 && (
-        <div className="pt-2 border-t border-grey-medium/60 flex flex-col gap-1 mb-2.5">
-          <span className="font-mono text-[7.5px] uppercase tracking-wider text-text-muted">Musicological Inquiries</span>
-          <div className="flex flex-wrap gap-1">
-            {data.targetedInquiries.slice(0, 3).map((inq, idx) => (
-              <button
-                key={idx}
-                type="button"
-                data-interactive="true"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSpecificProbe?.(inq, node.id);
-                }}
-                className="text-left font-mono text-[8.5px] bg-grey-soft/70 hover:bg-amber-500/10 hover:text-amber-900 border border-grey-medium/70 rounded px-1.5 py-0.5 transition-colors truncate max-w-full cursor-pointer"
-              >
-                ↳ {inq}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 🔗 6. FOOTER */}
       <div className="pt-2 border-t border-grey-medium/60 flex items-center justify-between text-text-muted font-mono text-[8px]">

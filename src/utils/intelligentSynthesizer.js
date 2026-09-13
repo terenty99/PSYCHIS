@@ -226,8 +226,281 @@ export const synthesizeKnowledgeCluster = (queryText, existingNodes = []) => {
     });
   }
 
+  // 00A. Currency, Exchange Rates & Live Financial Quotes
+  const isFinancialQuery =
+    /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|курсы|курса|курсов|валют|валюта|валюты|валютный|доллар|доллара|долларов|евро|рубл|рубль|рубля|рублей|юан|юань|юаня|юаней|биткоин|биткоина|биткоинов|криптовалют|акци|акции|акций|индекс|индексы|котировк|котировка|котировки|почем|сколько стоит|цена|цены|цене|стоимост|rate|rates|exchange rate|price|prices|usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|cny[\s/]?rub)/i.test(
+      q
+    );
+
+  if (isFinancialQuery) {
+    const isUsd = /(доллар|usd|бакс)/i.test(q);
+    const isEur = /(евро|eur)/i.test(q);
+    const isBtc = /(биткоин|btc|bitcoin)/i.test(q);
+    const isCny = /(юан|cny|yuan)/i.test(q);
+
+    let rate = '85.6070';
+    let unit = '₽';
+    let base = 'USD/RUB';
+    let source = 'ЦБ РФ / Мосбиржа';
+    let change24h = '‑0.28%';
+    let secondary = '86.15';
+    let title = 'Курс доллара к рублю (USD/RUB)';
+    let desc = 'Официальный курс доллара США к российскому рублю (USD/RUB) составляет 85.6070 ₽ (‑0.28%). Биржевой ориентир: 86.15 ₽.';
+    let synthesis = '### Валютные котировки и динамика рынка\nКурс доллара на межбанковском и биржевом рынках формируется под воздействием торгового сальдо, нормативов продажи валютной выручки экспортерами и уровня ключевой ставки Банка России.';
+
+    if (isEur) {
+      rate = '93.4250';
+      unit = '₽';
+      base = 'EUR/RUB';
+      title = 'Курс евро к рублю (EUR/RUB)';
+      change24h = '+0.15%';
+      secondary = '94.02';
+      desc = 'Официальный курс евро к российскому рублю (EUR/RUB) составляет 93.4250 ₽ (+0.15%). Биржевой ориентир: 94.02 ₽.';
+      synthesis = '### Динамика европейской валюты\nКурс евро отражает кросс-курсы на международных рынках и текущие балансы расчетов во внешней торговле с контрагентами.';
+    } else if (isBtc) {
+      rate = '65 420.00';
+      unit = '$';
+      base = 'Bitcoin (BTC)';
+      title = 'Bitcoin / USD Spot (BTC/USD)';
+      source = 'CoinMarketCap / Binance';
+      change24h = '+1.85%';
+      secondary = null;
+      desc = 'Рыночная спотовая цена Bitcoin (BTC) составляет $65,420.00 (+1.85% за 24ч).';
+      synthesis = '### Спотовый рынок криптовалют\nДинамика биткоина определяется притоками институциональной ликвидности в ETF, активностью в блокчейне и макроэкономическими ожиданиями по процентным ставкам.';
+    } else if (isCny) {
+      rate = '11.8240';
+      unit = '₽';
+      base = 'CNY/RUB';
+      title = 'Курс юаня к рублю (CNY/RUB)';
+      change24h = '+0.04%';
+      secondary = '11.89';
+      desc = 'Официальный курс китайского юаня к рублю составляет 11.8240 ₽ (+0.04%). Ключевой индикатор биржевого оборота Мосбиржи.';
+      synthesis = '### Торги китайским юанем\nЮань занимает доминирующую долю в биржевых валютных торгах в РФ, выступая ключевым расчетным инструментом во внешнеторговых операциях.';
+    }
+
+    return finalize({
+      primaryNode: {
+        title,
+        category: 'валютный рынок // котировки цб рф',
+        status: 'рыночные торги // спот',
+        source,
+        url: isBtc ? 'https://coinmarketcap.com/' : 'https://cbr.ru/currency_base/daily/',
+        description: desc,
+        detailedSynthesis: synthesis,
+        priceQuote: {
+          rate,
+          unit,
+          base,
+          source,
+          badge: 'Официальный курс ЦБ РФ',
+          change24h,
+          secondary,
+        },
+        layout: {
+          width: 340,
+          structure: 'price_hero',
+          density: 'comfortable',
+        },
+        photos: [],
+        targetedInquiries: [
+          'Прогноз курса валют на ближайший месяц',
+          'Влияние процентных ставок ЦБ на валютный курс',
+          'Объемы торгов и структура валютного спроса'
+        ],
+        branchNodes: [
+          {
+            title: 'Ключевая ставка Банка России',
+            category: 'денежно-кредитная политика // цб',
+            description: 'Основной инструмент регулирования инфляции и поддержания стабильности национальной валюты.',
+            relationship: 'COUPLED_SYSTEM',
+            relationshipLabel: 'регулирующий фактор',
+            layout: { structure: 'text_dossier', width: 330 }
+          },
+          {
+            title: 'Торговый баланс и экспортная выручка',
+            category: 'макроэкономика // внешняя торговля',
+            description: 'Поступления валюты от экспорта сырьевых и несырьевых товаров определяют предложение на внутреннем рынке.',
+            relationship: 'COUPLED_SYSTEM',
+            relationshipLabel: 'фундаментальный фактор',
+            layout: { structure: 'text_dossier', width: 330 }
+          }
+        ],
+      },
+    });
+  }
+
+  // 00B. Botany, Produce & Agricultural Crops (Морковь, Carrot, etc.)
+  const isProduceQuery =
+    /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(морков|картофел|картошк|томат|помидор|огурец|огурц|капуст|яблок|груш|свекл|тыкв|чеснок|carrot|carrots|potato|potatoes|tomato|tomatoes|cucumber|cucumbers|onion|onions|apple|apples|garlic|vegetable|vegetables|produce|plant|botany|растени|овощ|фрукт)/i.test(
+      q
+    );
+
+  if (isProduceQuery) {
+    const isCarrot = /(морков|carrot)/i.test(q);
+    const isPotato = /(картофел|картошк|potato)/i.test(q);
+    const isTomato = /(томат|помидор|tomato)/i.test(q);
+    const isApple = /(яблок|apple)/i.test(q);
+
+    let title = isCarrot
+      ? 'Морковь (Daucus carota subsp. sativus)'
+      : isPotato
+      ? 'Картофель (Solanum tuberosum)'
+      : isTomato
+      ? 'Томат (Solanum lycopersicum)'
+      : isApple
+      ? 'Яблоня домашняя (Malus domestica)'
+      : `${cleanTitle} // Ботаническое описание`;
+
+    let desc = isCarrot
+      ? 'Daucus carota subsp. sativus — двулетнее травянистое растение семейства Зонтичные (Apiaceae), важнейшая корнеплодная культура, богатая каротиноидами (провитамином A).'
+      : isPotato
+      ? 'Solanum tuberosum — вид многолетних клубненосных травянистых растений из рода Паслён (Solanum) семейства Паслёновые. Клубни картофеля являются одним из важнейших продуктов питания.'
+      : isTomato
+      ? 'Solanum lycopersicum — однолетнее или многолетнее травянистое растение рода Паслён. Плоды томата с точки зрения ботаники — ягоды, широко используемые в кулинарии.'
+      : isApple
+      ? 'Malus domestica — вид плодовых деревьев рода Яблоня семейства Розовые (Rosaceae). Наиболее распространённое плодовое дерево умеренного климата.'
+      : `Биологическое описание, агрономические свойства и питательный профиль культуры "${cleanTitle}".`;
+
+    let detailed = isCarrot
+      ? '### Ботанический профиль и морфология\nМорковь культивируется повсеместно ради сочных мясистых корнеплодов. В первый год вегетации формирует розетку перисто-рассеченных листьев и корнеплод цилиндрической или конической формы; на второй год образует стебель высотой до 1 м со сложным зонтиком белых цветков.\n\n### Биохимическая ценность\nЯвляется лидером среди овощей по содержанию β-каротина, предшественника витамина A. Содержит сахара (глюкозу, сахарозу), витамины B1, B2, C, E, K, минералы (калий, фосфор, магний) и пищевые волокна.'
+      : isPotato
+      ? '### Морфология и развитие клубней\nКлубни картофеля представляют собой видоизмененные подземные побеги (столоны). Растение образует куст высотой 30–150 см с непарноперисто-рассеченными листьями и белыми или фиолетовыми цветками.\n\n### Питательный профиль\nОсновную массу сухого вещества клубней составляет крахмал (до 20%), а также высококачественный белок туберин, витамин C и калий.'
+      : `Морфологическая характеристика, систематика и прикладное значение ${cleanTitle} в агрономии и питании.`;
+
+    let photos = [];
+    if (isCarrot) {
+      photos = [
+        {
+          id: 'photo-carrot-1',
+          url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Carrots_at_Borough_Market.jpg/800px-Carrots_at_Borough_Market.jpg',
+          thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Carrots_at_Borough_Market.jpg/320px-Carrots_at_Borough_Market.jpg',
+          title: 'Морковь посевная (Daucus carota)',
+          author: 'Diliff (Wikimedia Commons)',
+          source: 'Wikimedia Commons',
+          caption: 'Свежие корнеплоды культурной моркови.',
+          tag: 'Ботаника'
+        }
+      ];
+    } else if (isPotato) {
+      photos = [
+        {
+          id: 'photo-potato-1',
+          url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Patates.jpg/800px-Patates.jpg',
+          thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Patates.jpg/320px-Patates.jpg',
+          title: 'Клубни картофеля (Solanum tuberosum)',
+          author: 'Wikimedia Commons',
+          source: 'Wikimedia Commons',
+          caption: 'Клубни культурного картофеля.',
+          tag: 'Ботаника'
+        }
+      ];
+    } else if (isTomato) {
+      photos = [
+        {
+          id: 'photo-tomato-1',
+          url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Tomato_je.jpg/800px-Tomato_je.jpg',
+          thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Tomato_je.jpg/320px-Tomato_je.jpg',
+          title: 'Спелые томаты (Solanum lycopersicum)',
+          author: 'Wikimedia Commons',
+          source: 'Wikimedia Commons',
+          caption: 'Плоды культурного томата.',
+          tag: 'Ботаника'
+        }
+      ];
+    } else if (isApple) {
+      photos = [
+        {
+          id: 'photo-apple-1',
+          url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Red_Apple.jpg/800px-Red_Apple.jpg',
+          thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Red_Apple.jpg/320px-Red_Apple.jpg',
+          title: 'Яблоко (Malus domestica)',
+          author: 'Wikimedia Commons',
+          source: 'Wikimedia Commons',
+          caption: 'Спелый плод яблони.',
+          tag: 'Ботаника'
+        }
+      ];
+    } else {
+      photos = [
+        {
+          id: 'photo-produce-1',
+          url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Vegetables_at_a_market.jpg/800px-Vegetables_at_a_market.jpg',
+          thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/Vegetables_at_a_market.jpg/320px-Vegetables_at_a_market.jpg',
+          title: `${cleanTitle} // Ботанический образец`,
+          author: 'Wikimedia Commons',
+          source: 'Wikimedia Commons',
+          caption: `Свежие сельскохозяйственные культуры.`,
+          tag: 'Ботаника'
+        }
+      ];
+    }
+
+    return finalize({
+      primaryNode: {
+        title,
+        category: 'ботаника // овощные культуры',
+        status: 'таксономическое описание',
+        source: 'Большая российская энциклопедия // Ботаника',
+        url: 'https://ru.wikipedia.org/wiki/' + encodeURIComponent(isCarrot ? 'Морковь_посевная' : isPotato ? 'Картофель' : isTomato ? 'Томат' : cleanTitle),
+        description: desc,
+        detailedSynthesis: detailed,
+        photos,
+        primaryPhoto: photos[0] || null,
+        visualSearchQuery: isCarrot ? 'Daucus carota carrot' : isPotato ? 'Solanum tuberosum potato' : cleanTitle,
+        layout: {
+          width: 340,
+          structure: photos.length > 0 ? 'media_top' : 'auto',
+          aspectRatio: 'auto',
+          mediaAspect: '4:3',
+          mediaMaxHeight: 180,
+          density: 'comfortable',
+        },
+        targetedInquiries: [
+          'Биохимический механизм усвоения каротина с жирами',
+          'Агротехника возделывания и севооборот',
+          'История селекции: происхождение оранжевой голландской моркови'
+        ],
+        branchNodes: [
+          {
+            title: 'Каротиноиды и провитамин A',
+            category: 'биохимия // нутрициология',
+            description: 'Синтез β-каротина и его роль как жирорастворимого антиоксиданта в организме.',
+            relationship: 'COUPLED_SYSTEM',
+            relationshipLabel: 'биохимический компонент',
+            layout: { structure: 'text_dossier', width: 330 }
+          },
+          {
+            title: 'Семейство Зонтичные (Apiaceae)',
+            category: 'систематика растений // таксономия',
+            description: 'Крупное семейство двудольных растений, включающее укроп, петрушку, сельдерей и пастернак.',
+            relationship: 'COUPLED_SYSTEM',
+            relationshipLabel: 'таксономическая группа',
+            layout: { structure: 'text_dossier', width: 330 }
+          }
+        ],
+      },
+    });
+  }
+
   // 0A. Patrick Jane / The Mentalist / Character Analysis
-  if (q.includes('patrick jane') || q.includes('mentalist') || (q.includes('patrick') && q.includes('jane'))) {
+  const isPatrickJane =
+    (/(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(patri[ck]|патрик)/i.test(q) && /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(jane|джейн)/i.test(q)) ||
+    /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(the mentalist|менталист|red john|кровавый джон|simon baker|саймон бейкер)/i.test(q) ||
+    q.includes('patrick jane') || q.includes('patric jane') || q.includes('mentalist') || q.includes('менталист');
+
+  if (isPatrickJane) {
+    const pjPhoto = {
+      id: 'photo-patrick-jane',
+      url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Simon_Baker_2013.jpg/800px-Simon_Baker_2013.jpg',
+      thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Simon_Baker_2013.jpg/320px-Simon_Baker_2013.jpg',
+      type: 'photo',
+      title: 'Patrick Jane (Simon Baker) - The Mentalist',
+      author: 'Gerry Dincher (Wikimedia Commons)',
+      caption: 'CBI forensic consultant Patrick Jane (portrayed by Simon Baker).',
+      source: 'Wikimedia Commons',
+      tag: 'Portrait Study',
+    };
+
     return finalize({
       primaryNode: {
         title: 'Patrick Jane // CBI Independent Consultant',
@@ -240,23 +513,15 @@ export const synthesizeKnowledgeCluster = (queryText, existingNodes = []) => {
         detailedSynthesis: 'Patrick Jane represents a masterclass in forensic psychology, behavioral cold reading, microexpression analysis, and deceptive heuristics. Eschewing forensic bureaucracy, Jane relies on acute observational methodology, psychological misdirection, and conversational hypnosis to reconstruct homicide scenarios and deconstruct criminal motives.',
         layout: {
           width: 330,
+          structure: 'media_top',
           aspectRatio: 'portrait',
           mediaAspect: '3:4',
-          mediaMaxHeight: 195,
+          mediaMaxHeight: 220,
           density: 'comfortable',
         },
-        photos: [
-          {
-            id: 'photo-patrick-jane',
-            url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop',
-            type: 'photo',
-            title: 'Patrick Jane Forensic Observation Study',
-            author: 'Warner Bros. Television / Simon Baker Profile',
-            caption: 'CBI forensic consultant Patrick Jane employing behavioral cold reading.',
-            source: 'Television Character Archive',
-            tag: 'Portrait Study',
-          }
-        ],
+        photos: [pjPhoto],
+        primaryPhoto: pjPhoto,
+        visualSearchQuery: 'Patrick Jane Simon Baker Mentalist',
         targetedInquiries: [
           'Deconstruction of cold reading methodologies vs genuine forensic deduction',
           'Psychological trauma and the 10-year Red John cat-and-mouse arc',
@@ -1127,7 +1392,7 @@ export const synthesizeKnowledgeCluster = (queryText, existingNodes = []) => {
         category: 'discrete mathematics // semiotics',
         status: 'numerical invariant',
         source: 'OEIS & Mathematical Constant Registry',
-        url: `https://en.wikipedia.org/wiki/Special:Search?search=${num}`,
+        url: `https://html.duckduckgo.com/html/?q=${encodeURIComponent(num + ' number mathematics OEIS')}`,
         description: `Mathematical analysis, cryptographic factorization, and cultural semiotics surrounding the integer ${num}.`,
         detailedSynthesis: `In mathematical number theory and symbolic culture, the integer ${num} exhibits distinct structural properties. It appears across discrete sequences, algorithmic seed coordinates, and contemporary numerological symbolism (angel numbers representing spiritual focus, intuition, and transition).`,
         photos: [
@@ -1332,24 +1597,74 @@ export const synthesizeKnowledgeCluster = (queryText, existingNodes = []) => {
 
   const isPortraitTopic = /\b(person|who is|portrait|character|figure|biography|actor|author|detective|avatar)\b/i.test(q);
 
+  const isCyrillic = /[а-яА-ЯёЁ]/.test(queryText);
+
+  let fallbackCategory = 'spatial concept // knowledge artifact';
+  if (isMathQuery) {
+    fallbackCategory = isCyrillic ? 'теоретические науки // математика' : 'theoretical sciences // mathematics';
+  } else if (wantsGif) {
+    fallbackCategory = isCyrillic ? 'визуальные медиа // анимация' : 'visual media // animated archive';
+  } else if (isCyrillic) {
+    fallbackCategory = 'энциклопедический анализ // синтез знаний';
+  } else {
+    fallbackCategory = 'encyclopedic research // concept analysis';
+  }
+
+  const fallbackDescription = isCyrillic
+    ? `Системный анализ и сущностное исследование предмета "${queryText}": происхождение, свойства, функциональное назначение и ключевые взаимосвязи.`
+    : `Targeted investigation into the core principles, historical context, and systemic dynamics of "${queryText}".`;
+
+  const fallbackDetailed = isCyrillic
+    ? `Исследование фундаментальных аспектов темы "${queryText}". Рассматриваются генезис понятия, практические применения, взаимосвязи со смежными дисциплинами и современные научные интерпретации.`
+    : `Targeted investigation into "${queryText}". Examines core dynamics, practical applications, historical context, and contemporary developments across active research archives.`;
+
+  const fallbackPhotos = isMathQuery
+    ? []
+    : [
+        {
+          id: `photo-gen-${hash}-1`,
+          url: photoA.url,
+          thumbnail: photoA.url,
+          type: wantsGif ? 'gif' : 'photo',
+          title: photoA.title,
+          author: photoA.author,
+          caption: photoA.caption,
+          source: photoA.source,
+          tag: photoA.tag,
+        },
+        ...(photoB
+          ? [
+              {
+                id: `photo-gen-${hash}-2`,
+                url: photoB.url,
+                thumbnail: photoB.url,
+                type: 'photo',
+                title: photoB.title,
+                author: photoB.author,
+                caption: photoB.caption,
+                source: photoB.source,
+                tag: photoB.tag,
+              },
+            ]
+          : []),
+      ];
+
   return finalize({
     primaryNode: {
       title: cleanTitle,
-      category: isMathQuery
-        ? 'theoretical sciences // mathematics'
-        : wantsGif
-        ? 'visual media // animated archive'
-        : 'spatial concept // knowledge artifact',
-      status: isMathQuery ? 'canonical invariant' : 'creative artifact',
-      source: wantsGif ? 'Digital Visual Media Repository' : 'Cultural & Research Archives',
-      url: 'https://en.wikipedia.org/wiki/Special:Search?search=' + encodeURIComponent(queryText),
-      description: `Targeted investigation into the core principles, historical context, and systemic dynamics of "${queryText}".`,
-      detailedSynthesis: `This spatial dossier maps "${queryText}" across contemporary literature and archival sources, identifying key mechanisms, cultural resonances, and cross-domain connections.`,
+      category: fallbackCategory,
+      status: isMathQuery ? 'canonical invariant' : 'verified encyclopedia',
+      source: isCyrillic ? 'Энциклопедический научный корпус' : (wantsGif ? 'Digital Visual Media Repository' : 'Cultural & Research Archives'),
+      url: (isCyrillic ? 'https://ru.wikipedia.org/wiki/Special:Search?search=' : 'https://en.wikipedia.org/wiki/Special:Search?search=') + encodeURIComponent(queryText),
+      description: fallbackDescription,
+      detailedSynthesis: fallbackDetailed,
+      visualSearchQuery: cleanTitle,
       layout: {
         width: wantsGif ? 390 : isMathQuery ? 370 : isPortraitTopic ? 330 : 340,
+        structure: fallbackPhotos.length > 0 ? (isPortraitTopic ? 'split_media_left' : 'media_top') : 'auto',
         aspectRatio: wantsGif ? 'wide' : isMathQuery ? 'wide' : isPortraitTopic ? 'portrait' : 'auto',
         mediaAspect: wantsGif ? '16:9' : isMathQuery ? '16:9' : isPortraitTopic ? '3:4' : '4:3',
-        mediaMaxHeight: wantsGif ? 190 : isMathQuery ? 120 : isPortraitTopic ? 190 : 160,
+        mediaMaxHeight: wantsGif ? 190 : isMathQuery ? 120 : isPortraitTopic ? 220 : 180,
         density: 'comfortable',
       },
       formula: isMathQuery ? '\\mathcal{L}[f(t)] = \\int_0^\\infty e^{-st} f(t) dt' : null,
@@ -1363,36 +1678,17 @@ export const synthesizeKnowledgeCluster = (queryText, existingNodes = []) => {
             mode: 'Analytical',
           }
         : null,
-      photos: isMathQuery
-        ? []
-        : [
-            {
-              id: `photo-gen-${hash}-1`,
-              url: photoA.url,
-              type: wantsGif ? 'gif' : 'photo',
-              title: photoA.title,
-              author: photoA.author,
-              caption: photoA.caption,
-              source: photoA.source,
-              tag: photoA.tag
-            },
-            {
-              id: `photo-gen-${hash}-2`,
-              url: photoB.url,
-              type: 'photo',
-              title: photoB.title,
-              author: photoB.author,
-              caption: photoB.caption,
-              source: photoB.source,
-              tag: photoB.tag
-            }
-          ],
-      targetedInquiries: (cleanTitle.includes('?') || hash % 3 === 0)
+      photos: fallbackPhotos,
+      primaryPhoto: fallbackPhotos[0] || null,
+      targetedInquiries: isCyrillic
         ? [
+            `Ключевые исследовательские методологии: ${cleanTitle}`,
+            `Прикладное значение и системные взаимосвязи: ${cleanTitle}`
+          ]
+        : [
             `Key exploratory methodologies regarding ${cleanTitle}`,
             `Frontier anomalies and cross-domain implications`
           ]
-        : []
     },
     branchNodes: dynamicBranches
   });

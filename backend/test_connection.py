@@ -21,7 +21,7 @@ for p in possible_paths:
 if not env_found:
     print('❌ .env file not found. Creating a template at backend/.env ...')
     target = Path(__file__).parent / '.env'
-    target.write_text('OPENAI_API_KEY=\nOPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/\nMODEL_NAME=gemini-2.0-flash\n', encoding='utf-8')
+    target.write_text('GROQ_API_KEY=\nOPENAI_BASE_URL=https://api.groq.com/openai/v1\nMODEL_NAME=openai/gpt-oss-120b\n', encoding='utf-8')
     print(f'Please open {target} and paste your API key after OPENAI_API_KEY=')
     exit(1)
 

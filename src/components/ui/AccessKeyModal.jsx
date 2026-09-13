@@ -73,7 +73,7 @@ export const AccessKeyModal = ({ isOpen, currentAuth, onSaveAuth, isGatekeeper =
         </div>
 
         <p className="text-xs text-text-secondary mb-4 leading-relaxed">
-          Spatial knowledge engine is protected by high-security protocol. Enter the secret access key to initialize your contemplative atelier.
+          Spatial knowledge engine is protected by high-security protocol. Enter the secret access key to initialize your spatial workspace.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

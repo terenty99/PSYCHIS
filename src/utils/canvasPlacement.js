@@ -205,7 +205,20 @@ export function isPositionColliding(pos, width, height, existingNodes, padding =
 /**
  * Finds the nearest collision-free position for a single node using an expanding radial search.
  */
-export function findCollisionFreePosition(desiredPos, width = 320, height = 260, existingNodes = [], padding = DEFAULT_PADDING) {
+export function findCollisionFreePosition(desiredPosOrOptions, width = 320, height = 260, existingNodes = [], padding = DEFAULT_PADDING) {
+  let desiredPos = desiredPosOrOptions;
+  if (desiredPosOrOptions && typeof desiredPosOrOptions === 'object' && ('targetPos' in desiredPosOrOptions || 'desiredPos' in desiredPosOrOptions)) {
+    desiredPos = desiredPosOrOptions.targetPos || desiredPosOrOptions.desiredPos;
+    width = desiredPosOrOptions.width ?? 320;
+    height = desiredPosOrOptions.height ?? 260;
+    existingNodes = desiredPosOrOptions.existingNodes ?? [];
+    padding = desiredPosOrOptions.padding ?? DEFAULT_PADDING;
+  }
+
+  if (!desiredPos || typeof desiredPos.x !== 'number') {
+    desiredPos = { x: 300, y: 200 };
+  }
+
   if (!isPositionColliding(desiredPos, width, height, existingNodes, padding)) {
     return { ...desiredPos };
   }

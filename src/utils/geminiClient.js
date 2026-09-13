@@ -1,24 +1,40 @@
 /**
- * PSYCHIS Direct In-App Gemini AI Client
- * Enables client-side querying of Google Gemini models without requiring the local Python server,
- * with automatic endpoint failover (OpenAI compatibility -> Google Generative Language REST).
+ * PSYCHIS Direct In-App Groq AI Client & Multimedia Engine
+ * Enables client-side querying of Groq models (Llama 3.3, GPT OSS 120B, etc.) and Tavily live search
+ * with full visual enrichment and structured price hero synthesis.
  */
 
 import {
   fetchLiveArchivalPhotos,
   searchWebVideos,
   searchMusicTracks,
+  cleanDomainFromUrl,
   GLOBAL_CANVAS_SEEN_PHOTOS,
   GLOBAL_CANVAS_SEEN_AUTHORS,
 } from './visualSearchEngine.js';
 
-export const DEFAULT_GEMINI_KEY = '';
+import {
+  getStoredTavilyKey,
+  setStoredTavilyKey,
+  getStoredTavilyDepth,
+  setStoredTavilyDepth,
+  searchTavily,
+  testTavilyConnection,
+} from './tavilyClient.js';
+
+export {
+  getStoredTavilyKey,
+  setStoredTavilyKey,
+  getStoredTavilyDepth,
+  setStoredTavilyDepth,
+  searchTavily,
+  testTavilyConnection,
+};
+
 export const DEFAULT_GROQ_KEY = (() => {
   const codes = [103, 115, 107, 95, 79, 88, 53, 73, 50, 102, 83, 75, 53, 77, 77, 113, 107, 103, 121, 87, 114, 101, 82, 65, 87, 71, 100, 121, 98, 51, 70, 89, 56, 106, 54, 77, 117, 121, 71, 71, 84, 99, 117, 77, 51, 83, 52, 107, 106, 75, 56, 118, 109, 75, 66, 109];
   return codes.map((c) => String.fromCharCode(c ^ 1 ^ 1)).join('');
 })();
-export const STORAGE_KEY_GEMINI_KEY = 'psychis_gemini_api_key';
-export const STORAGE_KEY_GEMINI_MODEL = 'psychis_gemini_model';
 export const STORAGE_KEY_BACKEND_URL = 'psychis_backend_url';
 export const STORAGE_KEY_AI_MODE = 'psychis_ai_mode';
 
@@ -27,22 +43,48 @@ export const STORAGE_KEY_GROQ_KEY = 'psychis_groq_api_key';
 export const STORAGE_KEY_GROQ_MODEL = 'psychis_groq_model';
 
 export const GROQ_MODELS = [
-  { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B (Recommended)', badge: 'Flagship Intelligence' },
+  { id: 'qwen/qwen3.8-27b', name: 'Qwen 3.8 27B (Recommended)', badge: 'Multilingual • High Rate Limit' },
   { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B (Ultra-Fast)', badge: '250ms • High Speed' },
-  { id: 'qwen/qwen3.8-27b', name: 'Qwen 3.8 27B', badge: 'Multilingual & Logic' },
+  { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B (Flagship)', badge: 'Deep Reasoning' },
   { id: 'qwen/qwen3.6-27b', name: 'Qwen 3.6 27B', badge: 'High Precision' },
   { id: 'groq/compound', name: 'Groq Compound', badge: 'Ensemble' },
 ];
 
 export const SUPPORTED_MODELS = GROQ_MODELS;
 
+export const MODEL_429_COOLDOWN = new Map();
+
 export function getStoredAiProvider() {
-  return 'groq'; // Exclusively Groq Cloud
+  return 'groq';
 }
 
-export function setStoredAiProvider(provider) {
+export function setStoredAiProvider(_provider) {
+  // Always groq
+}
+
+export function getStoredAiMode() {
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY_AI_PROVIDER, 'groq');
+    return localStorage.getItem(STORAGE_KEY_AI_MODE) || 'auto';
+  }
+  return 'auto';
+}
+
+export function setStoredAiMode(mode) {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY_AI_MODE, mode);
+  }
+}
+
+export function getStoredBackendUrl() {
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem(STORAGE_KEY_BACKEND_URL) || 'http://localhost:8000';
+  }
+  return 'http://localhost:8000';
+}
+
+export function setStoredBackendUrl(url) {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY_BACKEND_URL, url);
   }
 }
 
@@ -51,27 +93,33 @@ export function getStoredGroqKey() {
     const stored = localStorage.getItem(STORAGE_KEY_GROQ_KEY);
     if (stored && stored.trim()) return stored.trim();
   }
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GROQ_API_KEY) {
-    return import.meta.env.VITE_GROQ_API_KEY.trim();
-  }
   return DEFAULT_GROQ_KEY;
 }
 
 export function setStoredGroqKey(key) {
   if (typeof localStorage !== 'undefined') {
-    if (key && key.trim()) {
-      localStorage.setItem(STORAGE_KEY_GROQ_KEY, key.trim());
-    } else {
-      localStorage.removeItem(STORAGE_KEY_GROQ_KEY);
-    }
+    localStorage.setItem(STORAGE_KEY_GROQ_KEY, key.trim());
   }
 }
 
 export function getStoredGroqModel() {
   if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem(STORAGE_KEY_GROQ_MODEL) || 'openai/gpt-oss-120b';
+    const stored = localStorage.getItem(STORAGE_KEY_GROQ_MODEL);
+    if (stored) {
+      if (
+        stored.includes('gemini') ||
+        stored.includes('llama') ||
+        stored.includes('mixtral') ||
+        stored.includes('deepseek') ||
+        stored.includes('versatile')
+      ) {
+        localStorage.setItem(STORAGE_KEY_GROQ_MODEL, 'qwen/qwen3.8-27b');
+        return 'qwen/qwen3.8-27b';
+      }
+      return stored;
+    }
   }
-  return 'openai/gpt-oss-120b';
+  return 'qwen/qwen3.8-27b';
 }
 
 export function setStoredGroqModel(model) {
@@ -91,6 +139,7 @@ export async function fetchGroqLiveModels(apiKey) {
       headers: {
         Authorization: `Bearer ${key}`,
       },
+      signal: AbortSignal.timeout(3500),
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -117,68 +166,6 @@ export async function fetchGroqLiveModels(apiKey) {
     console.warn('Failed to fetch Groq live models:', err);
   }
   return [];
-}
-
-export function getStoredGeminiKey() {
-  if (typeof localStorage !== 'undefined') {
-    const stored = localStorage.getItem(STORAGE_KEY_GEMINI_KEY);
-    if (stored && stored.trim()) return stored.trim();
-  }
-  
-  // Environment variable check (Vite)
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) {
-    return import.meta.env.VITE_GEMINI_API_KEY.trim();
-  }
-  return DEFAULT_GEMINI_KEY;
-}
-
-export function setStoredGeminiKey(key) {
-  if (typeof localStorage !== 'undefined') {
-    if (key && key.trim()) {
-      localStorage.setItem(STORAGE_KEY_GEMINI_KEY, key.trim());
-    } else {
-      localStorage.removeItem(STORAGE_KEY_GEMINI_KEY);
-    }
-  }
-}
-
-export function getStoredModel() {
-  if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem(STORAGE_KEY_GEMINI_MODEL) || 'gemini-3.6-flash';
-  }
-  return 'gemini-3.6-flash';
-}
-
-export function setStoredModel(model) {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY_GEMINI_MODEL, model);
-  }
-}
-
-export function getStoredAiMode() {
-  if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem(STORAGE_KEY_AI_MODE) || 'auto'; // 'auto' | 'backend' | 'direct' | 'offline'
-  }
-  return 'auto';
-}
-
-export function setStoredAiMode(mode) {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY_AI_MODE, mode);
-  }
-}
-
-export function getStoredBackendUrl() {
-  if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem(STORAGE_KEY_BACKEND_URL) || 'http://localhost:8000';
-  }
-  return 'http://localhost:8000';
-}
-
-export function setStoredBackendUrl(url) {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY_BACKEND_URL, url);
-  }
 }
 
 export const STORAGE_KEY_YOUTUBE_KEY = 'psychis_youtube_api_key';
@@ -354,7 +341,19 @@ CRITICAL ARCHITECTURAL RULES:
    * If NO genuine connection exists: "connections": [] (empty array).
    * ABSOLUTE PROHIBITION: DO NOT force a connection if the topics are unrelated!
 
-6. JSON Schema to return (valid JSON only, no markdown backticks):
+6. FINANCIAL, CURRENCY, EXCHANGE RATE, CRYPTO & LIVE QUOTES MANDATE:
+   * When the user inquiry is about an exchange rate, currency price, stock, cryptocurrency, or commodity (e.g. "курс доллара", "курс евро", "цена биткоина", "акции Apple", "USD/RUB", "Bitcoin price", "Brent crude"):
+     - ABSOLUTE PROHIBITION ON PURE DEFINITIONS: NEVER output ONLY an encyclopedic or dictionary definition of what a currency or stock is! The user wants the ACTUAL RATE / NUMBER!
+     - EXACT VALUE IN FIRST SENTENCE: The very first sentence of "description" MUST prominently declare the latest exchange rate or price (e.g. "Официальный курс: 1 USD ≈ 84,257 ₽ (ЦБ РФ)." or "Current Spot: 1 BTC ≈ $65,400 USD.").
+     - PROMINENT PRICE QUOTE OBJECT: MUST output "priceQuote" object with:
+       "rate": string with exact number (e.g. "84.257" or "65,400"),
+       "unit": "₽" or "$" or "€",
+       "base": "1 USD" or "1 EUR" or "1 BTC",
+       "source": "ЦБ РФ" or exchange name,
+       "secondary": market rate string if applicable (e.g. "86.473")
+     - NO RANDOM BROKEN PHOTOS: Set "visualSearchQuery": null so no outdated chart screenshots from past years are fetched! The card will display the live price quote as the frontline hero banner.
+
+7. JSON Schema to return (valid JSON only, no markdown backticks):
 {
   "title": "Clear, precise title",
   "category": "Domain category",
@@ -363,6 +362,7 @@ CRITICAL ARCHITECTURAL RULES:
   "url": "https://...",
   "description": "2-3 precise sentences directly answering the inquiry.",
   "detailedSynthesis": "Extended technical dossier or cultural exploration.",
+  "priceQuote": null,
   "mediaType": "photo",
   "videoQuery": null,
   "videoPlatform": "youtube",
@@ -415,13 +415,22 @@ export function parseAiJsonResponse(rawText) {
   const match = cleaned.match(/\{[\s\S]*\}/);
   const targetStr = match ? match[0] : cleaned;
 
+  let parsed;
   try {
-    return JSON.parse(targetStr);
+    parsed = JSON.parse(targetStr);
   } catch (err) {
     // Escape unescaped backslashes commonly emitted in LaTeX strings (e.g. \vec, \frac, \lim)
     const fixed = targetStr.replace(/\\(?![/\\bfnrtu"0-9])/g, '\\\\');
-    return JSON.parse(fixed);
+    parsed = JSON.parse(fixed);
   }
+
+  if (parsed && typeof parsed === 'object') {
+    if (!parsed.title && (parsed.nodeTitle || parsed.name || parsed.entityTitle)) {
+      parsed.title = parsed.nodeTitle || parsed.name || parsed.entityTitle;
+    }
+  }
+
+  return parsed;
 }
 
 export const CANVAS_STRUCTURE_ROTATION = {
@@ -446,7 +455,30 @@ export const MATH_CYCLE = [
  * Automatically rotates structures across the canvas so no two nodes share the same format!
  */
 export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', existingNodes = []) {
-  if (!node) return node;
+  if (!node || typeof node !== 'object') return node;
+  if (node._isEnriched) return node;
+  node._isEnriched = true;
+
+  // Only format as price_hero if the card carries an explicit rate or is an explicit price inquiry
+  const isExplicitRateCard =
+    Boolean(node.layout?.structure === 'price_hero') ||
+    Boolean(node.priceQuote?.rate && !/^(19\d\d|20[0-4]\d)$/.test(String(node.priceQuote.rate).trim())) ||
+    /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|курсы|курса|курсов|валют|валюта|валюты|валютный|доллар|доллара|долларов|евро|рубл|рубль|рубля|рублей|юан|юань|юаня|юаней|биткоин|биткоина|биткоинов|криптовалют|акци|акции|акций|индекс|индексы|котировк|котировка|котировки|почем|сколько стоит|цена|цены|цене|стоимост|rate|rates|price|prices|exchange rate|cost of)/i.test(
+      query
+    ) ||
+    /\b(usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|eth[\s/]?usd)\b/i.test(query);
+
+  if (isExplicitRateCard && (node.priceQuote?.rate || node.layout?.structure === 'price_hero')) {
+    if (!node.layout) node.layout = {};
+    node.layout.structure = 'price_hero';
+    node.layout.width = 340;
+    node.primaryPhoto = null;
+    node.photos = [];
+    node.photoGallery = [];
+    node.photoUrl = null;
+    node.visualSearchQuery = null;
+    return node;
+  }
 
   // Enforce single-node constraint: if query is a direct concept/theorem, ensure branchNodes is []
   if (isDirectConceptQuery(query)) {
@@ -616,89 +648,115 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
     } catch (_) {}
   }
 
-  // 1D. Fetch diverse photos for primary node (if not strictly video or music)
+  // 1D. Fetch diverse photos for primary node (if not strictly video or music and photos not already present)
   if (node.mediaType !== 'video' && node.mediaType !== 'music') {
-    try {
-      const searchTarget = node.visualSearchQuery || node.title || query;
-      const realPhotos = await fetchAiCuratedPhotos({
-        query: searchTarget,
-        nodeTitle: node.title,
-        nodeCategory: node.category,
-        nodeDescription: node.description,
-        count: 12,
-        contextHint: node.category || node.title || '',
-        seenClusterUrls,
-      });
-      if (realPhotos && realPhotos.length > 0) {
-        node.photos = realPhotos;
-        node.primaryPhoto = realPhotos[0];
-        realPhotos.forEach((p) => trackPhoto(p));
+    const isMockPhoto = (p) => !p?.url || p.url.includes('images.unsplash.com') || String(p.id || '').startsWith('photo-gen-');
+    const hasGenuinePhotos = Array.isArray(node.photos) && node.photos.length > 0 && !node.photos.some(isMockPhoto);
+    const hasGenuinePrimary = Boolean(node.primaryPhoto && !isMockPhoto(node.primaryPhoto));
+
+    if (!hasGenuinePhotos || !hasGenuinePrimary) {
+      try {
+        const searchTarget = node.visualSearchQuery || node.title || query;
+        const realPhotos = await fetchAiCuratedPhotos({
+          query: searchTarget,
+          nodeTitle: node.title,
+          nodeCategory: node.category,
+          nodeDescription: node.description,
+          count: 8,
+          contextHint: node.category || node.title || '',
+          seenClusterUrls,
+        });
+        if (realPhotos && realPhotos.length > 0) {
+          node.photos = realPhotos;
+          node.primaryPhoto = realPhotos[0];
+          node.mediaType = 'photo';
+          if (!node.layout || !node.layout.structure || node.layout.structure === 'auto' || node.layout.structure === 'text_dossier') {
+            node.layout = { ...(node.layout || {}), structure: 'media_top', width: 340 };
+          }
+          realPhotos.forEach((p) => trackPhoto(p));
+        } else if (!hasGenuinePhotos) {
+          node.photos = [];
+          node.primaryPhoto = null;
+        }
+      } catch (err) {
+        console.warn('[Primary node photo enrichment error]:', err.message);
       }
-    } catch (err) {
-      console.warn('[Primary node photo enrichment error]:', err.message);
     }
   }
 
-  // 2. Enrich each branch node with media (videos, music, or photos)
+  // 2. Enrich each branch node with media IN PARALLEL
   if (Array.isArray(node.branchNodes) && node.branchNodes.length > 0) {
-    for (const bn of node.branchNodes) {
-      try {
-        if (bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || bn.videoQuery) {
-          if (!bn.videoData) {
-            const vQ = bn.videoQuery || bn.title || query;
-            const bVids = await searchWebVideos(vQ);
-            if (Array.isArray(bVids) && bVids.length > 0) {
-              bn.videoData = bVids[0];
-              bn.mediaType = 'video';
-              if (!bn.layout) bn.layout = {};
-              bn.layout.structure = 'video_top';
-              bn.layout.width = 420;
+    await Promise.allSettled(
+      node.branchNodes.map(async (bn) => {
+        try {
+          if (bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || bn.videoQuery) {
+            if (!bn.videoData) {
+              const vQ = bn.videoQuery || bn.title || query;
+              const bVids = await searchWebVideos(vQ);
+              if (Array.isArray(bVids) && bVids.length > 0) {
+                bn.videoData = bVids[0];
+                bn.mediaType = 'video';
+                if (!bn.layout) bn.layout = {};
+                bn.layout.structure = 'video_top';
+                bn.layout.width = 420;
+              }
             }
-          }
-        } else if (bn.mediaType === 'music' || bn.layout?.structure === 'music_card' || bn.musicData) {
-          if (!bn.musicData?.previewUrl) {
-            const mQ = bn.musicData?.query || bn.musicData?.trackTitle || (bn.musicData?.artist ? `${bn.musicData.artist} ${bn.musicData.trackTitle || ''}` : '') || bn.title || query;
-            const bTracks = await searchMusicTracks(mQ);
-            if (Array.isArray(bTracks) && bTracks.length > 0) {
-              bn.musicData = { ...(bn.musicData || {}), ...bTracks[0] };
-              bn.mediaType = 'music';
-              if (!bn.layout) bn.layout = {};
-              bn.layout.structure = 'music_card';
-              bn.layout.width = 390;
+          } else if (bn.mediaType === 'music' || bn.layout?.structure === 'music_card' || bn.musicData) {
+            if (!bn.musicData?.previewUrl) {
+              const mQ = bn.musicData?.query || bn.musicData?.trackTitle || (bn.musicData?.artist ? `${bn.musicData.artist} ${bn.musicData.trackTitle || ''}` : '') || bn.title || query;
+              const bTracks = await searchMusicTracks(mQ);
+              if (Array.isArray(bTracks) && bTracks.length > 0) {
+                bn.musicData = { ...(bn.musicData || {}), ...bTracks[0] };
+                bn.mediaType = 'music';
+                if (!bn.layout) bn.layout = {};
+                bn.layout.structure = 'music_card';
+                bn.layout.width = 390;
+              }
             }
-          }
-        } else {
-          const branchTarget = bn.visualSearchQuery || bn.title;
-          if (branchTarget) {
-            const branchContext = bn.category || bn.title || '';
-            const bPhotos = await fetchAiCuratedPhotos({
-              query: branchTarget,
-              nodeTitle: bn.title,
-              nodeCategory: bn.category,
-              nodeDescription: bn.description,
-              count: 8,
-              contextHint: branchContext,
-              seenClusterUrls,
-            });
+          } else {
+            const isMockBranch = (p) => !p?.url || p.url.includes('images.unsplash.com') || String(p.id || '').startsWith('photo-gen-');
+            const hasBranchPhotos = Array.isArray(bn.photos) && bn.photos.length > 0 && !bn.photos.some(isMockBranch);
+            const hasBranchPrimary = Boolean(bn.primaryPhoto && !isMockBranch(bn.primaryPhoto));
+            if (!hasBranchPhotos || !hasBranchPrimary) {
+              const branchTarget = bn.visualSearchQuery || bn.title;
+              if (branchTarget) {
+                const branchContext = bn.category || bn.title || '';
+                const bPhotos = await fetchAiCuratedPhotos({
+                  query: branchTarget,
+                  nodeTitle: bn.title,
+                  nodeCategory: bn.category,
+                  nodeDescription: bn.description,
+                  count: 6,
+                  contextHint: branchContext,
+                  seenClusterUrls,
+                });
 
-            if (Array.isArray(bPhotos) && bPhotos.length > 0) {
-              bn.photos = bPhotos;
-              bn.primaryPhoto = bPhotos[0];
-              bPhotos.forEach((p) => trackPhoto(p));
-            } else {
-              bn.photos = [];
-              bn.primaryPhoto = null;
+                if (Array.isArray(bPhotos) && bPhotos.length > 0) {
+                  bn.photos = bPhotos;
+                  bn.primaryPhoto = bPhotos[0];
+                  bPhotos.forEach((p) => trackPhoto(p));
+                } else if (!hasBranchPhotos) {
+                  bn.photos = [];
+                  bn.primaryPhoto = null;
+                }
+              }
             }
           }
-        }
-      } catch (e) {}
-    }
+        } catch (e) {}
+      })
+    );
   }
 
   // 3. ENFORCE TOTAL CANVAS STRUCTURAL DIVERSITY:
   // Rotate every single node (primary and branches) through distinct layout archetypes!
   const assignDiverseLayout = (n) => {
     if (!n.layout) n.layout = {};
+
+    if (n.priceQuote || n.layout?.structure === 'price_hero') {
+      n.layout.structure = 'price_hero';
+      n.layout.width = 340;
+      return;
+    }
 
     if (n.mediaType === 'video' || n.layout?.structure === 'video_top') {
       n.layout.structure = 'video_top';
@@ -713,6 +771,15 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
 
     const isMath = Boolean(n.formula);
     const hasPhotos = Array.isArray(n.photos) && n.photos.length > 0;
+
+    const isPortrait = /\b(person|who is|portrait|character|figure|actor|actress|author|detective|consultant|biography|protagonist|antagonist)\b/i.test(
+      `${n.title || ''} ${n.category || ''} ${n.description || ''}`
+    );
+    if (isPortrait) {
+      n.layout.aspectRatio = 'portrait';
+      n.layout.mediaAspect = '3:4';
+      n.layout.mediaMaxHeight = 220;
+    }
 
     if (isMath) {
       const chosen = MATH_CYCLE[CANVAS_STRUCTURE_ROTATION.mathIndex++ % MATH_CYCLE.length];
@@ -737,18 +804,17 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
 }
 
 /**
- * Executes a direct query to Groq Cloud (Llama 3.3 70B, DeepSeek R1, etc.).
- * Ultra-fast inference with 14,400 free requests/day.
+ * Builds the comprehensive prompt for PSYCHIS structured entity synthesis.
  */
-export async function queryGroqDirect({ query, activeNodeContext = null, workspaceName = 'Applied Kinematics', existingNodes = [] }) {
-  const apiKey = getStoredGroqKey();
-  const model = getStoredGroqModel();
-
-  if (!apiKey) {
-    throw new Error('No Groq API Key found. Please enter your Groq API key (starts with gsk_...) in AI Settings.');
-  }
-
-  const isSingle = isDirectConceptQuery(query);
+export function buildPsychisUserPrompt(rawArgs) {
+  const args = typeof rawArgs === 'string' ? { query: rawArgs } : (rawArgs || {});
+  const query = String(args.query || '').trim();
+  const workspaceName = args.workspaceName || 'Applied Kinematics';
+  const activeNodeContext = args.activeNodeContext || null;
+  const existingNodes = args.existingNodes || [];
+  const tavilyData = args.tavilyData || null;
+  const isFinancial = Boolean(args.isFinancial);
+  const isSingle = args.isSingle !== false;
 
   let userContent = `PRIMARY RESEARCH TARGET: "${query}"\nWorkspace Context: "${workspaceName}"`;
   if (activeNodeContext) {
@@ -762,6 +828,41 @@ export async function queryGroqDirect({ query, activeNodeContext = null, workspa
       .join('; ');
     userContent += `\n\nEXISTING CANVAS NODES FOR POTENTIAL LINKAGE: [${existingList}]`;
     userContent += `\nRELATIONAL LINKAGE MANDATE: Check existing canvas nodes above. Does "${query}" have a GENUINE direct relationship, derivation, or causal link to one or more of them? The model can automatically connect to MORE THAN ONE node and connect nodes to each other! Populate the "connections" array with all genuine links (specifying "nodeId", "connectionExplanation", "connectionLabel", and "connectionFormula" only if mathematical derivation). If no genuine connection exists, return "connections": []. DO NOT FORCE UNRELATED CONNECTIONS.`;
+  }
+
+  // Inject Tavily web context if available
+  if (tavilyData && Array.isArray(tavilyData.results) && tavilyData.results.length > 0) {
+    userContent += `\n\n=== VERIFIED REAL-TIME LIVE WEB RETRIEVAL (TAVILY SEARCH) ===\n`;
+    if (tavilyData.answer) {
+      userContent += `TAVILY FACTUAL SYNTHESIS: "${tavilyData.answer}"\n\n`;
+    }
+    userContent += `TOP AUTHENTIC WEB SOURCES FOUND:\n`;
+    tavilyData.results.slice(0, 3).forEach((r, idx) => {
+      userContent += `[Source ${idx + 1}] Title: ${r.title}\nURL: ${r.url}\nExcerpt: ${(r.content || '').slice(0, 300)}\n\n`;
+    });
+    userContent += `=== END TAVILY RETRIEVAL ===\n`;
+    userContent += `\nCRITICAL PARSING & EXTRACTION DIRECTIVES FOR AI PARSER:
+1. Ground the card strictly in the authentic facts, dates, and details retrieved above by Tavily. Do NOT fabricate or hallucinate.
+2. Set the primary node's "url" property to the authentic primary source URL from Tavily (specifically "${tavilyData.results[0]?.url || ''}"). This URL is loaded in the card's interactive browser!
+3. Set "source" and "institution" to the authentic domain/organization (e.g. "${tavilyData.results[0]?.title || ''}").
+4. Formulate 3-4 insightful follow-up contextual questions in "targetedInquiries" directly based on the key points in Tavily results.`;
+  }
+
+  if (isFinancial) {
+    userContent += `\n\nCRITICAL FINANCIAL, STOCK & MARKET QUOTE EXTRACTION MANDATE:
+The user is specifically asking for a financial market quote, stock price, index level, commodity, cryptocurrency, or currency exchange rate ("${query}").
+- ABSOLUTELY FORBIDDEN: DO NOT write purely an abstract dictionary or encyclopedic definition of what the company, asset, currency, or index is! State the ACTUAL CURRENT PRICE / LEVEL and latest market trends!
+- FIRST SENTENCE MANDATE: The first sentence of "description" MUST prominently state the current quote, index level, or price (e.g. "Индекс S&P 500 торгуется на отметке 5 864,67 пунктов (+0.41% за день)." or "Акции Apple Inc. (AAPL) котируются по цене $228.50 (+1.25%)." or "Официальный курс: 1 USD ≈ 84,257 ₽ (ЦБ РФ).").
+- PRICE QUOTE OBJECT MANDATE: You MUST populate the "priceQuote" object in your JSON response:
+  {
+    "rate": "5 864.67",
+    "unit": "pts",
+    "base": "S&P 500 Index",
+    "source": "S&P Dow Jones / NYSE",
+    "change24h": "+0.41%",
+    "secondary": null
+  }
+- NO BROKEN PHOTOS: Financial quotes do not need photos or photo placeholders. Set "visualSearchQuery": null so no outdated photos or broken placeholders are retrieved! The card will display the live rate/quote hero as its frontline hero banner.`;
   }
 
   userContent += `\n\nCRITICAL MANDATE: The generated node title, category, description, detailedSynthesis, and visualSearchQuery MUST FOCUS EXCLUSIVELY ON THE PRIMARY TARGET "${query}". Do NOT return the workspace name or another character as the title.`;
@@ -788,7 +889,197 @@ For EACH branch node:
 - "relationshipLabel": Specific dynamic or relationship to the primary subject.`;
   }
 
-  const candidateModels = [model, 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'].filter((m, i, arr) => arr.indexOf(m) === i && Boolean(m));
+  return userContent;
+}
+
+/**
+ * Attaches verified Tavily live web data and images to raw synthesized node.
+ */
+export function attachTavilyMetadata(rawNode, tavilyData, query) {
+  if (!rawNode) return rawNode;
+  if (tavilyData && Array.isArray(tavilyData.results) && tavilyData.results.length > 0) {
+    const topResult = tavilyData.results[0];
+    if (!rawNode.url || rawNode.url.includes('wikipedia.org') || rawNode.url.includes('Special:Search') || rawNode.url.includes('example.com')) {
+      rawNode.url = topResult.url;
+    }
+    rawNode.sourceUrl = rawNode.url || topResult.url;
+    if (!rawNode.source || rawNode.source.toLowerCase().includes('wikipedia') || rawNode.source.includes('AI Synthesis')) {
+      rawNode.source = topResult.title || cleanDomainFromUrl(topResult.url);
+    }
+    if (tavilyData.answer && (!rawNode.detailedSynthesis || rawNode.detailedSynthesis.includes('spatial dossier'))) {
+      rawNode.detailedSynthesis = `${tavilyData.answer}\n\n${rawNode.detailedSynthesis || ''}`.trim();
+    }
+    if (Array.isArray(tavilyData.images) && tavilyData.images.length > 0 && !rawNode.photoGallery?.length) {
+      rawNode.photoGallery = tavilyData.images.slice(0, 5).map((imgUrl, idx) => ({
+        url: imgUrl,
+        thumbnail: imgUrl,
+        title: rawNode.title || query,
+        source: rawNode.source || 'Tavily Web',
+        caption: `${rawNode.title || query} (Web Source ${idx + 1})`,
+      }));
+      if (!rawNode.photoUrl) {
+        rawNode.photoUrl = tavilyData.images[0];
+      }
+    }
+  }
+  return rawNode;
+}
+
+/**
+ * Robustly parses real-time price quotes, currencies, stocks, indices, and crypto rates
+ * directly from Tavily live search results, AI syntheses, and financial extracts.
+ */
+export function extractStructuredPriceQuote(query, tavilyData, rawNode) {
+  const corpus = [
+    tavilyData?.answer || '',
+    ...(tavilyData?.results || []).map((r) => `${r.title} ${r.content}`),
+    rawNode?.description || '',
+    rawNode?.detailedSynthesis || '',
+  ].join(' ');
+
+  if (!corpus.trim()) return null;
+
+  const qLower = (query || '').toLowerCase();
+  const titleLower = (rawNode?.title || '').toLowerCase();
+  const isRub = /(?:руб|rub|₽|цб|рубл)/i.test(corpus) || /(?:rub|руб|к рублю)/i.test(qLower);
+  const isEur = /(?:eur|евро|€)/i.test(qLower) || /(?:eur|евро|€)/i.test(corpus);
+  const isCrypto =
+    /(?:crypto|token|coin|pepe|btc|eth|sol|ton|shib|doge|биткоин|мемкоин|эфириум)/i.test(qLower) ||
+    /(?:crypto|token|coin|cryptocurrency)/i.test(corpus);
+  const isIndex = /(?:index|индекс|s&p|sp500|spx|nasdaq|dow|djia|moex|ртс)/i.test(qLower) || /(?:index|индекс)/i.test(titleLower);
+
+  let unit = isIndex ? 'pts' : (isRub ? '₽' : (isEur ? '€' : '$'));
+  let base = rawNode?.title || query;
+  let source = 'Tavily Live Spot';
+
+  if (qLower.includes('pepe') || titleLower.includes('pepe')) base = 'Pepe (PEPE)';
+  else if (qLower.includes('btc') || qLower.includes('биткоин') || titleLower.includes('bitcoin')) base = 'Bitcoin (BTC)';
+  else if (qLower.includes('eth') || qLower.includes('эфириум') || titleLower.includes('ethereum')) base = 'Ethereum (ETH)';
+  else if (qLower.includes('sol') || titleLower.includes('solana')) base = 'Solana (SOL)';
+  else if (qLower.includes('usd') && qLower.includes('rub')) base = '1 USD';
+  else if (qLower.includes('eur') && qLower.includes('rub')) base = '1 EUR';
+  else if (qLower.includes('usd') || qLower.includes('доллар')) base = '1 USD';
+  else if (qLower.includes('eur') || qLower.includes('евро')) base = '1 EUR';
+
+  // 24h Percentage Change Extraction
+  let change24h = null;
+  const changeMatch =
+    corpus.match(/([+-]?\s*\d+(?:[.,]\d+)?\s*%\s*(?:in the last 24 hours|за (?:последние )?24 час[а-я]*|24h)?)/i) ||
+    corpus.match(/(?:risen by|up by|gain of|рост[а-я]* на)\s*([+]?\d+(?:[.,]\d+)?\s*%)/i) ||
+    corpus.match(/(?:fallen by|down by|loss of|падени[а-я]* на|снижени[а-я]* на)\s*([-]?\d+(?:[.,]\d+)?\s*%)/i);
+
+  if (changeMatch) {
+    const rawVal = (changeMatch[1] || '').trim().replace(/\s+/g, '');
+    const numOnly = rawVal.match(/([+-]?\d+(?:[.,]\d+)?%)/);
+    if (numOnly) {
+      let finalVal = numOnly[1];
+      if (!finalVal.startsWith('+') && !finalVal.startsWith('-')) {
+        if (/risen|up|gain|рост|прирост/i.test(corpus)) finalVal = `+${finalVal}`;
+        else if (/fallen|down|loss|паден|снижен/i.test(corpus)) finalVal = `-${finalVal}`;
+      }
+      change24h = finalVal;
+    }
+  }
+
+  // Rate extraction
+  let extractedRate = null;
+
+  // 1. Clean out years and percentage changes from search text
+  const cleanCorpus = corpus
+    .replace(/[+-]?\s*\d+(?:[.,]\d+)?\s*%/g, '')
+    .replace(/\b(19\d\d|20[0-4]\d)\b/g, '')
+    .replace(/\b1\s*(?:USD|EUR|RUB|BTC|ETH|USDT)\b/gi, '');
+
+  const rateMatch =
+    cleanCorpus.match(/(?:\$|€|₽)\s*([0-9]+(?:[.,][0-9]+)?)/i) ||
+    cleanCorpus.match(/(?:price is|is at|trading at|worth|at|составляет|курс[а-я]*|цена[а-я]*|на отметке|уровн[а-я]*)\s*[:\s]*[\$€₽]?\s*([0-9]+(?:[.,][0-9]+)?)/i) ||
+    cleanCorpus.match(/=\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:RUB|USD|EUR|руб|₽)/i) ||
+    cleanCorpus.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:RUB|руб|₽|USD|USDT|EUR|евро|pts)(?=[^\wа-яА-ЯёЁ]|$)/i) ||
+    cleanCorpus.match(/\b(0\.0{3,10}\d+)\b/);
+
+  if (rateMatch) {
+    const cand = (rateMatch[1] || '').trim();
+    if (cand && !/^(19\d\d|20[0-4]\d|20|721|1155|10|100)$/.test(cand) && /\d/.test(cand)) {
+      extractedRate = cand;
+    }
+  }
+
+  if (extractedRate) {
+    return {
+      rate: extractedRate,
+      unit,
+      base,
+      source: isRub && corpus.includes('ЦБ') ? 'ЦБ РФ' : (isCrypto ? 'CoinMarketCap / Live Spot' : source),
+      change24h,
+      secondary: null,
+      badge: isIndex ? 'Stock Index' : (isCrypto ? 'Crypto Spot' : (isRub ? 'Official Rate' : 'Live Quote')),
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Executes a direct query to Groq Cloud (Llama 3.3 70B, DeepSeek R1, etc.).
+ * Ultra-fast inference with 14,400 free requests/day.
+ */
+export async function queryGroqDirect(rawParams) {
+  const params = typeof rawParams === 'string' ? { query: rawParams } : (rawParams || {});
+  const query = String(params.query || '').trim();
+  const activeNodeContext = params.activeNodeContext || null;
+  const workspaceName = params.workspaceName || 'Applied Kinematics';
+  const existingNodes = params.existingNodes || [];
+
+  const apiKey = getStoredGroqKey();
+  const model = getStoredGroqModel();
+
+  if (!apiKey) {
+    throw new Error('No Groq API Key found. Please enter your Groq API key (starts with gsk_...) in AI Settings.');
+  }
+
+  const isFinancial =
+    /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|курсы|курса|курсов|валют|валюта|валюты|валютный|доллар|доллара|долларов|евро|рубл|рубль|рубля|рублей|юан|юань|юаня|юаней|биткоин|биткоина|биткоинов|криптовалют|акци|акции|акций|индекс|индексы|котировк|котировка|котировки|почем|сколько стоит|цена|цены|цене|стоимост|rate|rates|price|prices|exchange rate|cost of)/i.test(
+      query
+    ) ||
+    /\b(usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|eth[\s/]?usd|1\s*usd|1\s*eur)\b/i.test(query);
+
+  // Tavily web retrieval
+  const tavilyKey = getStoredTavilyKey();
+  let tavilyData = null;
+  if (tavilyKey) {
+    try {
+      const searchTarget = isFinancial ? `${query} актуальный курс котировка уровень цена сегодня` : query;
+      const tRes = await searchTavily({
+        query: searchTarget,
+        apiKey: tavilyKey,
+        includeAnswer: true,
+        includeImages: !isFinancial,
+        maxResults: 5,
+      });
+      if (tRes && tRes.success && (tRes.results?.length > 0 || tRes.answer)) {
+        tavilyData = tRes;
+      }
+    } catch (tErr) {}
+  }
+
+  const isSingle = isDirectConceptQuery(query);
+  const userContent = buildPsychisUserPrompt({
+    query,
+    workspaceName,
+    activeNodeContext,
+    existingNodes,
+    tavilyData,
+    isFinancial,
+    isSingle,
+  });
+
+  const now = Date.now();
+  const allCandidateModels = [model, 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b', 'groq/compound', 'openai/gpt-oss-120b'].filter((m, i, arr) => arr.indexOf(m) === i && Boolean(m));
+  const availableCandidates = allCandidateModels.filter((m) => {
+    const cooldownUntil = MODEL_429_COOLDOWN.get(m);
+    return !cooldownUntil || now > cooldownUntil;
+  });
+  const candidateModels = availableCandidates.length > 0 ? availableCandidates : allCandidateModels;
   let lastError = null;
 
   for (const currentModel of candidateModels) {
@@ -812,43 +1103,139 @@ For EACH branch node:
       });
 
       if (!res.ok) {
-        const errText = await res.text();
         if (res.status === 429) {
-          console.warn(`[Groq 429 rate limit on ${currentModel} - failing over to next model]`);
-          lastError = new Error(`Groq API rate limit on ${currentModel}: ${errText}`);
-          continue;
+          MODEL_429_COOLDOWN.set(currentModel, Date.now() + 5 * 60 * 1000);
         }
-        throw new Error(`Groq API error (${res.status}): ${errText}`);
+        const errText = await res.text();
+        console.warn(`[Groq error (${res.status}) on ${currentModel} - failing over to next model]: ${errText}`);
+        lastError = new Error(`Groq API error (${res.status}) on ${currentModel}: ${errText}`);
+        continue;
       }
 
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content;
       if (!content) {
-        throw new Error('Groq API returned an empty response.');
+        lastError = new Error(`Groq model ${currentModel} returned an empty response.`);
+        continue;
       }
 
       const rawNode = parseAiJsonResponse(content);
-      const node = await enrichNodeWithRealPhotos(rawNode, query, workspaceName, existingNodes);
-      return { success: true, node, source: `groq-${currentModel}` };
+      attachTavilyMetadata(rawNode, tavilyData, query);
+
+      let node;
+      const hasValidPriceQuote = rawNode.priceQuote && !/^(19\d\d|20[0-4]\d)$/.test(String(rawNode.priceQuote.rate || '').trim());
+      if (isFinancial) {
+        if (!hasValidPriceQuote) {
+          const extracted = extractStructuredPriceQuote(query, tavilyData, rawNode);
+          if (extracted) {
+            rawNode.priceQuote = extracted;
+          }
+        }
+        if (rawNode.priceQuote?.rate) {
+          rawNode.layout = { ...(rawNode.layout || {}), structure: 'price_hero', width: 340 };
+          rawNode.primaryPhoto = null;
+          rawNode.photos = [];
+          rawNode.photoGallery = [];
+          rawNode.photoUrl = null;
+          rawNode.visualSearchQuery = null;
+          rawNode.media = [];
+          node = rawNode;
+        } else {
+          try {
+            node = await enrichNodeWithRealPhotos(rawNode, query, workspaceName, existingNodes);
+          } catch (_) {
+            node = rawNode;
+          }
+        }
+      } else {
+        try {
+          node = await enrichNodeWithRealPhotos(rawNode, query, workspaceName, existingNodes);
+        } catch (_) {
+          node = rawNode;
+        }
+      }
+
+      return {
+        success: true,
+        node,
+        source: tavilyData ? `tavily+groq-${currentModel}` : `groq-${currentModel}`,
+      };
     } catch (err) {
       lastError = err;
-      if (err.message && err.message.includes('429')) continue;
-      throw err;
+      console.warn(`[Groq attempt on ${currentModel} failed, trying next candidate]:`, err.message);
+      continue;
     }
+  }
+
+  // If all Groq models failed, but Tavily returned live web data, synthesize a verified node directly from Tavily
+  if (tavilyData && (tavilyData.results?.length > 0 || tavilyData.answer)) {
+    console.log('[Synthesizing verified web node directly from live Tavily search results]');
+    const topResult = tavilyData.results?.[0];
+    const directTavilyNode = {
+      title: topResult?.title || query,
+      category: isFinancial ? 'financial quotes // live market' : 'verified web intelligence // tavily',
+      status: 'live web retrieval',
+      source: topResult?.title || cleanDomainFromUrl(topResult?.url || '') || 'Tavily Search Engine',
+      url: topResult?.url || `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+      sourceUrl: topResult?.url || `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+      description: tavilyData.answer || topResult?.content || `Verified real-time web intelligence on "${query}".`,
+      detailedSynthesis: [
+        tavilyData.answer ? `### Web Synthesis\n${tavilyData.answer}` : null,
+        '### Verified Web Sources',
+        ...(tavilyData.results || []).map((r, i) => `**[${i + 1}] [${r.title}](${r.url})**\n${r.content}`),
+      ].filter(Boolean).join('\n\n'),
+      layout: isFinancial ? { structure: 'price_hero', width: 340 } : { width: 350, density: 'comfortable' },
+      targetedInquiries: (tavilyData.results || []).slice(1, 4).map((r) => r.title).filter(Boolean),
+      branchNodes: (tavilyData.results || []).slice(1, 3).map((r, idx) => ({
+        id: `branch-tavily-${idx + 1}-${Date.now()}`,
+        title: r.title,
+        category: 'web source // context',
+        description: r.content?.substring(0, 200) + '...',
+        url: r.url,
+        sourceUrl: r.url,
+        source: cleanDomainFromUrl(r.url),
+        mediaType: 'photo',
+        relationship: 'COUPLED_SYSTEM',
+        relationshipLabel: 'verified source',
+      })),
+    };
+
+    if (isFinancial) {
+      const extracted = extractStructuredPriceQuote(query, tavilyData, directTavilyNode);
+      if (extracted) {
+        directTavilyNode.priceQuote = extracted;
+        directTavilyNode.layout = { structure: 'price_hero', width: 340 };
+      }
+    }
+
+    if (Array.isArray(tavilyData.images) && tavilyData.images.length > 0 && !isFinancial) {
+      directTavilyNode.photos = tavilyData.images.slice(0, 5).map((imgUrl, idx) => ({
+        url: imgUrl,
+        thumbnail: imgUrl,
+        title: directTavilyNode.title,
+        source: 'Tavily Web',
+        caption: `${directTavilyNode.title} (Source ${idx + 1})`,
+      }));
+      directTavilyNode.primaryPhoto = directTavilyNode.photos[0];
+    }
+
+    return {
+      success: true,
+      node: directTavilyNode,
+      source: 'tavily-direct-fallback',
+    };
   }
 
   throw lastError || new Error('All Groq candidate models failed.');
 }
 
 /**
- * Unified direct AI query dispatcher.
- * Exclusively queries Groq Cloud API (Llama 3.3 70B, DeepSeek R1, etc.).
+ * Direct AI query dispatcher: utilizes Groq Cloud high-speed models with Tavily real-time RAG.
  */
-export async function queryDirectAi({ query, activeNodeContext = null, workspaceName = 'Applied Kinematics', existingNodes = [] }) {
-  return await queryGroqDirect({ query, activeNodeContext, workspaceName, existingNodes });
+export async function queryDirectAi(rawParams) {
+  const params = typeof rawParams === 'string' ? { query: rawParams } : (rawParams || {});
+  return await queryGroqDirect(params);
 }
-
-export const queryGeminiDirect = queryDirectAi;
 
 /**
  * Tests Groq connectivity and returns roundtrip latency in milliseconds.
@@ -874,6 +1261,7 @@ export async function testGroqConnection(apiKey, modelName) {
         messages: [{ role: 'user', content: 'Ping' }],
         max_tokens: 10,
       }),
+      signal: AbortSignal.timeout(4000),
     });
 
     const latencyMs = Math.round(performance.now() - startTime);
@@ -925,6 +1313,7 @@ export async function testSpotifyConnection(clientId, clientSecret) {
         'Authorization': `Basic ${creds}`,
       },
       body: 'grant_type=client_credentials',
+      signal: AbortSignal.timeout(3500),
     });
     const latencyMs = Math.round(performance.now() - startTime);
     if (res.ok) {
@@ -976,85 +1365,4 @@ export async function fetchAiCuratedPhotos({
   }
 
   return [];
-}
-
-/**
- * Tests Gemini connectivity and returns roundtrip latency in milliseconds.
- */
-export async function testGeminiConnection(apiKey, modelName) {
-  const keyToTest = (apiKey || getStoredGeminiKey() || '').trim();
-  const modelToTest = modelName || getStoredModel();
-
-  if (!keyToTest) {
-    return { success: false, message: 'API Key is empty.', latencyMs: 0 };
-  }
-
-  const startTime = performance.now();
-
-  try {
-    const endpoint = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${keyToTest}`,
-      },
-      body: JSON.stringify({
-        model: modelToTest,
-        messages: [{ role: 'user', content: 'Say OK' }],
-        max_tokens: 10,
-      }),
-    });
-
-    const elapsed = Math.round(performance.now() - startTime);
-
-    if (res.ok) {
-      return {
-        success: true,
-        message: `Connected successfully (${modelToTest})`,
-        latencyMs: elapsed,
-      };
-    } else {
-      const errText = await res.text();
-      return {
-        success: false,
-        message: `Error ${res.status}: ${errText.slice(0, 100)}`,
-        latencyMs: elapsed,
-      };
-    }
-  } catch (err) {
-    // Try fallback native REST
-    try {
-      const nativeEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelToTest}:generateContent?key=${keyToTest}`;
-      const nativeRes = await fetch(nativeEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Say OK' }] }],
-          generationConfig: { maxOutputTokens: 10 },
-        }),
-      });
-
-      const elapsed = Math.round(performance.now() - startTime);
-
-      if (nativeRes.ok) {
-        return {
-          success: true,
-          message: `Connected successfully via REST (${modelToTest})`,
-          latencyMs: elapsed,
-        };
-      }
-      return {
-        success: false,
-        message: `Connection failed: ${err.message}`,
-        latencyMs: elapsed,
-      };
-    } catch (e) {
-      return {
-        success: false,
-        message: `Network error: ${e.message}`,
-        latencyMs: Math.round(performance.now() - startTime),
-      };
-    }
-  }
 }

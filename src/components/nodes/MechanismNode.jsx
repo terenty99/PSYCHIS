@@ -181,27 +181,6 @@ export const MechanismNode = ({
         <MathFormula math={node.data.formula || 'F = \\frac{\\mu_0 \\cdot I_1 \\cdot I_2 \\cdot L}{2\\pi d}'} />
       </div>
 
-      {/* Clickable AI Probe Questions */}
-      {Array.isArray(node.data?.targetedInquiries) && node.data.targetedInquiries.length > 0 && (
-        <div className="mb-2 flex flex-col gap-1.5">
-          {node.data.targetedInquiries.slice(0, 2).map((inquiry, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSpecificProbe?.(inquiry, node.id);
-              }}
-              className="w-full text-left px-3 py-1.5 rounded-xl bg-[#FBFBFA] hover:bg-white border border-[#E5E3DF] hover:border-grey-strong text-[#5C5650] hover:text-[#2B2724] font-mono text-[10px] transition-all duration-150 active:scale-[0.98] shadow-3xs cursor-pointer flex items-center gap-1.5"
-              title={`Investigate: "${inquiry}"`}
-            >
-              <span className="text-[#8F8A83] shrink-0 leading-none">→</span>
-              <span className="truncate leading-tight">{inquiry}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Footer */}
       <div className="flex justify-between items-center font-mono text-[8px] pt-1.5 border-t border-grey-soft mt-auto">
         <span className="text-text-muted truncate max-w-[140px]">
@@ -212,8 +191,11 @@ export const MechanismNode = ({
             type="button"
             onClick={(e) => {
               if (e.ctrlKey || e.metaKey || e.shiftKey) return;
-              e.stopPropagation();
-              onOpenBrowser?.(node.data?.url || node.data?.sourceUrl || `https://en.wikipedia.org/wiki/${encodeURIComponent(node.data?.title || 'Kinematics')}`);
+              const targetUrl = node.data?.url || node.data?.sourceUrl;
+              const validUrl = targetUrl && !targetUrl.includes('wikipedia.org/wiki/Special:Search')
+                ? targetUrl
+                : `https://html.duckduckgo.com/html/?q=${encodeURIComponent(node.data?.title || 'Kinematics')}`;
+              onOpenBrowser?.(validUrl);
             }}
             className="text-[#645e57] hover:text-[#2B2724] font-medium hover:underline cursor-pointer flex items-center gap-0.5 transition-colors"
             title="Open source in built-in browser"

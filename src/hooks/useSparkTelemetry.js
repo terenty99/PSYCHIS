@@ -4,6 +4,7 @@ import {
   getStoredGroqModel,
   getStoredAiMode,
   getStoredBackendUrl,
+  getStoredTavilyKey,
 } from '../utils/geminiClient';
 
 export function useSparkTelemetry() {
@@ -41,11 +42,11 @@ export function useSparkTelemetry() {
 
     let isBackendAlive = false;
 
-    // Check backend health with a 1500ms timeout
+    // Check backend health with a fast 600ms timeout
     if (aiMode !== 'direct') {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1500);
+        const timeoutId = setTimeout(() => controller.abort(), 600);
 
         const res = await fetch(`${backendUrl}/`, {
           method: 'GET',
@@ -62,8 +63,9 @@ export function useSparkTelemetry() {
     }
 
     const hasGroqKey = Boolean(groqKey && groqKey.trim().length > 10);
+    const hasTavilyKey = Boolean(getStoredTavilyKey());
 
-    const formatShortModel = (m) => {
+    const formatShortModel = (m = '') => {
       if (m.includes('3.3-70b')) return 'Llama 3.3 70B';
       if (m.includes('deepseek-r1')) return 'DeepSeek R1 70B';
       if (m.includes('3.1-8b')) return 'Llama 3.1 8B';
@@ -73,11 +75,13 @@ export function useSparkTelemetry() {
     };
 
     const shortModel = formatShortModel(groqModel);
+    const modelPrefix = hasTavilyKey ? `Tavily + ${shortModel}` : shortModel;
 
     if (isBackendAlive && (aiMode === 'backend' || aiMode === 'auto')) {
       setTelemetry({
         status: 'backend',
-        label: `spark: backend (${shortModel})`,
+        hasTavily: hasTavilyKey,
+        label: `spark: backend (${modelPrefix})`,
         color: '#4AE290', // Luminous green
         isOnline: true,
         backendOnline: true,
@@ -88,8 +92,9 @@ export function useSparkTelemetry() {
     } else if (hasGroqKey && (aiMode === 'direct' || aiMode === 'auto')) {
       setTelemetry({
         status: 'groq',
-        label: `spark: online (Groq // ${shortModel})`,
-        color: '#F97316', // Groq vibrant orange
+        hasTavily: hasTavilyKey,
+        label: `spark: online (${hasTavilyKey ? 'Tavily + Groq' : 'Groq'} // ${shortModel})`,
+        color: hasTavilyKey ? '#10B981' : '#F97316', // Emerald or Orange
         isOnline: true,
         backendOnline: false,
         directOnline: true,

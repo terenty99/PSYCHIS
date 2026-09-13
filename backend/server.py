@@ -48,11 +48,38 @@ DATA_DIR.mkdir(exist_ok=True, parents=True)
 DATASET_FILE = DATA_DIR / "training_dataset.jsonl"
 
 # API Client (Exclusively Groq Cloud API)
-DEFAULT_GROQ_KEY = ""
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "") or os.getenv("OPENAI_API_KEY", "")
 OPENAI_API_KEY = GROQ_API_KEY
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.groq.com/openai/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "openai/gpt-oss-120b")
+MODEL_NAME = os.getenv("MODEL_NAME", "qwen/qwen3.8-27b")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
+
+async def search_tavily_web(query: str, api_key: str = "", max_results: int = 5) -> Optional[Dict[str, Any]]:
+    key = api_key or TAVILY_API_KEY or os.getenv("TAVILY_API_KEY", "")
+    if not key:
+        return None
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as http_client:
+            resp = await http_client.post(
+                "https://api.tavily.com/search",
+                json={
+                    "api_key": key,
+                    "query": query,
+                    "search_depth": "basic",
+                    "include_answer": True,
+                    "include_images": True,
+                    "max_results": max_results,
+                },
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                print(f"[Tavily Search Error HTTP {resp.status_code}]: {resp.text}")
+                return None
+    except Exception as e:
+        print(f"[Tavily Search Exception]: {e}")
+        return None
 
 client = None
 if OPENAI_API_KEY:
@@ -284,6 +311,11 @@ async def execute_spark_query(req: SparkQueryRequest, background_tasks: Backgrou
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
     is_single = is_direct_concept_query(prompt)
+    is_financial = bool(re.search(r"(?:^|[^\w])(курс|валют|доллар|евро|рубл|юан|фунт|иен|йен|тенге|биткоин|криптовалют|крипт|акци|индекс|котировк|цена|цены|цене|стоимост|дивиденд|нефть|золот|серебр|газ|forex|rate|price|ticker|quote|quotes|usd|eur|rub|cny|gbp|jpy|kzt|btc|eth|sol|ton|brent|gold|silver|oil|gas|s&p|sp500|spx|nasdaq|ndx|dow|djia|moex|rts|dax|nikkei|ftse|stock|stocks|share|shares|equity|aapl|tsla|nvda|msft|goog|amzn|meta|sber|gazp)", prompt, re.IGNORECASE))
+
+    # 1. Search Tavily for live ground truth if configured
+    search_target = f"{prompt} актуальный курс котировка уровень цена сегодня" if is_financial else prompt
+    tavily_data = await search_tavily_web(search_target)
 
     # If no API key is provided, return rich offline heuristic synthesis
     if not client:
@@ -402,20 +434,85 @@ async def execute_spark_query(req: SparkQueryRequest, background_tasks: Backgrou
         if is_single:
             user_prompt += "\n\nCRITICAL MANDATE: This is a direct theorem, formula, or specific concept inquiry. Answer it fully on the primary node and return \"branchNodes\": [] (ZERO branch nodes). Do NOT auto-spawn limit cases or unsolicited sub-theorems."
 
+        if tavily_data:
+            tavily_context = "\n\n=== VERIFIED REAL-TIME LIVE WEB RETRIEVAL (TAVILY SEARCH) ===\n"
+            if tavily_data.get("answer"):
+                tavily_context += f"TAVILY FACTUAL SYNTHESIS: \"{tavily_data.get('answer')}\"\n\n"
+            tavily_context += "TOP AUTHENTIC WEB SOURCES FOUND:\n"
+            for idx, r in enumerate(tavily_data.get("results", [])[:3]):
+                tavily_context += f"[Source {idx + 1}] Title: {r.get('title')}\nURL: {r.get('url')}\nExcerpt: {str(r.get('content', ''))[:350]}\n\n"
+            tavily_context += "=== END TAVILY RETRIEVAL ===\n"
+            top_u = tavily_data.get("results", [{}])[0].get("url", "")
+            top_t = tavily_data.get("results", [{}])[0].get("title", "")
+            tavily_context += f"\nCRITICAL PARSING & EXTRACTION DIRECTIVES FOR AI PARSER:\n1. Ground the card strictly in the authentic facts, dates, and details retrieved above by Tavily. Do NOT fabricate.\n2. Set \"url\" to the authentic primary source URL from Tavily (specifically \"{top_u}\"). This URL is loaded in the card's interactive browser!\n3. Set \"source\" and \"institution\" to the authentic domain/organization (specifically \"{top_t}\").\n4. Formulate 3-4 insightful follow-up contextual questions in \"targetedInquiries\"."
+            user_prompt += tavily_context
+
+        if is_financial:
+            user_prompt += f"\n\nCRITICAL FINANCIAL, STOCK & MARKET QUOTE DIRECTIVE:\nThe user is asking for a financial market quote, stock price, index level, commodity, cryptocurrency, or currency exchange rate (\"{prompt}\").\n- ABSOLUTELY FORBIDDEN: DO NOT write purely an abstract dictionary or encyclopedic definition of what the company, asset, or index is! State the ACTUAL CURRENT PRICE / LEVEL and latest market trends!\n- FIRST SENTENCE MANDATE: The first sentence of \"description\" MUST state the exact current price, index level, or quote found in the search results (e.g. \"Индекс S&P 500 торгуется на отметке 5 864,67 пунктов (+0.41% за день).\" or \"Акции Apple Inc. (AAPL) котируются по цене $228.50 (+1.25%).\" or \"Официальный курс: 1 USD ≈ 84,257 ₽ (ЦБ РФ).\").\n- PRICE QUOTE OBJECT: Output \"priceQuote\": {{\"rate\": \"5 864.67\", \"unit\": \"pts\", \"base\": \"S&P 500 Index\", \"source\": \"S&P Dow Jones / NYSE\", \"change24h\": \"+0.41%\", \"secondary\": null}} (use 'pts' for indices, '$' for US stocks/crypto/commodities, '₽' for Russian assets/forex).\n- NO BROKEN PHOTOS: Set \"visualSearchQuery\": null so no outdated chart screenshots from past years are fetched! The card will display the live price quote as the frontline hero banner."
+
         messages = [
             {"role": "system", "content": PSYCHIS_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}
         ]
         
-        response = await client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            temperature=0.7,
-            max_tokens=4000,
-            response_format={"type": "json_object"}
-        )
-        raw_text = response.choices[0].message.content.strip()
+        candidate_models = [MODEL_NAME, "qwen/qwen3.8-27b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b", "groq/compound"]
+        raw_text = None
+        last_model_err = None
+        for current_model in candidate_models:
+            try:
+                response = await client.chat.completions.create(
+                    model=current_model,
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=4000,
+                    response_format={"type": "json_object"}
+                )
+                raw_text = response.choices[0].message.content.strip()
+                if raw_text:
+                    break
+            except Exception as m_err:
+                print(f"[Groq Model Failover from {current_model}]: {m_err}")
+                last_model_err = m_err
+                continue
+
+        if not raw_text:
+            raise last_model_err or Exception("All Groq candidate models failed.")
+
         node_data = parse_ai_json(raw_text)
+
+        # Bind Tavily enrichment if available
+        if tavily_data:
+            top_sources = tavily_data.get("results", [])
+            if not node_data.get("url") and top_sources:
+                node_data["url"] = top_sources[0].get("url")
+            if not node_data.get("source") and top_sources:
+                node_data["source"] = top_sources[0].get("title")
+            t_imgs = tavily_data.get("images", [])
+            if t_imgs and not node_data.get("photoGallery") and not is_financial:
+                node_data["photoGallery"] = [
+                    {
+                        "url": img,
+                        "thumbnail": img,
+                        "title": node_data.get("title", prompt),
+                        "source": node_data.get("source", "Tavily Web"),
+                        "caption": f"{node_data.get('title', prompt)} (Source {i + 1})"
+                    }
+                    for i, img in enumerate(t_imgs[:5])
+                ]
+                if not node_data.get("photoUrl"):
+                    node_data["photoUrl"] = t_imgs[0]
+
+        if is_financial:
+            if not node_data.get("layout"):
+                node_data["layout"] = {}
+            node_data["layout"]["structure"] = "price_hero"
+            node_data["layout"]["width"] = 340
+            node_data["photoUrl"] = None
+            node_data["photoGallery"] = []
+            node_data["primaryPhoto"] = None
+            node_data["visualSearchQuery"] = None
+            node_data["photos"] = []
+            node_data["media"] = []
 
         # Backend Media Enrichment for Video and Music Nodes
         is_video_node = node_data.get("mediaType") == "video" or bool(node_data.get("videoQuery")) or (node_data.get("layout") or {}).get("structure") == "video_top"

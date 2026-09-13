@@ -40,6 +40,12 @@ export function isCandidateRelevant(c, query, nodeTitle = '') {
     return false;
   }
 
+  // Canonical Wikipedia and Commons images fetched directly for this subject are authoritative
+  const isAuthoritative = (c.source === 'Wikipedia' || c.domain === 'wikipedia.org' || c.domain === 'wikimedia.org' || c.author === 'Wikipedia Canonical');
+  if (isAuthoritative && (c.title || c.caption)) {
+    return true;
+  }
+
   const stopwords = new Set([
     'the', 'and', 'for', 'with', 'from', 'character', 'television', 'analysis',
     'profile', 'dossier', 'origin', 'node', 'visual', 'archive', 'media',
@@ -50,7 +56,7 @@ export function isCandidateRelevant(c, query, nodeTitle = '') {
 
   const targetText = `${nodeTitle} ${query}`.toLowerCase();
   const cleanKeywords = targetText
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/[^a-z0-9а-яё\s]/gi, ' ')
     .split(/\s+/)
     .filter((w) => w.length >= 3 && !stopwords.has(w));
 
@@ -476,84 +482,91 @@ export async function fetchLiveArchivalPhotos(queryText, count = 4, contextHint 
     ? { 'User-Agent': 'PSYCHIS-KnowledgeCanvas/1.0 (contact@psychis.app)' }
     : { 'Api-User-Agent': 'PSYCHIS-KnowledgeCanvas/1.0' };
 
-  // Helper to query Wikipedia Canonical Lead & Article Media (peer source, demoted from 100-point monopoly)
+  // Helper to query Wikipedia Canonical Lead & Article Media (peer source, fast & high quality)
   const fetchFromWikiCanonical = async (searchTerm) => {
-    const cleanTerm = searchTerm.replace(/[^\w\s-]/g, ' ').trim();
+    const cleanTerm = searchTerm.replace(/[^\w\sа-яА-ЯёЁ-]/gi, ' ').trim();
     if (!cleanTerm || cleanTerm.length < 2) return [];
     const results = [];
+
+    const isCyrillic = /[а-яА-ЯёЁ]/.test(cleanTerm);
+    const hosts = isCyrillic ? ['ru.wikipedia.org', 'en.wikipedia.org'] : ['en.wikipedia.org'];
 
     const titlesToCheck = [
       cleanTerm.replace(/\s+/g, '_'),
       cleanTerm,
     ];
 
-    for (const t of titlesToCheck) {
+    for (const host of hosts) {
+      for (const t of titlesToCheck) {
+        try {
+          const sumUrl = `https://${host}/api/rest_v1/page/summary/${encodeURIComponent(t)}`;
+          const res = await fetch(sumUrl, {
+            headers: wikiHeaders,
+            signal: AbortSignal.timeout(1800),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const imgUrl = data.thumbnail?.source || data.originalimage?.source;
+            if (imgUrl && !imgUrl.endsWith('.svg')) {
+              results.push({
+                url: imgUrl,
+                thumbnail: data.thumbnail?.source || imgUrl,
+                title: data.title || searchTerm,
+                caption: data.description || `Canonical portrait of ${data.title || searchTerm}`,
+                author: 'Wikipedia Canonical',
+                source: 'Wikipedia',
+                domain: 'wikipedia.org',
+                sourceUrl: data.content_urls?.desktop?.page || `https://${host}/wiki/${encodeURIComponent(t)}`,
+                score: 85,
+              });
+              break;
+            }
+          }
+        } catch (e) {}
+      }
+      if (results.length > 0) break;
+
       try {
-        const sumUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(t)}`;
-        const res = await fetch(sumUrl, {
+        const searchUrl = `https://${host}/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanTerm)}&srlimit=4&format=json&origin=*`;
+        const sRes = await fetch(searchUrl, {
           headers: wikiHeaders,
-          signal: AbortSignal.timeout(3200),
+          signal: AbortSignal.timeout(1800),
         });
-        if (res.ok) {
-          const data = await res.json();
-          const imgUrl = data.thumbnail?.source || data.originalimage?.source;
-          if (imgUrl && !imgUrl.endsWith('.svg')) {
-            results.push({
-              url: imgUrl,
-              thumbnail: data.thumbnail?.source || imgUrl,
-              title: data.title || searchTerm,
-              caption: data.description || `Canonical portrait of ${data.title || searchTerm}`,
-              author: 'Wikipedia Canonical',
-              source: 'Wikipedia',
-              domain: 'wikipedia.org',
-              sourceUrl: data.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(t)}`,
-              score: 65,
-            });
-            break;
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          const matchedArticles = (sData.query?.search || []).map((s) => s.title);
+
+          for (const article of matchedArticles.slice(0, 3)) {
+            if (results.some((r) => r.title.toLowerCase() === article.toLowerCase())) continue;
+            try {
+              const sumUrl = `https://${host}/api/rest_v1/page/summary/${encodeURIComponent(article.replace(/\s+/g, '_'))}`;
+              const res = await fetch(sumUrl, {
+                headers: wikiHeaders,
+                signal: AbortSignal.timeout(1500),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const imgUrl = data.thumbnail?.source || data.originalimage?.source;
+                if (imgUrl && !imgUrl.endsWith('.svg')) {
+                  results.push({
+                    url: imgUrl,
+                    thumbnail: data.thumbnail?.source || imgUrl,
+                    title: data.title || article,
+                    caption: data.description || `Canonical media for ${data.title || article}`,
+                    author: 'Wikipedia / Encyclopedia Archive',
+                    source: 'Wikipedia',
+                    domain: 'wikipedia.org',
+                    sourceUrl: data.content_urls?.desktop?.page || `https://${host}/wiki/${encodeURIComponent(article)}`,
+                    score: 80,
+                  });
+                }
+              }
+            } catch (e) {}
           }
         }
       } catch (e) {}
+      if (results.length > 0) break;
     }
-
-    try {
-      const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanTerm)}&srlimit=4&format=json&origin=*`;
-      const sRes = await fetch(searchUrl, {
-        headers: wikiHeaders,
-        signal: AbortSignal.timeout(3200),
-      });
-      if (sRes.ok) {
-        const sData = await sRes.json();
-        const matchedArticles = (sData.query?.search || []).map((s) => s.title);
-
-        for (const article of matchedArticles.slice(0, 3)) {
-          if (results.some((r) => r.title.toLowerCase() === article.toLowerCase())) continue;
-          try {
-            const sumUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(article.replace(/\s+/g, '_'))}`;
-            const res = await fetch(sumUrl, {
-              headers: wikiHeaders,
-              signal: AbortSignal.timeout(2800),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              const imgUrl = data.thumbnail?.source || data.originalimage?.source;
-              if (imgUrl && !imgUrl.endsWith('.svg')) {
-                results.push({
-                  url: imgUrl,
-                  thumbnail: data.thumbnail?.source || imgUrl,
-                  title: data.title || article,
-                  caption: data.description || `Canonical media for ${data.title || article}`,
-                  author: 'Wikipedia / Encyclopedia Archive',
-                  source: 'Wikipedia',
-                  domain: 'wikipedia.org',
-                  sourceUrl: data.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(article)}`,
-                  score: 60,
-                });
-              }
-            }
-          } catch (e) {}
-        }
-      }
-    } catch (e) {}
 
     return results;
   };
@@ -608,7 +621,7 @@ export async function fetchLiveArchivalPhotos(queryText, count = 4, contextHint 
 
     for (const ep of endpoints) {
       try {
-        const res = await fetch(ep, { signal: AbortSignal.timeout(3500) });
+        const res = await fetch(ep, { signal: AbortSignal.timeout(600) });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data.results) && data.results.length > 0) {
@@ -641,37 +654,18 @@ export async function fetchLiveArchivalPhotos(queryText, count = 4, contextHint 
     return [];
   };
 
-  // Step 1: Query open-web search across entire internet (Bing scraper / DDG / Openverse)
+  // Step 1: Query all archival, canonical and open-web visual engines IN PARALLEL for maximum speed
   const rawCandidates = [];
-  const webResults = await Promise.allSettled(
-    searchTermsToTry.map((st) => fetchFromWebSearch(st))
-  );
-  for (const res of webResults) {
+  const parallelSearches = await Promise.allSettled([
+    ...searchTermsToTry.map((st) => fetchFromWikiCanonical(st)),
+    ...searchTermsToTry.map((st) => fetchFromCommons(st)),
+    ...searchTermsToTry.map((st) => fetchFromOpenverse(st)),
+    ...searchTermsToTry.map((st) => fetchFromWebSearch(st)),
+  ]);
+
+  for (const res of parallelSearches) {
     if (res.status === 'fulfilled' && Array.isArray(res.value) && res.value.length > 0) {
       rawCandidates.push(...res.value);
-    }
-  }
-
-  // Also query Openverse directly (Smithsonian, Flickr archives, Museums, Europeana)
-  const openverseResults = await Promise.allSettled(
-    searchTermsToTry.map((st) => fetchFromOpenverse(st))
-  );
-  for (const res of openverseResults) {
-    if (res.status === 'fulfilled' && Array.isArray(res.value) && res.value.length > 0) {
-      rawCandidates.push(...res.value);
-    }
-  }
-
-  // CRITICAL: Only if open-web search returned fewer than 2 candidates do we check Commons/Wiki as emergency fallback!
-  if (rawCandidates.length < 2) {
-    const wikiFallback = await Promise.allSettled([
-      ...searchTermsToTry.map((st) => fetchFromCommons(st)),
-      ...searchTermsToTry.map((st) => fetchFromWikiCanonical(st)),
-    ]);
-    for (const res of wikiFallback) {
-      if (res.status === 'fulfilled' && Array.isArray(res.value)) {
-        rawCandidates.push(...res.value.slice(0, 2));
-      }
     }
   }
 
@@ -944,6 +938,7 @@ async function getSpotifyAccessToken(clientId, clientSecret) {
         'Authorization': `Basic ${creds}`,
       },
       body: 'grant_type=client_credentials',
+      signal: AbortSignal.timeout(3000),
     });
     if (res.ok) {
       const data = await res.json();

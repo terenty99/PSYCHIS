@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { SpatialCanvas } from './layout/SpatialCanvas';
 import { TopNavDock } from './components/ui/TopNavDock';
 import { GlobalMusicPlayer } from './components/ui/GlobalMusicPlayer';
@@ -16,7 +16,8 @@ import { useNodeInspector } from './hooks/useNodeInspector';
 import { RELATIONSHIP_TYPES } from './utils/colorTokens';
 import { createNodeFromTemplate, NODE_TEMPLATES } from './utils/nodeTemplates';
 import { findCollisionFreePosition, findClusterPositions, getNodeDimensions } from './utils/canvasPlacement';
-import { queryDirectAi, enrichNodeWithRealPhotos, getStoredAiMode, getStoredBackendUrl } from './utils/geminiClient';
+import { queryDirectAi, enrichNodeWithRealPhotos, extractStructuredPriceQuote, getStoredAiMode, getStoredBackendUrl } from './utils/geminiClient';
+import { searchTavily, getStoredTavilyKey } from './utils/tavilyClient';
 import {
   loadSavedWorkspaces,
   persistWorkspaces,
@@ -180,7 +181,15 @@ export function App() {
   // Multi-Workspace Storage & Active Board State
   const [workspaces, setWorkspaces] = useState(() => loadSavedWorkspaces());
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY_ACTIVE_ID) || 'ws-kinematics';
+    const v2CleanStart = localStorage.getItem('psychis_v2_clean_start');
+    if (!v2CleanStart) {
+      try {
+        localStorage.setItem('psychis_v2_clean_start', '1');
+        localStorage.setItem(STORAGE_KEY_ACTIVE_ID, 'ws-main');
+      } catch (e) {}
+      return 'ws-main';
+    }
+    return localStorage.getItem(STORAGE_KEY_ACTIVE_ID) || 'ws-main';
   });
 
   const currentWorkspace = useMemo(() => {
@@ -199,10 +208,16 @@ export function App() {
   const isAuthenticated = Boolean(clientAuth && clientAuth.accessKey === '2347');
 
   const [nodes, setNodes] = useState(() => {
-    return currentWorkspace?.nodes || INITIAL_NODES;
+    const raw = currentWorkspace?.nodes || INITIAL_NODES;
+    return Array.isArray(raw)
+      ? raw.filter((n) => n.type !== 'generating_preview' && !n.data?.isGenerating)
+      : INITIAL_NODES;
   });
   const [edges, setEdges] = useState(() => {
-    return currentWorkspace?.edges || INITIAL_EDGES;
+    const raw = currentWorkspace?.edges || INITIAL_EDGES;
+    return Array.isArray(raw)
+      ? raw.filter((e) => !e.id?.startsWith('preview-edge-') && !e.data?.isConstructing)
+      : INITIAL_EDGES;
   });
 
   const [pan, setPan] = useState(() => currentWorkspace?.pan || { x: 0, y: 0 });
@@ -226,7 +241,7 @@ export function App() {
       ]
     );
   });
-  const [selectedNodeIds, setSelectedNodeIds] = useState(() => ['0x01']);
+  const [selectedNodeIds, setSelectedNodeIds] = useState(() => []);
   const [toolMode, setToolMode] = useState('hand'); // 'hand' | 'select'
   const [isAnimationPaused, setIsAnimationPaused] = useState(false);
 
@@ -237,9 +252,42 @@ export function App() {
   const [isNewInvestigationOpen, setIsNewInvestigationOpen] = useState(false);
   const [isAISettingsOpen, setIsAISettingsOpen] = useState(false);
   const [isSparkGenerating, setIsSparkGenerating] = useState(false);
+  const isInitialCenter = useMemo(() => {
+    return !nodes || nodes.filter((n) => !n.hidden).length === 0;
+  }, [nodes]);
   const [deleteConfirmation, setDeleteConfirmation] = useState(null); // { node, connectedEdges }
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [isMinimapOpen, setIsMinimapOpen] = useState(false);
+
+  // Spark Query Cancellation & Lifecycle Refs
+  const activeSparkAbortRef = useRef(null);
+  const activeSparkNodeIdRef = useRef(null);
+
+  const handleCancelSparkQuery = useCallback((targetNodeId = null) => {
+    if (activeSparkAbortRef.current) {
+      try {
+        activeSparkAbortRef.current.abort();
+      } catch (e) {}
+      activeSparkAbortRef.current = null;
+    }
+    const nodeIdToRemove = targetNodeId || activeSparkNodeIdRef.current;
+    setNodes((prev) => {
+      if (nodeIdToRemove) {
+        return prev.filter((n) => n.id !== nodeIdToRemove);
+      }
+      return prev.filter((n) => n.type !== 'generating_preview' && !n.data?.isGenerating);
+    });
+    setEdges((prev) =>
+      prev.filter(
+        (e) =>
+          (!nodeIdToRemove || (e.source !== nodeIdToRemove && e.target !== nodeIdToRemove)) &&
+          !e.id?.startsWith(`preview-edge-`) &&
+          !e.data?.isConstructing
+      )
+    );
+    activeSparkNodeIdRef.current = null;
+    setIsSparkGenerating(false);
+  }, []);
 
   // Drag-and-drop .psychis protocol file state
   const [isDraggingFileOver, setIsDraggingFileOver] = useState(false);
@@ -247,6 +295,7 @@ export function App() {
   // Inspector & Browser State Machine Hook
   const {
     selectedNodeId,
+    setSelectedNodeId,
     selectNode,
     viewMode,
     setViewMode,
@@ -264,7 +313,7 @@ export function App() {
     setIsInvestigating,
     investigationMessage,
     setInvestigationMessage,
-  } = useNodeInspector('0x01');
+  } = useNodeInspector(null);
 
   // Multi-Selection Sync Handlers
   const handleSelectNode = useCallback(
@@ -308,8 +357,9 @@ export function App() {
 
   const handleClearSelection = useCallback(() => {
     setSelectedNodeIds([]);
+    selectNode(null, false);
     closeInspector();
-  }, [closeInspector]);
+  }, [selectNode, closeInspector]);
 
   // Autonomous Semantic Loom Hook
   const {
@@ -387,15 +437,33 @@ export function App() {
 
   // Switch Active Workspace
   const handleSelectWorkspace = (workspaceId) => {
+    handleCancelSparkQuery();
     const target = workspaces.find((w) => w.id === workspaceId);
     if (!target) return;
     setActiveWorkspaceId(workspaceId);
-    localStorage.setItem(STORAGE_KEY_ACTIVE_ID, workspaceId);
-    setNodes(target.nodes || []);
-    setEdges(target.edges || []);
+    try {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_ID, workspaceId);
+    } catch (e) {}
+    const resolvedNodes =
+      target.nodes !== null && target.nodes !== undefined
+        ? target.nodes
+        : workspaceId === 'ws-kinematics'
+        ? INITIAL_NODES
+        : [];
+    const resolvedEdges =
+      target.edges !== null && target.edges !== undefined
+        ? target.edges
+        : workspaceId === 'ws-kinematics'
+        ? INITIAL_EDGES
+        : [];
+    setNodes(resolvedNodes);
+    setEdges(resolvedEdges);
     setClusters(target.clusters || []);
     setPan(target.pan || { x: 0, y: 0 });
     setZoom(target.zoom || 1);
+    setSelectedNodeIds([]);
+    selectNode(null, false);
+    closeInspector();
   };
 
   // Create New Investigation (From Scratch / Topic Seed)
@@ -593,6 +661,13 @@ export function App() {
 
   // Clear Canvas (Current Workspace)
   const handleClearCanvas = () => {
+    if (activeSparkAbortRef.current) {
+      try {
+        activeSparkAbortRef.current.abort();
+      } catch (e) {}
+      activeSparkAbortRef.current = null;
+    }
+    activeSparkNodeIdRef.current = null;
     setNodes([]);
     setEdges([]);
     setClusters([]);
@@ -1090,6 +1165,15 @@ export function App() {
         return;
       }
 
+      if (e.key === 'Escape' && isSparkGenerating) {
+        e.preventDefault();
+        handleCancelSparkQuery();
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) {
+          document.activeElement.blur();
+        }
+        return;
+      }
+
       if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) {
         if (e.key === 'Escape') document.activeElement.blur();
         return;
@@ -1199,6 +1283,8 @@ export function App() {
     openBrowserWithUrl,
     browserUrl,
     handleFitView,
+    isSparkGenerating,
+    handleCancelSparkQuery,
   ]);
 
   // Create Node from Template
@@ -1262,6 +1348,17 @@ export function App() {
     const text = queryText.trim();
     if (!text) return;
 
+    // Abort any existing in-flight query first
+    if (activeSparkAbortRef.current) {
+      try {
+        activeSparkAbortRef.current.abort();
+      } catch (e) {}
+    }
+
+    const abortController = new AbortController();
+    activeSparkAbortRef.current = abortController;
+    const signal = abortController.signal;
+
     setIsSparkGenerating(true);
 
     const isUrl = text.startsWith('http') || (text.includes('.') && !text.includes(' ') && text.length < 120);
@@ -1279,22 +1376,85 @@ export function App() {
       nextNum++;
     }
     const newId = `0x${nextNum.toString(16).padStart(2, '0')}`;
+    activeSparkNodeIdRef.current = newId;
 
-    const centerPos = {
-      x: (-pan.x + window.innerWidth / 2) / zoom - 140,
-      y: (-pan.y + window.innerHeight / 2) / zoom - 120,
+    const baseCenterPos = effectiveSourceNode?.position
+      ? {
+          x: effectiveSourceNode.position.x + 440,
+          y: effectiveSourceNode.position.y,
+        }
+      : {
+          x: (-pan.x + window.innerWidth / 2) / zoom - 140,
+          y: (-pan.y + window.innerHeight / 2) / zoom - 120,
+        };
+
+    // Calculate immediate collision-free placement for the constructing preview node
+    const candidateDims = { width: 340, height: 200 };
+    const previewPos = findCollisionFreePosition({
+      targetPos: baseCenterPos,
+      width: candidateDims.width,
+      height: candidateDims.height,
+      existingNodes: nodes,
+    });
+
+    const safePreviewPos = {
+      x: typeof previewPos?.x === 'number' && !isNaN(previewPos.x) ? previewPos.x : baseCenterPos.x,
+      y: typeof previewPos?.y === 'number' && !isNaN(previewPos.y) ? previewPos.y : baseCenterPos.y,
     };
 
-    let synthesizedData = null;
-    const aiMode = getStoredAiMode(); // 'auto' | 'backend' | 'direct' | 'offline'
-    const backendUrl = getStoredBackendUrl();
+    const tempEdgeId = effectiveSourceId ? `preview-edge-${effectiveSourceId}-${newId}` : null;
 
     try {
+      // Immediately spawn the in-canvas progressive construction preview node!
+      const previewNode = {
+        id: newId,
+        type: 'generating_preview',
+        width: candidateDims.width,
+        height: candidateDims.height,
+        position: safePreviewPos,
+        data: {
+          isGenerating: true,
+          query: text,
+          title: text,
+          startedAt: Date.now(),
+          sourceNodeId: effectiveSourceId,
+        },
+      };
+
+      setNodes((prev) => [...prev, previewNode]);
+      // Do not auto-select generating preview node so probe only appears after user explicitly clicks on a node
+      if (typeof setSelectedNodeId === 'function') {
+        setSelectedNodeId(null);
+      }
+      setSelectedNodeIds([]);
+
+      // If spawned from an active source node, link immediately with an animated laser filament
+      if (effectiveSourceId) {
+        setEdges((prev) => [
+          ...prev,
+          {
+            id: tempEdgeId,
+            source: effectiveSourceId,
+            target: newId,
+            style: 'dashed',
+            color: '#06B6D4',
+            data: {
+              isConstructing: true,
+              label: 'forging link...',
+            },
+          },
+        ]);
+      }
+
+      let synthesizedData = null;
+      const aiMode = getStoredAiMode(); // 'auto' | 'backend' | 'direct' | 'offline'
+      const backendUrl = getStoredBackendUrl();
+
       // 1. Try local backend server if permitted
-      if (aiMode === 'auto' || aiMode === 'backend') {
+      if ((aiMode === 'auto' || aiMode === 'backend') && !signal.aborted) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3500);
+          const timeoutId = setTimeout(() => controller.abort(), 6000);
 
           const response = await fetch(`${backendUrl}/api/spark`, {
             method: 'POST',
@@ -1325,7 +1485,9 @@ export function App() {
         }
       }
 
-      // 2. Try direct client-side AI (Groq Cloud) if backend didn't provide node and mode permits
+      if (signal.aborted) return;
+
+      // 2. Try direct client-side AI (Groq Cloud) if backend didn't provide node
       if (!synthesizedData && (aiMode === 'auto' || aiMode === 'direct')) {
         try {
           const result = await queryDirectAi({
@@ -1338,24 +1500,113 @@ export function App() {
             synthesizedData = result.node;
           }
         } catch (err) {
-          console.warn('[Direct AI query failed, falling back to intelligent synthesizer]:', err.message);
+          console.warn('[Direct AI query failed, falling back to Tavily or synthesizer]:', err.message);
         }
       }
 
-      // 3. Fall back to offline intelligent synthesizer
+      if (signal.aborted) return;
+
+      // 2.5. Retrieve directly from Tavily Web Search if Groq/backend didn't provide node
+      if (!synthesizedData && !isUrl) {
+        try {
+          const tavilyKey = getStoredTavilyKey();
+          if (tavilyKey) {
+            const tRes = await searchTavily({
+              query: text,
+              apiKey: tavilyKey,
+              includeAnswer: true,
+              includeImages: true,
+              maxResults: 5,
+            });
+            if (tRes.success && (tRes.results?.length > 0 || tRes.answer)) {
+              const topResult = tRes.results?.[0];
+              const isFinancial = /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|валют|доллар|евро|рубл|юан|биткоин|криптовалют|акци|индекс|котировк|цена|цене|цены|стоимост|forex|rate|price|quote|usd|eur|rub|btc|eth|stock|pepe)/i.test(text);
+              const topUrl = topResult?.url || `https://html.duckduckgo.com/html/?q=${encodeURIComponent(text)}`;
+              const tavilyNode = {
+                title: topResult?.title || text,
+                category: isFinancial ? 'financial quotes // live market' : 'verified web intelligence // tavily',
+                status: 'live web retrieval',
+                source: topResult?.title || 'Tavily Search Engine',
+                url: topUrl,
+                sourceUrl: topUrl,
+                description: tRes.answer || topResult?.content || `Verified web intelligence on "${text}".`,
+                detailedSynthesis: [
+                  tRes.answer ? `### Fact Synthesis\n${tRes.answer}` : null,
+                  '### Verified Live Web Sources',
+                  ...(tRes.results || []).map((r, i) => `**[${i + 1}] [${r.title}](${r.url})**\n${r.content}`),
+                ].filter(Boolean).join('\n\n'),
+                layout: isFinancial ? { structure: 'price_hero', width: 340 } : { width: 350, density: 'comfortable' },
+                targetedInquiries: (tRes.results || []).slice(1, 4).map((r) => r.title).filter(Boolean),
+                branchNodes: (tRes.results || []).slice(1, 3).map((r, idx) => ({
+                  id: `branch-tavily-${idx + 1}-${Date.now()}`,
+                  title: r.title,
+                  category: 'web source // context',
+                  description: (r.content || '').substring(0, 200) + '...',
+                  url: r.url,
+                  sourceUrl: r.url,
+                  source: r.title,
+                  mediaType: 'photo',
+                  relationship: 'COUPLED_SYSTEM',
+                  relationshipLabel: 'verified source',
+                })),
+              };
+
+              if (isFinancial) {
+                const quote = extractStructuredPriceQuote(text, tRes, tavilyNode);
+                if (quote) {
+                  tavilyNode.priceQuote = quote;
+                  tavilyNode.layout = { structure: 'price_hero', width: 340 };
+                }
+              }
+
+              if (Array.isArray(tRes.images) && tRes.images.length > 0 && !isFinancial) {
+                tavilyNode.photos = tRes.images.slice(0, 5).map((imgUrl, idx) => ({
+                  url: imgUrl,
+                  thumbnail: imgUrl,
+                  title: tavilyNode.title,
+                  source: 'Tavily Web',
+                  caption: `${tavilyNode.title} (Source ${idx + 1})`,
+                }));
+                tavilyNode.primaryPhoto = tavilyNode.photos[0];
+              }
+              synthesizedData = tavilyNode;
+            }
+          }
+        } catch (tErr) {
+          console.warn('[Standalone Tavily web search error]:', tErr);
+        }
+      }
+
+      if (signal.aborted) return;
+
+      // 3. Fall back to offline intelligent synthesizer if nothing synthesized
       if (!synthesizedData) {
         const cluster = synthesizeKnowledgeCluster(text, nodes);
         synthesizedData = {
           ...cluster.primaryNode,
           branchNodes: cluster.branchNodes || [],
         };
+        const isFinancial =
+          /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|курсы|курса|курсов|валют|валюта|валюты|валютный|доллар|доллара|долларов|евро|рубл|рубль|рубля|рублей|юан|юань|юаня|юаней|биткоин|биткоина|биткоинов|криптовалют|акци|акции|акций|индекс|индексы|котировк|котировка|котировки|почем|сколько стоит|цена|цены|цене|стоимост|rate|rates|price|prices|exchange rate|cost of)/i.test(text) ||
+          /\b(usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|eth[\s/]?usd|1\s*usd|1\s*eur)\b/i.test(text);
+        if (isFinancial) {
+          const q = extractStructuredPriceQuote(text, null, synthesizedData);
+          if (q) {
+            synthesizedData.priceQuote = q;
+            synthesizedData.layout = { ...(synthesizedData.layout || {}), structure: 'price_hero', width: 340 };
+          }
+        }
       }
 
       // Always enrich synthesized data to guarantee authentic media, video/music classification, and companion branches
-      if (synthesizedData) {
+      if (synthesizedData && !synthesizedData._isEnriched) {
         try {
           synthesizedData = await enrichNodeWithRealPhotos(synthesizedData, text, currentWorkspace?.name || '', nodes);
         } catch (_) {}
+      }
+
+      if (signal.aborted) {
+        return;
       }
 
       // Calculate collision-free coordinates for the full cluster using dynamic dimensions
@@ -1366,16 +1617,16 @@ export function App() {
       const primaryDims = getNodeDimensions(cleanSynthesized);
 
       const { primaryPos, branchPositions } = findClusterPositions({
-        centerPos,
+        centerPos: safePreviewPos,
         primaryWidth: primaryDims.width,
         primaryHeight: primaryDims.height,
         branchNodes: branchList,
-        existingNodes: nodes,
+        existingNodes: nodes.filter((n) => n.id !== newId),
       });
 
       const safePrimaryPos = {
-        x: typeof primaryPos?.x === 'number' && !isNaN(primaryPos.x) ? primaryPos.x : 300,
-        y: typeof primaryPos?.y === 'number' && !isNaN(primaryPos.y) ? primaryPos.y : 200,
+        x: typeof primaryPos?.x === 'number' && !isNaN(primaryPos.x) ? primaryPos.x : safePreviewPos.x,
+        y: typeof primaryPos?.y === 'number' && !isNaN(primaryPos.y) ? primaryPos.y : safePreviewPos.y,
       };
 
       const primaryNode = {
@@ -1392,6 +1643,7 @@ export function App() {
         position: safePrimaryPos,
         data: {
           ...cleanSynthesized,
+          justMaterialized: true,
           mediaType: isVideo ? 'video' : isMusic ? 'music' : (cleanSynthesized.mediaType || 'photo'),
           title: isUrl ? domainTitle : (cleanSynthesized.title || domainTitle),
           url: cleanUrl || cleanSynthesized.url,
@@ -1626,11 +1878,83 @@ export function App() {
         }
       });
 
-      setNodes((prev) => [...prev, ...createdNodes]);
-      setEdges((prev) => [...prev, ...createdEdges]);
+      setNodes((prev) => {
+        const filtered = prev.filter((n) => n.id !== newId);
+        return [...filtered, ...createdNodes];
+      });
+      setEdges((prev) => {
+        const filtered = tempEdgeId ? prev.filter((e) => e.id !== tempEdgeId) : prev;
+        return [...filtered, ...createdEdges];
+      });
     } catch (clusterErr) {
+      if (signal?.aborted) {
+        setNodes((prev) => prev.filter((n) => n.id !== newId && n.type !== 'generating_preview'));
+        if (tempEdgeId) {
+          setEdges((prev) => prev.filter((e) => e.id !== tempEdgeId && !e.id?.startsWith('preview-edge-') && !e.data?.isConstructing));
+        }
+        return;
+      }
       console.error('[Error spawning cluster in handleExecuteSparkQuery]:', clusterErr);
+      try {
+        const fallbackCluster = synthesizeKnowledgeCluster(text, nodes);
+        const cleanData = sanitizeNodeData({
+          ...fallbackCluster.primaryNode,
+          justMaterialized: true,
+          title: fallbackCluster.primaryNode?.title || text,
+          status: fallbackCluster.primaryNode?.status || 'synthesized node',
+          isGenerating: false,
+        });
+        const fallbackNode = {
+          id: newId,
+          type: 'spawned',
+          width: fallbackCluster.primaryNode?.layout?.width || 330,
+          height: 250,
+          position: safePreviewPos,
+          data: cleanData,
+        };
+        setNodes((prev) => {
+          const filtered = prev.filter((n) => n.id !== newId);
+          return [...filtered, fallbackNode];
+        });
+        if (tempEdgeId) {
+          setEdges((prev) => prev.filter((e) => e.id !== tempEdgeId && !e.id?.startsWith('preview-edge-') && !e.data?.isConstructing));
+        }
+        // Background photo enrichment on fallback node
+        enrichNodeWithRealPhotos(fallbackCluster.primaryNode, text, currentWorkspace?.name || '', nodes)
+          .then((enriched) => {
+            if (enriched && (enriched.photos?.length > 0 || enriched.primaryPhoto)) {
+              setNodes((latest) =>
+                latest.map((n) =>
+                  n.id === newId
+                    ? {
+                        ...n,
+                        data: sanitizeNodeData({
+                          ...n.data,
+                          photos: enriched.photos,
+                          primaryPhoto: enriched.primaryPhoto,
+                          layout: {
+                            ...(n.data?.layout || {}),
+                            structure: enriched.layout?.structure || (enriched.photos?.length > 0 ? 'media_top' : n.data?.layout?.structure),
+                          },
+                        }),
+                      }
+                    : n
+                )
+              );
+            }
+          })
+          .catch(() => {});
+      } catch (_) {
+        setNodes((prev) => prev.filter((n) => n.id !== newId && n.type !== 'generating_preview'));
+        if (tempEdgeId) {
+          setEdges((prev) => prev.filter((e) => e.id !== tempEdgeId && !e.id?.startsWith('preview-edge-')));
+        }
+      }
     } finally {
+      if (activeSparkNodeIdRef.current === newId) {
+        activeSparkNodeIdRef.current = null;
+        activeSparkAbortRef.current = null;
+      }
       setIsSparkGenerating(false);
     }
   };
@@ -1781,7 +2105,7 @@ export function App() {
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onOpenAISettings={() => setIsAISettingsOpen(true)}
         onLogout={handleLogout}
-        onOpenBrowser={() => openBrowserWithUrl(browserUrl || 'https://en.wikipedia.org/wiki/Special:Search')}
+        onOpenBrowser={() => openBrowserWithUrl(browserUrl || 'https://html.duckduckgo.com/')}
         onFitView={handleFitView}
       />
 
@@ -1820,6 +2144,7 @@ export function App() {
         onDeleteSelectedNodes={handleDeleteSelectedNodes}
         toolMode={toolMode}
         onToolModeChange={setToolMode}
+        onCancelPreviewNode={handleCancelSparkQuery}
         isAnimationPaused={isAnimationPaused}
         pan={pan}
         zoom={zoom}
@@ -1901,7 +2226,9 @@ export function App() {
       <SparkTerminal
         onExecuteQuery={handleExecuteSparkQuery}
         isGenerating={isSparkGenerating}
+        onCancelQuery={handleCancelSparkQuery}
         onOpenSettings={() => setIsAISettingsOpen(true)}
+        isInitialCenter={isInitialCenter}
       />
 
       {/* Keyboard Shortcuts Modal */}

@@ -49,6 +49,7 @@ export const WebsiteNode = ({
         top: `${node.position?.y ?? 0}px`,
         width: `${dynamicWidth}px`,
       }}
+      className={node.data?.justMaterialized ? 'animate-materialize' : ''}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       onPointerEnter={onPointerEnter}

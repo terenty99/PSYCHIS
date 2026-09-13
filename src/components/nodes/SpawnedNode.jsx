@@ -2,6 +2,207 @@ import React, { useState, useEffect } from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
 import { MathFormula } from '../../utils/mathRenderer';
 
+export function extractPriceQuote(nodeData) {
+  if (!nodeData) return null;
+
+  const category = (nodeData.category || '').toLowerCase();
+  const title = (nodeData.title || '').toLowerCase();
+  const desc = ((nodeData.description || '') + ' ' + (nodeData.detailedSynthesis || '')).trim();
+
+  // Helper to validate that a rate string is not a calendar year or bogus integer
+  const isValidRate = (val) => {
+    if (!val) return false;
+    const s = String(val).trim();
+    // Reject 4-digit calendar years 1900-2049 (e.g. 2023, 2024, 2021)
+    if (/^(19\d\d|20[0-4]\d)$/.test(s)) return false;
+    // Reject token standards and list numbers: 20 from BEP-20/ERC-20, 721, 1155, 10, 100
+    if (/^(20|721|1155|10|100)$/.test(s)) return false;
+    // Must contain numeric digit
+    return /\d/.test(s);
+  };
+
+  // If node already carries a structured priceQuote object from backend or AI parser
+  if (nodeData.priceQuote && (nodeData.priceQuote.rate || nodeData.priceQuote.price || nodeData.priceQuote.level)) {
+    const rawRate = String(nodeData.priceQuote.rate || nodeData.priceQuote.price || nodeData.priceQuote.level).trim();
+    if (isValidRate(rawRate)) {
+      return {
+        rate: rawRate,
+        unit: nodeData.priceQuote.unit || (title.includes('индекс') || title.includes('index') || title.includes('s&p') ? 'pts' : (category.includes('crypto') ? '$' : '₽')),
+        base: nodeData.priceQuote.base || nodeData.title || 'Market Quote',
+        source: nodeData.priceQuote.source || nodeData.source || 'Market Data',
+        secondary: nodeData.priceQuote.secondary || null,
+        change24h: nodeData.priceQuote.change24h || nodeData.priceQuote.change || null,
+        badge: nodeData.priceQuote.badge || 'Live Quote',
+      };
+    }
+  }
+
+  // ONLY extract price quote if the node is explicitly configured as a price hero card,
+  // or if the title / category / query explicitly indicates this is a rate/price inquiry!
+  const combinedContext = `${title} ${category} ${nodeData.query || ''} ${nodeData.searchQuery || ''} ${desc}`.toLowerCase();
+
+  const isExplicitPriceInquiry =
+    nodeData.layout?.structure === 'price_hero' ||
+    Boolean(nodeData.priceQuote?.rate) ||
+    /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|курсы|курса|курсов|валют|валюта|валюты|валютный|доллар|доллара|долларов|евро|рубл|рубль|рубля|рублей|юан|юань|юаня|юаней|биткоин|биткоина|биткоинов|криптовалют|акци|акции|акций|индекс|индексы|котировк|котировка|котировки|почем|сколько стоит|цена|цены|цене|стоимост|rate|rates|price|prices|exchange rate|cost of|current rate)/i.test(
+      combinedContext
+    ) ||
+    /\b(usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|eth[\s/]?usd|usd[\s/]?cny|pepe|shib|doge)\b/i.test(combinedContext);
+
+  if (!isExplicitPriceInquiry) {
+    return null; // General concept cards NEVER show a fake price hero!
+  }
+
+  const isIndex =
+    /(?:^|[^a-zA-Zа-яА-Я0-9_])(индекс|index|indices|s&p|sp500|spx|nasdaq|ndx|dow|djia|moex|rts|dax|nikkei|ftse|ртс|мосбирж)/i.test(
+      `${title} ${category}`
+    );
+
+  const isStock =
+    !isIndex &&
+    /(?:^|[^a-zA-Zа-яА-Я0-9_])(акци|stock|share|equity|тикер|ticker|котировк|дивиденд|aapl|tsla|nvda|msft|goog|amzn|meta|sber|gazp|lkoh|vtbr)/i.test(
+      `${title} ${category}`
+    );
+
+  const isCrypto =
+    /(?:^|[^a-zA-Zа-яА-Я0-9_])(биткоин|эфириум|криптовалют|крипт|btc|eth|sol|ton|usdt|crypto|tether)/i.test(
+      `${title} ${category}`
+    );
+
+  const isCommodity =
+    /(?:^|[^a-zA-Zа-яА-Я0-9_])(brent|wti|нефть|золот|серебр|газ|gold|silver|oil|gas)/i.test(
+      `${title} ${category}`
+    );
+
+  // Percentage change detection (e.g. "+0.41%", "-1.2%", "рост на 0,11%", "падение на 2.4%")
+  let change24h = null;
+  const growthMatch = desc.match(/(?:рост[а-я]* на|увеличени[а-я]* на|плюс)\s*([+]?\d+(?:[.,]\d+)?\s*%)/i);
+  const fallMatch = desc.match(/(?:падени[а-я]* на|снижени[а-я]* на|минус)\s*([-]?\d+(?:[.,]\d+)?\s*%)/i);
+  const explicitSignMatch = desc.match(/([+-]\s*\d+(?:[.,]\d+)?\s*%)/i);
+
+  if (explicitSignMatch) {
+    change24h = explicitSignMatch[1].replace(/\s/g, '');
+  } else if (growthMatch) {
+    const val = growthMatch[1].replace(/\s/g, '');
+    change24h = val.startsWith('+') ? val : `+${val}`;
+  } else if (fallMatch) {
+    const val = fallMatch[1].replace(/\s/g, '');
+    change24h = val.startsWith('-') ? val : `-${val}`;
+  } else {
+    const anyPercent = desc.match(/\b(\d+(?:[.,]\d+)?\s*%)/i);
+    if (anyPercent && (desc.includes('рост') || desc.includes('прирост'))) {
+      change24h = `+${anyPercent[1].replace(/\s/g, '')}`;
+    } else if (anyPercent && (desc.includes('паден') || desc.includes('снижен'))) {
+      change24h = `-${anyPercent[1].replace(/\s/g, '')}`;
+    }
+  }
+
+  // Base Label & Source determination
+  let baseLabel = nodeData.title || 'Market Quote';
+  let badgeLabel = 'Live Quote';
+  let unit = '$';
+  let source = nodeData.source || nodeData.institution || 'Market Terminal';
+
+  if (isIndex) {
+    badgeLabel = 'Stock Index';
+    unit = 'pts';
+    if (title.includes('s&p') || title.includes('500')) baseLabel = 'S&P 500 Index';
+    else if (title.includes('nasdaq')) baseLabel = 'NASDAQ Composite';
+    else if (title.includes('dow')) baseLabel = 'Dow Jones Industrial';
+    else if (title.includes('moex') || title.includes('мосбирж')) baseLabel = 'Индекс МосБиржи';
+    else if (title.includes('rts') || title.includes('ртс')) baseLabel = 'Индекс РТС';
+    else if (title.includes('nikkei')) baseLabel = 'Nikkei 225';
+    else if (title.includes('dax')) baseLabel = 'DAX Index';
+
+    if (desc.includes('S&P')) source = 'S&P Dow Jones Indices';
+    else if (desc.includes('NASDAQ')) source = 'NASDAQ';
+    else if (desc.includes('Московск') || desc.includes('MOEX')) source = 'Московская Биржа';
+  } else if (isStock) {
+    badgeLabel = 'Equity Quote';
+    unit = /(?:RUB|руб|₽)/i.test(desc) ? '₽' : /(?:EUR|евро|€)/i.test(desc) ? '€' : '$';
+    if (title.includes('apple') || title.includes('aapl')) baseLabel = 'Apple Inc. (AAPL)';
+    else if (title.includes('tesla') || title.includes('tsla')) baseLabel = 'Tesla Inc. (TSLA)';
+    else if (title.includes('nvidia') || title.includes('nvda')) baseLabel = 'NVIDIA Corp. (NVDA)';
+    else if (title.includes('сбер') || title.includes('sber')) baseLabel = 'Сбербанк (SBER)';
+    else if (title.includes('газпром') || title.includes('gazp')) baseLabel = 'Газпром (GAZP)';
+
+    if (unit === '$') source = 'NYSE / NASDAQ';
+    else if (unit === '₽') source = 'Московская Биржа';
+  } else if (isCrypto) {
+    badgeLabel = 'Crypto Quote';
+    unit = '$';
+    if (title.includes('биткоин') || title.includes('btc')) baseLabel = 'Bitcoin (BTC)';
+    else if (title.includes('эфириум') || title.includes('eth')) baseLabel = 'Ethereum (ETH)';
+    else if (title.includes('солан') || title.includes('sol')) baseLabel = 'Solana (SOL)';
+    else if (title.includes('ton')) baseLabel = 'Toncoin (TON)';
+    source = nodeData.source || 'Crypto Spot / CoinMarket';
+  } else if (isCommodity) {
+    badgeLabel = 'Commodity Quote';
+    unit = '$';
+    if (title.includes('brent') || title.includes('нефть')) baseLabel = 'Нефть Brent (ICE)';
+    else if (title.includes('золот') || title.includes('gold')) baseLabel = 'Золото (XAU/USD)';
+    source = 'Commodity Market';
+  } else {
+    badgeLabel = 'Live Rate';
+    if (title.includes('евро') || title.includes('eur')) baseLabel = '1 EUR';
+    else if (title.includes('юан') || title.includes('cny')) baseLabel = '1 CNY';
+    else if (title.includes('фунт') || title.includes('gbp')) baseLabel = '1 GBP';
+    else if (title.includes('тенге') || title.includes('kzt')) baseLabel = '1 KZT';
+    else if (title.includes('доллар') || title.includes('usd')) baseLabel = '1 USD';
+    unit = /(?:RUB|руб|₽)/i.test(desc) ? '₽' : '$';
+    if (desc.includes('ЦБ')) source = 'ЦБ РФ';
+  }
+
+  // ROBUST RATE NUMBER EXTRACTION
+  // 1. Clean out confounding noise from description:
+  let cleanDesc = desc.replace(/[+-]?\s*\d+(?:[.,]\d+)?\s*%/g, '');
+  cleanDesc = cleanDesc.replace(/\b(19\d\d|20[0-4]\d)\s*(?:год[а-я]*|г\.|year[s]?|in|в)?\b/gi, ''); // Remove years!
+  cleanDesc = cleanDesc.replace(/\b(BEP|ERC)-?\d+\b/gi, ''); // Remove BEP-20, ERC-20!
+  cleanDesc = cleanDesc.replace(/\b24\s*(?:ч|h|часа|часов)?\b/gi, '');
+  cleanDesc = cleanDesc.replace(/(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])1\s*(?:USD|EUR|RUB|BTC|ETH|USDT|CNY|GBP|доллар[а-я]*|евро|биткоин[а-я]*)(?:$|[^a-zA-Zа-яА-ЯёЁ0-9_])/gi, '');
+
+  const rateMatch =
+    cleanDesc.match(/(?:\$|€|₽)\s*([0-9]+(?:[.,][0-9]+)?)/i) ||
+    cleanDesc.match(/(?:price is|is at|trading at|worth|at|составляет|курс[а-я]*|цена[а-я]*|на отметке|уровн[а-я]*)\s*[:\s]*[\$€₽]?\s*([0-9]+(?:[.,][0-9]+)?)/i) ||
+    cleanDesc.match(/=\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:RUB|USD|EUR|руб|₽)/i) ||
+    cleanDesc.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:RUB|руб|₽|USD|USDT|EUR|евро|pts)(?=[^\wа-яА-ЯёЁ]|$)/i) ||
+    cleanDesc.match(/\b(0\.0{3,10}\d+)\b/);
+
+  let extractedRate = null;
+  if (rateMatch && isValidRate(rateMatch[1])) {
+    extractedRate = rateMatch[1].trim();
+  }
+
+  // Fallback verb or currency match
+  if (!extractedRate) {
+    const currMatch = cleanDesc.match(/[\$€₽]\s*(\d{1,3}(?:[,\s]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)/i);
+    if (currMatch && isValidRate(currMatch[1])) {
+      extractedRate = currMatch[1].trim();
+    }
+  }
+
+  // If no authentic price was found in the text, DO NOT guess or fallback to arbitrary numbers!
+  if (!extractedRate) {
+    return null;
+  }
+
+  // Secondary market rate check (e.g. "Рыночный курс: 86.47")
+  const secondaryMatch =
+    desc.match(/Рыночный курс[^,.]*составляет\s*(\d+(?:[\s.,]\d+)?)\s*(?:RUB|руб|₽)?/i) ||
+    desc.match(/рыночн\w*[^,.]*(\d+(?:[\s.,]\d+)?)\s*(?:RUB|руб|₽)/i);
+
+  return {
+    rate: extractedRate,
+    unit: unit,
+    base: baseLabel,
+    source: source,
+    badge: badgeLabel,
+    change24h: change24h,
+    secondary: secondaryMatch ? secondaryMatch[1] : null,
+  };
+}
+
+
 export const SpawnedNode = ({
   node,
   isSelected,
@@ -18,6 +219,8 @@ export const SpawnedNode = ({
   onSpecificProbe,
   onOpenBrowser,
 }) => {
+  const priceQuote = extractPriceQuote(node.data);
+
   // Detect attached media artifacts (GIF or Photo) — prioritize assigned kinetic GIF
   const primaryMedia =
     (node.data?.gifUrl || node.data?.gifSvg
@@ -102,10 +305,21 @@ export const SpawnedNode = ({
       primaryMedia?.type === 'schematic' ||
       primaryMedia?.type === 'diagram');
 
+  // Determine if this is a financial, stock, index, currency, or crypto node
+  const isFinancialNode =
+    Boolean(priceQuote) ||
+    Boolean(node.data?.priceQuote) ||
+    node.data?.layout?.structure === 'price_hero' ||
+    (node.data?.category && /(?:finance|currency|market|crypto|stock|index|quote|equity|акци|индекс|котировк|валют)/i.test(node.data.category)) ||
+    /(?:^|[^a-zA-Zа-яА-Я0-9_])(курс|валют|доллар|евро|рубл|юан|фунт|иен|йен|тенге|биткоин|криптовалют|крипт|акци|индекс|котировк|цена|стоимость|дивиденд|нефть|золот|газ|forex|rate|price|ticker|quote|quotes|usd|eur|rub|cny|gbp|jpy|kzt|btc|eth|sol|ton|brent|gold|silver|oil|gas|s&p|sp500|spx|nasdaq|ndx|dow|djia|moex|rts|dax|nikkei|ftse|stock|share|equity|aapl|tsla|nvda|msft|goog|amzn|sber|gazp)/i.test(
+      `${node.data?.title || ''} ${node.data?.category || ''}`
+    );
+
   // Determine Structure Archetype
   const hasFormula = Boolean(node.data?.formula);
   const hasSchema = Boolean(node.data?.schemaSvg);
-  const hasMedia = Boolean((primaryMedia && primaryMedia.url && !hasSchema) || (primaryMedia && isGif) || node.data?.gifSvg);
+  // Financial, stock, index, and currency nodes with active price quote display price hero; otherwise display media
+  const hasMedia = !priceQuote && Boolean((primaryMedia && primaryMedia.url && !hasSchema) || (primaryMedia && isGif) || node.data?.gifSvg);
 
   function getDeterministicStructure(n, media, formula, schema) {
     const seed = (n.id || '') + (n.data?.title || '') + (n.data?.category || '');
@@ -138,7 +352,9 @@ export const SpawnedNode = ({
   }
 
   let effectiveStructure = layout.structure || 'auto';
-  if (isGif && (!layout.structure || layout.structure === 'auto' || layout.structure === 'text_dossier')) {
+  if (priceQuote) {
+    effectiveStructure = 'price_hero';
+  } else if (isGif && (!layout.structure || layout.structure === 'auto' || layout.structure === 'text_dossier')) {
     effectiveStructure = 'kinetic_mechanism';
   } else if (effectiveStructure === 'auto' || effectiveStructure === 'balanced') {
     effectiveStructure = getDeterministicStructure(node, hasMedia, hasFormula, hasSchema);
@@ -214,7 +430,90 @@ export const SpawnedNode = ({
     );
   };
 
+  const renderPriceHero = (quote) => {
+    const isIndex = quote.unit === 'pts' || quote.unit === 'п.' || (quote.badge && quote.badge.includes('Index'));
+    const isCrypto = quote.badge === 'Crypto Quote' || (quote.base && (quote.base.includes('BTC') || quote.base.includes('ETH')));
+    const isCommodity = quote.badge === 'Commodity Quote';
+    const isPositive = quote.change24h && !quote.change24h.startsWith('-');
+
+    // Theme accents based on asset type
+    const accentColor = isIndex
+      ? 'from-[#0A1322] via-[#0E2038] to-[#08101E]'
+      : isCrypto
+      ? 'from-[#140D26] via-[#1F153B] to-[#0E091C]'
+      : 'from-[#0B151F] via-[#0E232B] to-[#08131A]';
+
+    const pillClass = isIndex
+      ? 'text-cyan-300 bg-cyan-950/70 border-cyan-500/30'
+      : isCrypto
+      ? 'text-purple-300 bg-purple-950/70 border-purple-500/30'
+      : 'text-emerald-400 bg-emerald-950/70 border-emerald-500/30';
+
+    const pulseDot = isIndex ? 'bg-cyan-400' : isCrypto ? 'bg-purple-400' : 'bg-emerald-400';
+    const glowBlob = isIndex ? 'bg-cyan-500/15' : isCrypto ? 'bg-purple-500/15' : 'bg-emerald-500/15';
+    const unitColor = isIndex ? 'text-cyan-400' : isCrypto ? 'text-purple-400' : 'text-emerald-400';
+
+    return (
+      <div
+        className={`-mx-4 -mt-4 mb-3 p-3.5 bg-gradient-to-br ${accentColor} text-white border-b border-white/10 rounded-t-[17px] shadow-sm select-none relative overflow-hidden group/hero cursor-pointer`}
+        onClick={(e) => {
+          if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+          e.stopPropagation();
+          onClick?.(e);
+          onInspect?.(node.id);
+        }}
+        title="Click to inspect rate details & authentic market source"
+      >
+        <div className={`absolute -right-6 -bottom-6 w-36 h-36 rounded-full ${glowBlob} blur-2xl pointer-events-none`} />
+
+        <div className="flex items-center justify-between mb-1.5">
+          <div className={`flex items-center gap-1 font-mono text-[8.5px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full border ${pillClass}`}>
+            <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${pulseDot}`} />
+            <span>{quote.badge || (isIndex ? 'Stock Index' : isCrypto ? 'Crypto Quote' : isCommodity ? 'Commodity' : 'Live Quote')}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 min-w-0">
+            {quote.change24h && (
+              <span className={`font-mono text-[8.5px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${
+                isPositive
+                  ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30'
+                  : 'text-rose-400 bg-rose-950/60 border-rose-500/30'
+              }`}>
+                {isPositive ? '▲ ' : '▼ '}{quote.change24h}
+              </span>
+            )}
+            <span className="font-mono text-[9px] text-white/65 tracking-wider font-medium truncate max-w-[130px]" title={quote.base}>
+              {quote.base}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-baseline gap-2 my-1">
+          <span className="font-mono text-3xl font-black tracking-tight text-white drop-shadow-xs">
+            {quote.rate}
+          </span>
+          <span className={`font-sans text-xl font-bold ${unitColor}`}>
+            {quote.unit}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between font-mono text-[8.5px] text-white/70 pt-2 border-t border-white/10 mt-2">
+          <span className="truncate flex items-center gap-1">
+            <span className="text-white/40">Ист.:</span>
+            <b className="text-white/95 truncate max-w-[170px]">{quote.source}</b>
+          </span>
+          {quote.secondary && (
+            <span className="text-white/80 bg-white/10 border border-white/10 px-1.5 py-0.5 rounded text-[8px]">
+              Рынок: ~{quote.secondary}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderMedia = (isTopHero = false) => {
+    if (isFinancialNode) return null;
     if (!primaryMedia) return null;
 
     // 1. 60FPS KINETIC SIMULATION VIEWPORT
@@ -426,8 +725,11 @@ export const SpawnedNode = ({
           type="button"
           onClick={(e) => {
             if (e.ctrlKey || e.metaKey || e.shiftKey) return;
-            e.stopPropagation();
-            onOpenBrowser?.(node.data?.url || node.data?.sourceUrl || `https://en.wikipedia.org/wiki/${encodeURIComponent(node.data?.title || '')}`);
+            const targetUrl = node.data?.url || node.data?.sourceUrl;
+            const validUrl = targetUrl && !targetUrl.includes('wikipedia.org/wiki/Special:Search')
+              ? targetUrl
+              : `https://html.duckduckgo.com/html/?q=${encodeURIComponent(node.data?.title || 'research')}`;
+            onOpenBrowser?.(validUrl);
           }}
           className="text-[#645e57] hover:text-[#2B2724] font-medium hover:underline cursor-pointer flex items-center gap-0.5 transition-colors"
           title="Open source in built-in browser"
@@ -461,6 +763,7 @@ export const SpawnedNode = ({
         top: `${node.position?.y ?? 0}px`,
         width: `${dynamicWidth}px`,
       }}
+      className={node.data?.justMaterialized ? 'animate-materialize' : ''}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       onPointerEnter={onPointerEnter}
@@ -468,18 +771,30 @@ export const SpawnedNode = ({
       onClick={onClick}
       ariaLabel={`Spawned discovery node: ${node.data.title}`}
     >
-      {/* 1. SPLIT MEDIA RIGHT (Text on Left, Photo on Right) — Horizontal Modern Layout */}
-      {effectiveStructure === 'split_media_right' && (
-        <div className="flex flex-row items-stretch -m-4 min-h-[220px]">
-          <div className="flex-1 min-w-0 p-4 flex flex-col justify-between">
-            <div>
-              {renderHeader()}
-              {renderTitle()}
-              {renderText(true)}
-              {renderInquiries()}
-            </div>
-            {renderFooter()}
-          </div>
+      {/* 0. FINANCIAL & RATE LIVE QUOTE HERO (Frontline Rate Hero replaces photo) */}
+      {priceQuote ? (
+        <>
+          {renderPriceHero(priceQuote)}
+          {renderHeader()}
+          {renderTitle()}
+          {renderText(false)}
+          {renderInquiries()}
+          {renderFooter()}
+        </>
+      ) : (
+        <>
+          {/* 1. SPLIT MEDIA RIGHT (Text on Left, Photo on Right) — Horizontal Modern Layout */}
+          {effectiveStructure === 'split_media_right' && (
+            <div className="flex flex-row items-stretch -m-4 min-h-[220px]">
+              <div className="flex-1 min-w-0 p-4 flex flex-col justify-between">
+                <div>
+                  {renderHeader()}
+                  {renderTitle()}
+                  {renderText(true)}
+                  {renderInquiries()}
+                </div>
+                {renderFooter()}
+              </div>
           <div
             className={`w-[185px] shrink-0 relative rounded-r-[17px] border-l border-grey-medium overflow-hidden cursor-pointer group/media flex items-center justify-center p-1 ${
               isGif ? 'bg-[#141210]' : 'bg-[#FAF9F6]'
@@ -707,6 +1022,8 @@ export const SpawnedNode = ({
           {renderFooter()}
         </>
       )}
+      </>
+    )}
     </SmartGlassPanel>
   );
 };

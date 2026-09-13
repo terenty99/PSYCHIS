@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { announceToScreenReader } from '../utils/accessibilityHelpers';
 
-export function useNodeInspector(initialNodeId = '0x01') {
+export function useNodeInspector(initialNodeId = null) {
   const [selectedNodeId, setSelectedNodeId] = useState(initialNodeId);
   const [viewMode, setViewMode] = useState('canvas'); // 'canvas' | 'inspector' | 'browser' | 'split' | 'drawer'
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);

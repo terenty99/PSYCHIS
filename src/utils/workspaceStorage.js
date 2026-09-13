@@ -9,8 +9,19 @@ export const STORAGE_KEY_AUTH = 'psychis_client_auth_v1';
 
 export const DEFAULT_WORKSPACES = [
   {
+    id: 'ws-main',
+    name: 'Main Workspace',
+    clientHandle: 'Researcher 01',
+    updatedAt: new Date().toISOString(),
+    pan: { x: 0, y: 0 },
+    zoom: 1.0,
+    nodes: [],
+    edges: [],
+    clusters: [],
+  },
+  {
     id: 'ws-kinematics',
-    name: 'Applied Kinematics & Transport',
+    name: 'Demo: Applied Kinematics',
     clientHandle: 'Researcher 01',
     updatedAt: new Date().toISOString(),
     pan: { x: 0, y: 0 },
@@ -97,7 +108,22 @@ export function loadSavedWorkspaces() {
     const raw = localStorage.getItem(STORAGE_KEY_WORKSPACES);
     if (!raw) return DEFAULT_WORKSPACES;
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_WORKSPACES;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const sanitized = parsed.map((w) => ({
+        ...w,
+        nodes: Array.isArray(w.nodes)
+          ? w.nodes.filter((n) => n.type !== 'generating_preview' && !n.data?.isGenerating)
+          : [],
+        edges: Array.isArray(w.edges)
+          ? w.edges.filter((e) => !e.id?.startsWith('preview-edge-') && !e.data?.isConstructing)
+          : [],
+      }));
+      if (!sanitized.some((w) => w.id === 'ws-main')) {
+        return [DEFAULT_WORKSPACES[0], ...sanitized];
+      }
+      return sanitized;
+    }
+    return DEFAULT_WORKSPACES;
   } catch (e) {
     console.error('Failed to load workspaces from localStorage:', e);
     return DEFAULT_WORKSPACES;
@@ -109,7 +135,16 @@ export function loadSavedWorkspaces() {
  */
 export function persistWorkspaces(workspaces) {
   try {
-    localStorage.setItem(STORAGE_KEY_WORKSPACES, JSON.stringify(workspaces));
+    const sanitized = (workspaces || []).map((w) => ({
+      ...w,
+      nodes: Array.isArray(w.nodes)
+        ? w.nodes.filter((n) => n.type !== 'generating_preview' && !n.data?.isGenerating)
+        : [],
+      edges: Array.isArray(w.edges)
+        ? w.edges.filter((e) => !e.id?.startsWith('preview-edge-') && !e.data?.isConstructing)
+        : [],
+    }));
+    localStorage.setItem(STORAGE_KEY_WORKSPACES, JSON.stringify(sanitized));
   } catch (e) {
     console.error('Failed to persist workspaces to localStorage:', e);
   }

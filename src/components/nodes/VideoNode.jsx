@@ -59,7 +59,9 @@ export const VideoNode = ({
   // Playback & Interaction States
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPreviewCover, setShowPreviewCover] = useState(true);
+  const [showControls, setShowControls] = useState(true);
   const [currentTime, setCurrentTime] = useState(data.savedTimestamp || 0);
+  const [duration, setDuration] = useState(0);
   const [isTheater, setIsTheater] = useState(false);
 
   // References for timers & iframe
@@ -153,7 +155,7 @@ export const VideoNode = ({
         zIndex: isTheater ? 50 : undefined,
         transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease',
       }}
-      className={`border border-grey-medium/80 ${isTheater ? 'shadow-[0_20px_50px_rgba(0,0,0,0.25)] ring-1 ring-amber-500/30' : ''}`}
+      className={`border border-grey-medium/80 ${node.data?.justMaterialized ? 'animate-materialize' : ''} ${isTheater ? 'shadow-[0_20px_50px_rgba(0,0,0,0.25)] ring-1 ring-amber-500/30' : ''}`}
     >
       {/* 🎬 1. TOP VIDEO VIEWPORT (Strictly on Top) */}
       <div
@@ -292,30 +294,6 @@ export const VideoNode = ({
       <p className={`text-[10px] text-text-secondary leading-[1.5] mb-3 ${descClampClass}`}>
         {data.detailedSynthesis || data.description || 'Step-by-step practical procedural demonstration and audiovisual analysis.'}
       </p>
-
-      {/* 🎯 5. TARGETED INQUIRIES */}
-      {Array.isArray(data.targetedInquiries) && data.targetedInquiries.length > 0 && (
-        <div className="pt-2 border-t border-grey-medium/60 flex flex-col gap-1 mb-2.5">
-          <span className="font-mono text-[7.5px] uppercase tracking-wider text-text-muted">Targeted Inquiries</span>
-          <div className="flex flex-wrap gap-1">
-            {data.targetedInquiries.slice(0, 3).map((inq, idx) => (
-              <button
-                key={idx}
-                type="button"
-                data-interactive="true"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSpecificProbe?.(inq, node.id);
-                }}
-                className="text-left font-mono text-[8.5px] bg-grey-soft/70 hover:bg-amber-500/10 hover:text-amber-900 border border-grey-medium/70 rounded px-1.5 py-0.5 transition-colors truncate max-w-full cursor-pointer"
-              >
-                ↳ {inq}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 🔗 6. FOOTER */}
       <div className="pt-2 border-t border-grey-medium/60 flex items-center justify-between text-text-muted font-mono text-[8px]">

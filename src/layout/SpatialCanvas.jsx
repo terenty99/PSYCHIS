@@ -7,10 +7,12 @@ import { ContradictionNode } from '../components/nodes/ContradictionNode';
 import { SpawnedNode } from '../components/nodes/SpawnedNode';
 import { VideoNode } from '../components/nodes/VideoNode';
 import { MusicNode } from '../components/nodes/MusicNode';
+import { GeneratingPreviewNode } from '../components/nodes/GeneratingPreviewNode';
 import { OrganicLinkageLayer } from '../components/ui/OrganicLinkageLayer';
 import { LinkageOptionsPopover } from '../components/ui/LinkageOptionsPopover';
 import { ConvexHull } from '../components/ui/ConvexHull';
 import { DynamicAtmosphericBackground } from '../components/ui/DynamicAtmosphericBackground';
+import { NodePromptPills } from '../components/ui/NodePromptPills';
 import { useOrganicLinkages } from '../hooks/useOrganicLinkages';
 import { useFluidPhysics } from '../hooks/useFluidPhysics';
 import { getNodeDimensions } from '../utils/canvasPlacement';
@@ -58,6 +60,7 @@ export const SpatialCanvas = ({
   // Tool mode: 'hand' vs 'select'
   toolMode = 'hand',
   onToolModeChange,
+  onCancelPreviewNode,
   // Fallbacks for legacy props
   clusterBounds,
   clusterLabel,
@@ -94,7 +97,7 @@ export const SpatialCanvas = ({
 
   // Effective multi-selection set
   const effectiveSelectedIds = useMemo(() => {
-    if (Array.isArray(selectedNodeIds) && selectedNodeIds.length > 0) {
+    if (Array.isArray(selectedNodeIds)) {
       return selectedNodeIds;
     }
     return selectedNodeId ? [selectedNodeId] : [];
@@ -810,11 +813,11 @@ export const SpatialCanvas = ({
       },
       onSpecificProbe: (inquiry, nId) => onSpecificProbe?.(inquiry, nId || node.id),
       onOpenBrowser: (url) => {
+        const raw = url || node.data?.url || node.data?.sourceUrl;
         const targetUrl =
-          url ||
-          node.data?.url ||
-          node.data?.sourceUrl ||
-          `https://en.wikipedia.org/wiki/${encodeURIComponent(node.data?.title || 'Physics')}`;
+          raw && !raw.includes('wikipedia.org/wiki/Special:Search')
+            ? raw
+            : `https://html.duckduckgo.com/html/?q=${encodeURIComponent(node.data?.title || 'Physics')}`;
         onOpenBrowser?.(targetUrl);
       },
     };
@@ -832,6 +835,16 @@ export const SpatialCanvas = ({
       node.data?.layout?.structure === 'music_card' ||
       Boolean(node.data?.musicData) ||
       Boolean(node.data?.tracks);
+
+    if (node.type === 'generating_preview' || node.data?.isGenerating) {
+      return (
+        <GeneratingPreviewNode
+          key={node.id}
+          {...commonProps}
+          onCancel={() => onCancelPreviewNode?.(node.id)}
+        />
+      );
+    }
 
     if (isVideoNode) {
       return <VideoNode {...commonProps} />;
@@ -949,6 +962,15 @@ export const SpatialCanvas = ({
     };
   }, [effectiveSelectedIds, nodes, measuredDims, pan, zoom]);
 
+  // Single active selected node for displaying contextual inquiry question prompts ONLY when clicked and selected
+  const activePromptNode = useMemo(() => {
+    if (!effectiveSelectedIds || effectiveSelectedIds.length !== 1) return null;
+    const targetId = effectiveSelectedIds[0];
+    const n = nodes.find((node) => node.id === targetId && !node.hidden);
+    if (!n || n.type === 'generating_preview' || n.data?.isGenerating) return null;
+    return n;
+  }, [effectiveSelectedIds, nodes]);
+
   // Cursor style calculation
   const canvasCursorClass = useMemo(() => {
     if (isSpaceDown) return isPanningCanvas ? 'cursor-grabbing' : 'cursor-grab';
@@ -1047,6 +1069,16 @@ export const SpatialCanvas = ({
         {/* Spatial Nodes */}
         <div ref={nodesContainerRef} className="absolute inset-0 z-20 pointer-events-none">
           {nodes.map((node) => renderNode(node))}
+
+          {/* Contextual Suggested Questions ONLY when node is clicked & selected */}
+          {activePromptNode && (
+            <NodePromptPills
+              node={activePromptNode}
+              measuredDims={measuredDims}
+              onSelectPrompt={(inquiry, nId) => onSpecificProbe?.(inquiry, nId || activePromptNode.id)}
+              onDismiss={() => onClearSelection?.()}
+            />
+          )}
         </div>
 
         {/* Dynamic Architectural Drafting Marquee Box */}
