@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
 import { useGlobalAudio } from '../../hooks/useGlobalAudio';
-import { searchMusicTracks, resolveSpotifyTrackId } from '../../utils/visualSearchEngine';
+import { searchMusicTracks, resolveFullTrackAudio } from '../../utils/visualSearchEngine';
 import {
   Play,
   Pause,
@@ -10,7 +10,8 @@ import {
   Radio,
   Sliders,
   Volume2,
-  X,
+  Volume1,
+  VolumeX,
 } from 'lucide-react';
 
 export const MusicNode = ({
@@ -48,7 +49,12 @@ export const MusicNode = ({
     (data.url?.match(/(?:track\/|track:)([a-zA-Z0-9]{22})/i)?.[1]) ||
     null
   );
-  const [showSpotifyFull, setShowSpotifyFull] = useState(false);
+  const [resolvedFullAudio, setResolvedFullAudio] = useState(musicData.fullAudioUrl || null);
+  const [isNodeVolumeHovered, setIsNodeVolumeHovered] = useState(false);
+
+  // Derived effective variables declared before hooks to prevent TDZ ReferenceError
+  const effectivePreview = resolvedPreview || previewUrl;
+  const effectiveArtwork = resolvedArtwork || artwork || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop';
 
   useEffect(() => {
     if (!resolvedPreview && (trackTitle || artist || data.title)) {
@@ -69,15 +75,36 @@ export const MusicNode = ({
               setResolvedSpotifyId(first.spotifyId);
               musicData.spotifyId = first.spotifyId;
             }
+            if (first.duration && (!musicData.duration || musicData.duration <= 30)) {
+              musicData.duration = first.duration;
+            }
           }
         }).catch(() => {});
       }
     }
   }, [resolvedPreview, trackTitle, artist, data.title, resolvedArtwork, resolvedSpotifyId]);
 
-  const effectivePreview = resolvedPreview || previewUrl;
-  const effectiveSpotifyId = resolvedSpotifyId || musicData.spotifyId;
-  const effectiveArtwork = resolvedArtwork || artwork || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop';
+  useEffect(() => {
+    if (!resolvedFullAudio && (trackTitle || artist || data.title)) {
+      const q = `${artist || ''} ${trackTitle || data.title || ''}`.trim();
+      if (q && q !== 'Featured Artist Acoustic Composition') {
+        resolveFullTrackAudio({
+          trackTitle,
+          artist,
+          duration: musicData.duration,
+          previewUrl: effectivePreview,
+        }, musicData.duration || 180).then((res) => {
+          if (res && res.url) {
+            setResolvedFullAudio(res.url);
+            musicData.fullAudioUrl = res.url;
+            if (res.duration && res.duration > 30 && (!musicData.duration || musicData.duration <= 30)) {
+              musicData.duration = res.duration;
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [resolvedFullAudio, trackTitle, artist, data.title, musicData.duration, effectivePreview]);
 
   // Connect to Global Audio Singleton
   const {
@@ -85,20 +112,28 @@ export const MusicNode = ({
     isPlaying: globalIsPlaying,
     currentTime,
     duration: globalDuration,
+    volume,
+    isMuted,
     playTrack,
     togglePlayPause,
     seek,
+    setVolume,
+    adjustVolumeDelta,
+    toggleMute,
   } = useGlobalAudio();
 
   // Is THIS specific node's track currently active in global audio?
   const isThisTrackActive =
     Boolean(currentTrack) &&
-    ((effectivePreview && currentTrack.previewUrl === effectivePreview) ||
+    ((currentTrack.id && currentTrack.id === node.id) ||
+      (effectivePreview && currentTrack.previewUrl === effectivePreview) ||
       (currentTrack.trackTitle === trackTitle && currentTrack.artist === artist));
 
   const isPlaying = isThisTrackActive && globalIsPlaying;
   const activeTime = isThisTrackActive ? currentTime : 0;
-  const activeDuration = isThisTrackActive ? (globalDuration || 30) : (musicData.duration || 30);
+  const activeDuration = isThisTrackActive
+    ? (globalDuration && globalDuration > 30 ? globalDuration : musicData.duration && musicData.duration > 30 ? musicData.duration : 180)
+    : (musicData.duration && musicData.duration > 30 ? musicData.duration : 180);
   const progressRatio = activeDuration > 0 ? Math.min(1, activeTime / activeDuration) : 0;
 
   // Hover state on waveform for timestamp tooltip
@@ -133,7 +168,7 @@ export const MusicNode = ({
 
   const handlePlayToggle = (e) => {
     e.stopPropagation();
-    if (!isThisTrackActive) {
+    if (!isThisTrackActive || !globalIsPlaying) {
       playTrack({
         id: node.id,
         trackTitle,
@@ -142,10 +177,11 @@ export const MusicNode = ({
         year,
         genre,
         previewUrl: effectivePreview,
+        fullAudioUrl: resolvedFullAudio || musicData.fullAudioUrl || null,
         fullTrackUrl: musicData.fullTrackUrl || data.url,
-        duration: musicData.duration || 30,
+        duration: activeDuration,
         artwork: effectiveArtwork,
-        source: musicData.source || 'Public Audio Engine',
+        source: musicData.source || 'Spotify Track',
       });
     } else {
       togglePlayPause();
@@ -169,9 +205,11 @@ export const MusicNode = ({
         year,
         genre,
         previewUrl: effectivePreview,
+        fullAudioUrl: resolvedFullAudio || musicData.fullAudioUrl || null,
         fullTrackUrl: musicData.fullTrackUrl || data.url,
         duration: activeDuration,
         artwork: effectiveArtwork,
+        source: musicData.source || 'Spotify Track',
       });
       setTimeout(() => seek(targetSeconds), 80);
     } else {
@@ -231,7 +269,7 @@ export const MusicNode = ({
             onPointerDown={(e) => e.stopPropagation()}
             onClick={handlePlayToggle}
             className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-white/20 shadow-md bg-black/60 group/art cursor-pointer p-0 block focus:outline-none"
-            title={isPlaying ? 'Pause' : 'Play 30s High-Res Preview'}
+            title={isPlaying ? 'Pause' : 'Play Full Track'}
           >
             {effectiveArtwork ? (
               <img
@@ -292,50 +330,80 @@ export const MusicNode = ({
           </div>
         </div>
 
-        {/* 🎚️ Row 2: SoundCloud-Style Waveform with Real-Time Playhead */}
+        {/* 🎚️ Row 2: SoundCloud-Style Waveform with Real-Time Playhead & Telegram Volume Control */}
         <div className="mt-3 pt-2 border-t border-white/10 relative z-10">
           <div className="flex items-center justify-between text-[8.5px] font-mono text-white/70 mb-1 select-none">
             <span className="flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-amber-400 animate-ping' : 'bg-white/40'}`} />
               <Radio className={`w-3 h-3 ${isPlaying ? 'text-amber-400' : 'text-white/40'}`} />
-              AUDIO PREVIEW (30S)
+              <span className="font-bold tracking-wide text-white/90">
+                {isPlaying ? 'FULL TRACK STREAMING' : 'FULL TRACK AUDIO'}
+              </span>
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <span className="font-bold text-white/80">
                 {formatTime(activeTime)} / {formatTime(activeDuration)}
               </span>
-              <button
-                type="button"
+
+              {/* 🔊 Telegram-Style Volume Changer */}
+              <div
                 data-interactive="true"
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={async (e) => {
+                onMouseEnter={() => setIsNodeVolumeHovered(true)}
+                onMouseLeave={() => setIsNodeVolumeHovered(false)}
+                onWheel={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
-                  if (showSpotifyFull) {
-                    setShowSpotifyFull(false);
-                    return;
-                  }
-                  if (globalIsPlaying) {
-                    togglePlayPause();
-                  }
-                  setShowSpotifyFull(true);
-                  if (!effectiveSpotifyId) {
-                    const q = `${artist || ''} ${trackTitle || data.title || ''}`.trim();
-                    const sid = await resolveSpotifyTrackId(musicData || q);
-                    if (sid) {
-                      setResolvedSpotifyId(sid);
-                      musicData.spotifyId = sid;
-                    }
-                  }
+                  adjustVolumeDelta(e.deltaY < 0 ? 0.05 : -0.05);
                 }}
-                className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold transition-all cursor-pointer border ${
-                  showSpotifyFull
-                    ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/40'
-                    : 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border-emerald-500/30'
-                }`}
-                title="Stream full track via Spotify Player API"
+                className="relative flex items-center gap-1 bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded transition-all duration-150 cursor-pointer"
+                title={`Volume: ${Math.round((isMuted ? 0 : volume) * 100)}% (Scroll wheel to adjust)`}
               >
-                {showSpotifyFull ? 'Hide Full' : 'Full Track'}
-              </button>
+                <button
+                  type="button"
+                  data-interactive="true"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleMute();
+                  }}
+                  className="text-white/80 hover:text-white p-0.5 focus:outline-none flex items-center cursor-pointer"
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {isMuted || volume === 0 ? (
+                    <VolumeX className="w-3 h-3 text-rose-400" />
+                  ) : volume < 0.5 ? (
+                    <Volume1 className="w-3 h-3 text-white/80" />
+                  ) : (
+                    <Volume2 className="w-3 h-3 text-white/80" />
+                  )}
+                </button>
+
+                {/* Expanding mini volume slider */}
+                <div
+                  className={`flex items-center gap-1 transition-all duration-200 overflow-hidden ${
+                    isNodeVolumeHovered ? 'w-[58px] opacity-100' : 'w-0 opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <div
+                    className="w-10 h-1 bg-white/25 rounded-full cursor-pointer relative overflow-hidden"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const clickX = e.clientX - rect.left;
+                      const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+                      setVolume(ratio);
+                    }}
+                  >
+                    <div
+                      className="h-full bg-amber-400 rounded-full transition-all duration-75"
+                      style={{ width: `${Math.round((isMuted ? 0 : volume) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="font-mono text-[7.5px] text-white/80 font-bold w-4 text-right shrink-0">
+                    {Math.round((isMuted ? 0 : volume) * 100)}%
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -347,7 +415,7 @@ export const MusicNode = ({
             onMouseMove={handleWaveformMouseMove}
             onMouseLeave={() => setHoverScrub(null)}
             className="w-full h-8 flex items-end justify-between gap-[2px] cursor-pointer py-1 relative group/wave select-none"
-            title="Click or scrub to seek anywhere in preview"
+            title="Click or scrub to seek anywhere in full track"
           >
             {waveformBars.map((heightPct, idx) => {
               const barRatio = idx / (waveformBars.length - 1);
@@ -377,48 +445,6 @@ export const MusicNode = ({
               </div>
             )}
           </div>
-
-          {/* Spotify Full Player Embed */}
-          {showSpotifyFull && (
-            <div className="mt-2.5 rounded-xl overflow-hidden border border-emerald-500/40 bg-[#121212] shadow-md relative z-10 animate-in fade-in slide-in-from-top-1">
-              <div className="flex items-center justify-between px-2.5 py-1 bg-black/60 border-b border-white/10 text-[9px] font-mono text-emerald-400">
-                <div className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-bold uppercase tracking-wider">Spotify Full Track API</span>
-                </div>
-                <button
-                  type="button"
-                  data-interactive="true"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowSpotifyFull(false);
-                  }}
-                  className="text-white/60 hover:text-white p-0.5 rounded cursor-pointer"
-                  title="Close Spotify Player"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-              {effectiveSpotifyId ? (
-                <iframe
-                  src={`https://open.spotify.com/embed/track/${effectiveSpotifyId}?utm_source=generator&theme=0`}
-                  width="100%"
-                  height="152"
-                  frameBorder="0"
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  loading="lazy"
-                  className="w-full border-0 block"
-                  title={trackTitle}
-                />
-              ) : (
-                <div className="p-4 text-center text-[10px] font-mono text-white/70 flex flex-col items-center justify-center gap-1.5">
-                  <Disc className="w-4 h-4 animate-spin text-emerald-400" />
-                  <span>Connecting to Spotify API...</span>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

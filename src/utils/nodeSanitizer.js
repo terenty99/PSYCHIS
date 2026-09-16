@@ -242,31 +242,38 @@ export function sanitizeNodeData(rawData) {
   const primaryPhoto = rawData.primaryPhoto || (Array.isArray(photos) && photos[0]) || null;
 
   const combinedCorpus = `${title} ${category} ${description}`.toLowerCase();
+  const isExplicitVideoQuery =
+    /\b(watch video|video of|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|клип|видео)\b/i.test(combinedCorpus) ||
+    /\b(how to (cook|make|bake|prepare|assemble|fix|build|fold|play|perform|draw|repair))\b/i.test(combinedCorpus) ||
+    /\b(recipe|cooking|origami|mechanical assembly|lab experiment|sports technique)\b/i.test(combinedCorpus);
+
   const isSemanticMusic =
-    /\b(band|rock band|artist|track|song|album|music|musician|singer|composer|breakcore|rock|jazz|hiphop|rap|metal|punk|electronic|ambient|symphony|orchestra|dj|ep|single|remix|discography|vocalist|guitarist|drummer|pianist|radiohead|queen|beethoven|mozart|painfinder|nirvana|daft punk|pink floyd|beatles|led zeppelin|chopin|bach)\b/i.test(combinedCorpus);
+    /\b(band|rock band|artist|track|song|album|music|musician|singer|composer|breakcore|rock|jazz|hiphop|rap|metal|punk|electronic|ambient|symphony|orchestra|dj|ep|single|remix|soundtrack|discography|vocalist|guitarist|drummer|pianist|radiohead|queen|beethoven|mozart|painfinder|nirvana|daft punk|pink floyd|beatles|led zeppelin|chopin|bach)\b/i.test(combinedCorpus);
 
   const isSemanticVideo =
     !isSemanticMusic &&
-    (/\b(how to cook|how to make|how to assemble|recipe|cooking|origami|speedrun|gameplay|fight scene|movie trailer|video essay|demonstration|tutorial|masterclass|walkthrough|skateboarding|workout|diy)\b/i.test(combinedCorpus) ||
+    (/\b(video essay|movie trailer|demonstration|tutorial|masterclass|walkthrough|skateboarding|workout|diy)\b/i.test(combinedCorpus) ||
     (combinedCorpus.startsWith('how to') && !/\b(prove|calculate|solve|derive)\b/i.test(combinedCorpus)));
 
-  // Video & Music Archetype Sanitization
-  const isVideo =
-    rawData.mediaType === 'video' ||
-    Boolean(rawData.videoData) ||
-    Boolean(rawData.videoQuery) ||
-    layout?.structure === 'video_top' ||
-    isSemanticVideo;
-
+  // Video & Music Archetype Sanitization: Music takes precedence when music structure or metadata is present!
   const isMusic =
-    !isVideo &&
+    !isExplicitVideoQuery &&
     (rawData.mediaType === 'music' ||
-    Boolean(rawData.musicData) ||
-    Boolean(rawData.tracks) ||
-    layout?.structure === 'music_card' ||
-    isSemanticMusic);
+      Boolean(rawData.musicData) ||
+      Boolean(rawData.tracks) ||
+      layout?.structure === 'music_card' ||
+      (isSemanticMusic && !isSemanticVideo));
 
-  const mediaType = isVideo ? 'video' : isMusic ? 'music' : sanitizeString(rawData.mediaType, 'photo');
+  const isVideo =
+    !isMusic &&
+    (rawData.mediaType === 'video' ||
+      Boolean(rawData.videoData) ||
+      Boolean(rawData.videoQuery) ||
+      layout?.structure === 'video_top' ||
+      isSemanticVideo ||
+      isExplicitVideoQuery);
+
+  const mediaType = isMusic ? 'music' : isVideo ? 'video' : sanitizeString(rawData.mediaType, 'photo');
 
   const videoData = isVideo ? {
     id: sanitizeString(rawData.videoData?.id, `vid-${Date.now()}`),

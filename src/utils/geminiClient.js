@@ -260,9 +260,10 @@ CRITICAL ARCHITECTURAL RULES:
 
 2. DYNAMIC ENSEMBLE, VIDEO & AUDIO COMPANION BRANCHING MANDATE:
    * MANDATORY AUDIO & VIDEO LINKAGES:
-     - When the subject is a music artist, band, album, or song (e.g. "Queen", "Radiohead", "Painfinder", "Bohemian Rhapsody", "Creep"):
+     - When the subject is a music artist, band, album, track, or song (e.g. "Queen", "Radiohead", "Painfinder", "Bohemian Rhapsody", "Creep"):
        * Primary node MUST be "mediaType": "music", "layout": {"structure": "music_card", "width": 390}, with full "musicData".
-       * MUST generate a coupled branch node for their defining live concert performance, music video, or stage footage ("mediaType": "video", "layout": {"structure": "video_top", "width": 420}, "relationship": "COUPLED_SYSTEM", "relationshipLabel": "live concert // audiovisual", "edgeName": "Audiovisual Masterclass Linkage", "edgeBadge": "LIVE PERFORMANCE // CONCERT", "videoQuery": "[Artist or Track] live concert performance official video").
+       * The primary node MUST have "videoQuery": null. NEVER set videoQuery or mediaType: "video" on the primary music node!
+       * You may optionally generate a coupled branch node for their defining live concert performance, music video, or stage footage ("mediaType": "video", "layout": {"structure": "video_top", "width": 420}, "relationship": "COUPLED_SYSTEM", "relationshipLabel": "live concert // audiovisual", "edgeName": "Audiovisual Masterclass Linkage", "edgeBadge": "LIVE PERFORMANCE // CONCERT", "videoQuery": "[Artist or Track] live concert performance official video").
      - When the subject is a practical demonstration, step-by-step physical process, recipe, or audiovisual culture (e.g. "how to cook soup", origami, fight scene, movie trailer, anime clip):
        * Primary node MUST be "mediaType": "video", "layout": {"structure": "video_top", "width": 420}, with "videoQuery".
        * MUST generate a coupled branch node ("relationship": "COUPLED_SYSTEM") for the companion soundtrack/acoustic theme ("mediaType": "music") or procedural recipe analysis.
@@ -532,25 +533,55 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
     return false;
   };
 
+  const queryLower = (query || '').toLowerCase();
   const combinedText = `${query} ${node.title || ''} ${node.category || ''} ${node.description || ''}`.toLowerCase();
 
-  const isVideoExplicit =
+  // User explicitly asks for video footage, trailer, gameplay, or procedural demonstration
+  const isUserExplicitVideo =
+    /\b(watch video|video of|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|клип|видео|посмотреть)\b/i.test(queryLower) ||
+    /\b(how to (cook|make|bake|prepare|assemble|fix|build|fold|play|perform|draw|repair))\b/i.test(queryLower) ||
+    /\b(recipe|cooking|origami|mechanical assembly|lab experiment|sports technique)\b/i.test(queryLower);
+
+  // User explicitly asks for music track, song, spotify, audio, or musician
+  const isUserExplicitMusic =
+    /\b(track|song|music|spotify|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|listen|audio|tune|playlist)\b/i.test(queryLower) ||
+    /\b(трек|песн|музык|песня|песню|песни|песен|спотифай|альбом|сингл|саундтрек|послушать|плейлист|группа|группы|музыкант)\b/i.test(queryLower) ||
+    /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(queryLower);
+
+  const hasMusicStructure =
+    node.mediaType === 'music' ||
+    Boolean(node.musicData) ||
+    node.layout?.structure === 'music_card' ||
+    Boolean(node.tracks);
+
+  const hasVideoStructure =
     node.mediaType === 'video' ||
     Boolean(node.videoData) ||
-    Boolean(node.videoQuery) ||
-    node.layout?.structure === 'video_top' ||
-    /\b(music video|mv|official video|video essay|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|interview)\b/i.test(combinedText) ||
-    /\b(how to (cook|make|bake|prepare|assemble|fix|build|fold|play|perform|draw|repair))\b/i.test(combinedText) ||
-    /\b(recipe|cooking|origami|mechanical assembly|lab experiment|sports technique)\b/i.test(combinedText) ||
-    /\b(video|watch)\b/i.test(combinedText);
+    node.layout?.structure === 'video_top';
 
+  const isSemanticMusic =
+    /\b(track|song|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|genre|rock|jazz|breakcore|pop|metal|hiphop|hip hop|rap|electronic|techno|ambient|classical music|symphony|orchestra)\b/i.test(combinedText) ||
+    /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(combinedText);
+
+  const isSemanticVideo =
+    /\b(video essay|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|interview)\b/i.test(combinedText) ||
+    /\b(how to (cook|make|bake|prepare|assemble|fix|build|fold|play|perform|draw|repair))\b/i.test(combinedText) ||
+    /\b(recipe|cooking|origami|mechanical assembly|lab experiment|sports technique)\b/i.test(combinedText);
+
+  // 1. Music decision: Prioritized whenever music/track is explicitly requested or structured,
+  // preventing casual "music video" or "watch" mentions in descriptions from stealing the card!
   const isMusicExplicit =
-    !isVideoExplicit &&
-    (node.mediaType === 'music' ||
-      Boolean(node.musicData) ||
-      node.layout?.structure === 'music_card' ||
-      /\b(track|song|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|genre|rock|jazz|breakcore|pop|metal|hiphop|hip hop|rap|electronic|techno|ambient|classical music|symphony|orchestra)\b/i.test(combinedText) ||
-      /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(combinedText));
+    !isUserExplicitVideo &&
+    (isUserExplicitMusic || hasMusicStructure || (isSemanticMusic && !isSemanticVideo && !hasVideoStructure));
+
+  // 2. Video decision: Active only when not a music track and genuine video intent exists
+  const isVideoExplicit =
+    !isMusicExplicit &&
+    (isUserExplicitVideo ||
+      hasVideoStructure ||
+      Boolean(node.videoQuery) ||
+      isSemanticVideo ||
+      /\b(video|watch)\b/i.test(combinedText));
 
   // 1A. Video Node Enrichment
   if (isVideoExplicit) {
@@ -572,6 +603,7 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
   } else if (isMusicExplicit) {
     // 1B. Music Node Enrichment
     node.mediaType = 'music';
+    node.videoQuery = null; // Clear any stray video query on primary music card
     if (!node.layout) node.layout = {};
     node.layout.structure = 'music_card';
     node.layout.width = 390;
@@ -863,6 +895,31 @@ The user is specifically asking for a financial market quote, stock price, index
     "secondary": null
   }
 - NO BROKEN PHOTOS: Financial quotes do not need photos or photo placeholders. Set "visualSearchQuery": null so no outdated photos or broken placeholders are retrieved! The card will display the live rate/quote hero as its frontline hero banner.`;
+  }
+
+  const isMusicQuery =
+    !/\b(watch video|video of|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|клип|видео)\b/i.test(query) &&
+    (/\b(track|song|music|spotify|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|listen|audio|tune|playlist)\b/i.test(query) ||
+      /\b(трек|песн|музык|песня|песню|песни|песен|спотифай|альбом|сингл|саундтрек|послушать|плейлист|группа|группы|музыкант)\b/i.test(query) ||
+      /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(query));
+
+  if (isMusicQuery) {
+    userContent += `\n\nCRITICAL MUSIC & AUDIO SYNTHESIS MANDATE:
+The user is specifically asking for a music track, song, musician, band, or musical composition ("${query}").
+- PRIMARY NODE MUST BE A MUSIC NODE:
+  * Set "mediaType": "music".
+  * Set "layout": { "structure": "music_card", "width": 390 }.
+  * Set "videoQuery": null. DO NOT make the primary node a video!
+  * MUST populate the "musicData" object completely:
+    {
+      "trackTitle": "Canonical Track or Piece Name",
+      "artist": "Artist, Band, or Composer Name",
+      "album": "Album or Single Name",
+      "year": "YYYY",
+      "genre": "Specific Musical Genre",
+      "query": "${query}"
+    }
+- Do NOT classify this as "mediaType": "video". Video players are only for explicit video requests or companion branch nodes.`;
   }
 
   userContent += `\n\nCRITICAL MANDATE: The generated node title, category, description, detailedSynthesis, and visualSearchQuery MUST FOCUS EXCLUSIVELY ON THE PRIMARY TARGET "${query}". Do NOT return the workspace name or another character as the title.`;

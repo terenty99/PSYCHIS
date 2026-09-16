@@ -822,19 +822,20 @@ export const SpatialCanvas = ({
       },
     };
 
-    const isVideoNode =
-      node.type === 'video' ||
-      node.data?.mediaType === 'video' ||
-      node.data?.layout?.structure === 'video_top' ||
-      Boolean(node.data?.videoData) ||
-      Boolean(node.data?.videoQuery);
-
     const isMusicNode =
       node.type === 'music' ||
       node.data?.mediaType === 'music' ||
       node.data?.layout?.structure === 'music_card' ||
       Boolean(node.data?.musicData) ||
       Boolean(node.data?.tracks);
+
+    const isVideoNode =
+      !isMusicNode &&
+      (node.type === 'video' ||
+      node.data?.mediaType === 'video' ||
+      node.data?.layout?.structure === 'video_top' ||
+      Boolean(node.data?.videoData) ||
+      Boolean(node.data?.videoQuery));
 
     if (node.type === 'generating_preview' || node.data?.isGenerating) {
       return (
@@ -846,11 +847,11 @@ export const SpatialCanvas = ({
       );
     }
 
-    if (isVideoNode) {
-      return <VideoNode {...commonProps} />;
-    }
     if (isMusicNode) {
       return <MusicNode {...commonProps} />;
+    }
+    if (isVideoNode) {
+      return <VideoNode {...commonProps} />;
     }
 
     switch (node.type) {

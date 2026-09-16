@@ -487,18 +487,18 @@ export function App() {
         existingNodes: [],
       });
 
-      const isRootVideo = cluster.primaryNode?.mediaType === 'video' || cluster.primaryNode?.layout?.structure === 'video_top' || Boolean(cluster.primaryNode?.videoData) || Boolean(cluster.primaryNode?.videoQuery);
       const isRootMusic = cluster.primaryNode?.mediaType === 'music' || cluster.primaryNode?.layout?.structure === 'music_card' || Boolean(cluster.primaryNode?.musicData) || Boolean(cluster.primaryNode?.tracks);
+      const isRootVideo = !isRootMusic && (cluster.primaryNode?.mediaType === 'video' || cluster.primaryNode?.layout?.structure === 'video_top' || Boolean(cluster.primaryNode?.videoData) || Boolean(cluster.primaryNode?.videoQuery));
 
       const rootNode = {
         id: rootId,
-        type: isRootVideo ? 'video' : isRootMusic ? 'music' : 'spawned',
+        type: isRootMusic ? 'music' : isRootVideo ? 'video' : 'spawned',
         width: primaryDims.width,
         height: primaryDims.height,
         position: primaryPos,
         data: {
           ...cluster.primaryNode,
-          mediaType: isRootVideo ? 'video' : isRootMusic ? 'music' : (cluster.primaryNode.mediaType || 'photo'),
+          mediaType: isRootMusic ? 'music' : isRootVideo ? 'video' : (cluster.primaryNode.mediaType || 'photo'),
           status: cluster.primaryNode.status || 'synthesized root',
         },
       };
@@ -524,24 +524,24 @@ export function App() {
             label: bn.relationshipLabel || (branchRel === RELATIONSHIP_TYPES.CONTRADICTS ? 'contradicts' : 'coupled dynamic'),
           };
 
-          const bIsVideo = bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || Boolean(bn.videoData) || Boolean(bn.videoQuery);
           const bIsMusic = bn.mediaType === 'music' || bn.layout?.structure === 'music_card' || Boolean(bn.musicData) || Boolean(bn.tracks);
+          const bIsVideo = !bIsMusic && (bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || Boolean(bn.videoData) || Boolean(bn.videoQuery));
 
           initialNodes.push({
             id: branchId,
             type: bn.relationship === 'CONTRADICTS'
               ? 'contradiction'
-              : bIsVideo
-              ? 'video'
               : bIsMusic
               ? 'music'
+              : bIsVideo
+              ? 'video'
               : 'spawned',
             width: bDims.width,
             height: bDims.height,
             position: branchPos,
             data: {
               ...bn,
-              mediaType: bIsVideo ? 'video' : bIsMusic ? 'music' : (bn.mediaType || 'photo'),
+              mediaType: bIsMusic ? 'music' : bIsVideo ? 'video' : (bn.mediaType || 'photo'),
               title: bn.title,
               category: bn.category || 'dialectical counterpart',
               status: 'derived relation',
@@ -594,19 +594,19 @@ export function App() {
               } catch (_) {}
             }
 
-            const isVid = liveNode.mediaType === 'video' || Boolean(liveNode.videoData) || Boolean(liveNode.videoQuery) || liveNode.layout?.structure === 'video_top';
             const isMus = liveNode.mediaType === 'music' || Boolean(liveNode.musicData) || Boolean(liveNode.tracks) || liveNode.layout?.structure === 'music_card';
+            const isVid = !isMus && (liveNode.mediaType === 'video' || Boolean(liveNode.videoData) || Boolean(liveNode.videoQuery) || liveNode.layout?.structure === 'video_top');
 
             setNodes((prev) =>
               prev.map((n) =>
                 n.id === rootId
                   ? {
                       ...n,
-                      type: isVid ? 'video' : isMus ? 'music' : n.type,
+                      type: isMus ? 'music' : isVid ? 'video' : n.type,
                       data: {
                         ...n.data,
                         ...liveNode,
-                        mediaType: isVid ? 'video' : isMus ? 'music' : (liveNode.mediaType || n.data.mediaType),
+                        mediaType: isMus ? 'music' : isVid ? 'video' : (liveNode.mediaType || n.data.mediaType),
                         title: liveNode.title || n.data.title,
                       },
                     }
@@ -1611,8 +1611,8 @@ export function App() {
 
       // Calculate collision-free coordinates for the full cluster using dynamic dimensions
       const cleanSynthesized = sanitizeNodeData(synthesizedData);
-      const isVideo = cleanSynthesized.mediaType === 'video' || cleanSynthesized.layout?.structure === 'video_top' || Boolean(cleanSynthesized.videoData) || Boolean(cleanSynthesized.videoQuery);
       const isMusic = cleanSynthesized.mediaType === 'music' || cleanSynthesized.layout?.structure === 'music_card' || Boolean(cleanSynthesized.musicData) || Boolean(cleanSynthesized.tracks);
+      const isVideo = !isMusic && (cleanSynthesized.mediaType === 'video' || cleanSynthesized.layout?.structure === 'video_top' || Boolean(cleanSynthesized.videoData) || Boolean(cleanSynthesized.videoQuery));
       const branchList = (!isUrl && Array.isArray(cleanSynthesized.branchNodes)) ? cleanSynthesized.branchNodes : [];
       const primaryDims = getNodeDimensions(cleanSynthesized);
 
@@ -1633,10 +1633,10 @@ export function App() {
         id: newId,
         type: isUrl
           ? 'website'
-          : isVideo
-          ? 'video'
           : isMusic
           ? 'music'
+          : isVideo
+          ? 'video'
           : 'spawned',
         width: primaryDims.width,
         height: primaryDims.height,
@@ -1644,7 +1644,7 @@ export function App() {
         data: {
           ...cleanSynthesized,
           justMaterialized: true,
-          mediaType: isVideo ? 'video' : isMusic ? 'music' : (cleanSynthesized.mediaType || 'photo'),
+          mediaType: isMusic ? 'music' : isVideo ? 'video' : (cleanSynthesized.mediaType || 'photo'),
           title: isUrl ? domainTitle : (cleanSynthesized.title || domainTitle),
           url: cleanUrl || cleanSynthesized.url,
           sourceUrl: cleanUrl || cleanSynthesized.sourceUrl,
@@ -1799,24 +1799,24 @@ export function App() {
           coupling: cleanBn.edgeCoupling || (branchRel === RELATIONSHIP_TYPES.CONTRADICTS ? 'Strict Logical Contradiction' : 'Direct Invariant Coupling'),
         };
 
-        const bIsVideo = cleanBn.mediaType === 'video' || cleanBn.layout?.structure === 'video_top' || Boolean(cleanBn.videoData) || Boolean(cleanBn.videoQuery);
         const bIsMusic = cleanBn.mediaType === 'music' || cleanBn.layout?.structure === 'music_card' || Boolean(cleanBn.musicData) || Boolean(cleanBn.tracks);
+        const bIsVideo = !bIsMusic && (cleanBn.mediaType === 'video' || cleanBn.layout?.structure === 'video_top' || Boolean(cleanBn.videoData) || Boolean(cleanBn.videoQuery));
 
         createdNodes.push({
           id: branchId,
           type: cleanBn.relationship === 'CONTRADICTS'
             ? 'contradiction'
-            : bIsVideo
-            ? 'video'
             : bIsMusic
             ? 'music'
+            : bIsVideo
+            ? 'video'
             : 'spawned',
           width: bDims.width,
           height: bDims.height,
           position: branchPos,
           data: {
             ...cleanBn,
-            mediaType: bIsVideo ? 'video' : bIsMusic ? 'music' : (cleanBn.mediaType || 'photo'),
+            mediaType: bIsMusic ? 'music' : bIsVideo ? 'video' : (cleanBn.mediaType || 'photo'),
             title: cleanBn.title || `Branch ${idx + 1}`,
             category: cleanBn.category || 'dialectical counterpart',
             status: cleanBn.status || 'derived relation',

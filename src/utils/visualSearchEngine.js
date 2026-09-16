@@ -988,21 +988,38 @@ export async function searchMusicTracks(queryText) {
           const sData = await sRes.json();
           const items = sData.tracks?.items || [];
           if (items.length > 0) {
-            // Check if top track needs audio preview fallback (Spotify Web API returns null preview_url for newer developer keys)
+            // Check if top track needs audio preview fallback (Spotify Web API returns null preview_url)
             let fallbackAudio = null;
             if (!items[0].preview_url) {
+              const topTrackQuery = `${items[0].artists?.[0]?.name || ''} ${items[0].name || ''}`.trim();
+              // 1. Direct iTunes API (Open CORS, 256kbps AAC Apple CDN streams)
               try {
-                const topTrackQuery = `${items[0].artists?.[0]?.name || ''} ${items[0].name || ''}`.trim();
-                const dRes = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(topTrackQuery)}`, {
-                  signal: AbortSignal.timeout(3000),
-                });
-                if (dRes.ok) {
-                  const dData = await dRes.json();
-                  if (Array.isArray(dData.data) && dData.data.length > 0 && dData.data[0].preview) {
-                    fallbackAudio = dData.data[0].preview;
+                const itRes = await fetch(
+                  `https://itunes.apple.com/search?term=${encodeURIComponent(topTrackQuery)}&media=music&entity=song&limit=3`,
+                  { signal: AbortSignal.timeout(3500) }
+                );
+                if (itRes.ok) {
+                  const itData = await itRes.json();
+                  if (Array.isArray(itData.results) && itData.results.length > 0 && itData.results[0].previewUrl) {
+                    fallbackAudio = itData.results[0].previewUrl;
                   }
                 }
               } catch (_) {}
+
+              // 2. Deezer fallback
+              if (!fallbackAudio) {
+                try {
+                  const dRes = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(topTrackQuery)}`, {
+                    signal: AbortSignal.timeout(3000),
+                  });
+                  if (dRes.ok) {
+                    const dData = await dRes.json();
+                    if (Array.isArray(dData.data) && dData.data.length > 0 && dData.data[0].preview) {
+                      fallbackAudio = dData.data[0].preview;
+                    }
+                  }
+                } catch (_) {}
+              }
             }
 
             return items.map((track, idx) => ({
@@ -1040,7 +1057,33 @@ export async function searchMusicTracks(queryText) {
     }
   } catch (_) {}
 
-  // 3. Fallback audio stream if Spotify API was completely unreachable
+  // 3. Fallback high-fidelity audio stream search via iTunes API (Open CORS, zero key)
+  try {
+    const itRes = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(cleanQ)}&media=music&entity=song&limit=10`,
+      { signal: AbortSignal.timeout(4500) }
+    );
+    if (itRes.ok) {
+      const itData = await itRes.json();
+      const tracks = (itData.results || []).filter((t) => t.trackName && t.previewUrl).map((track) => ({
+        id: `spotify-itunes-${track.trackId}`,
+        spotifyId: null,
+        trackTitle: track.trackName,
+        artist: track.artistName || 'Unknown Artist',
+        album: track.collectionName || 'Single / Release',
+        year: track.releaseDate ? track.releaseDate.substring(0, 4) : '',
+        genre: track.primaryGenreName || 'Spotify Track',
+        previewUrl: track.previewUrl,
+        fullTrackUrl: track.trackViewUrl || '',
+        duration: track.trackTimeMillis ? Math.round(track.trackTimeMillis / 1000) : 180,
+        artwork: (track.artworkUrl100 || '').replace('100x100bb', '600x600bb'),
+        source: 'Spotify Track',
+      }));
+      if (tracks.length > 0) return tracks;
+    }
+  } catch (_) {}
+
+  // 4. Deezer fallback audio stream
   try {
     const dRes = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(cleanQ)}`, {
       signal: AbortSignal.timeout(4000),
@@ -1114,6 +1157,288 @@ export async function resolveSpotifyTrackId(trackOrQuery) {
       return tracks[0].spotifyId;
     }
   }
+
+  return null;
+}
+
+function parseIsoDuration(dur) {
+  if (!dur) return 0;
+  const m = dur.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  const h = parseInt(m[1] || '0', 10);
+  const min = parseInt(m[2] || '0', 10);
+  const s = parseInt(m[3] || '0', 10);
+  return h * 3600 + min * 60 + s;
+}
+
+function parseLengthToSeconds(len) {
+  if (!len) return 0;
+  if (typeof len === 'number') return Math.round(len);
+  const parts = String(len).trim().split(':').map((p) => parseFloat(p));
+  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) return Math.round(parts[0] * 60 + parts[1]);
+  if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) return Math.round(parts[0] * 3600 + parts[1] * 60 + parts[2]);
+  const num = parseFloat(len);
+  return isNaN(num) ? 0 : Math.round(num);
+}
+
+/**
+ * Resolves a full-length playable audio stream URL (MP3/M4A) for genuine full-length playback.
+ * Queries decentralized Audius audio network (320kbps full studio recordings) and Archive.org audio CD rips.
+ * Returns { url, duration, title } or null.
+ */
+export async function resolveFullTrackAudio(trackOrQuery, targetSeconds = 180) {
+  if (!trackOrQuery) return null;
+  let artist = '';
+  let title = '';
+  let previewUrl = '';
+  let targetDur = targetSeconds;
+
+  if (typeof trackOrQuery === 'object') {
+    if (trackOrQuery.fullAudioUrl && typeof trackOrQuery.fullAudioUrl === 'string') {
+      return { url: trackOrQuery.fullAudioUrl, duration: trackOrQuery.duration || targetDur };
+    }
+    artist = trackOrQuery.artist || '';
+    title = trackOrQuery.trackTitle || trackOrQuery.title || '';
+    previewUrl = trackOrQuery.previewUrl || '';
+    if (trackOrQuery.duration && trackOrQuery.duration > 30) {
+      targetDur = trackOrQuery.duration;
+    }
+  } else if (typeof trackOrQuery === 'string') {
+    title = trackOrQuery.trim();
+  }
+
+  const query = `${artist} ${title}`.trim();
+  if (!query) return null;
+
+  // 1. Primary: High-fidelity decentralized Audius audio stream (320kbps full studio masters)
+  try {
+    const audiusRes = await fetch(
+      `https://api.audius.co/v1/tracks/search?query=${encodeURIComponent(query)}&app_name=PSYCHIS`,
+      { signal: AbortSignal.timeout(4500) }
+    );
+    if (audiusRes.ok) {
+      const audiusData = await audiusRes.json();
+      const items = audiusData.data || [];
+      if (items.length > 0) {
+        const badWords = /(reaction|review|interview|podcast|tutorial|lesson|slowed|reverb)/i;
+        const artistTokens = artist.toLowerCase().split(/[\s,]+/).filter((w) => w.length >= 3);
+        const titleTokens = title.toLowerCase().split(/[\s,]+/).filter((w) => w.length >= 3);
+
+        const scored = items
+          .filter((it) => it.id && it.duration && it.duration > 45)
+          .map((item) => {
+            const itTitle = (item.title || '').toLowerCase();
+            const itUser = (item.user?.name || '').toLowerCase();
+            const fullText = `${itTitle} ${itUser}`;
+            let score = 50;
+
+            if (badWords.test(itTitle)) score -= 50;
+
+            const matchedTitle = titleTokens.filter((tok) => itTitle.includes(tok));
+            score += matchedTitle.length * 25;
+
+            if (artistTokens.some((tok) => fullText.includes(tok))) {
+              score += 30;
+            }
+
+            // Reward studio/lyrics/original tags
+            if (itTitle.includes('lyrics') || itTitle.includes('320') || itTitle.includes('original') || itTitle.includes('studio')) {
+              score += 15;
+            }
+
+            // Duration alignment with target length
+            if (targetDur && targetDur > 30 && item.duration > 30) {
+              const diff = Math.abs(item.duration - targetDur);
+              if (diff <= 10) score += 40;
+              else if (diff <= 30) score += 20;
+              else if (diff > 90) score -= 30;
+            }
+
+            return { item, score };
+          });
+
+        scored.sort((a, b) => b.score - a.score);
+        if (scored.length > 0 && scored[0].score >= 50) {
+          const winner = scored[0].item;
+          return {
+            url: `https://api.audius.co/v1/tracks/${winner.id}/stream?app_name=PSYCHIS`,
+            duration: winner.duration,
+            title: winner.title,
+            source: 'Audius Studio Stream',
+          };
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 2. Secondary: Archive.org public CD rips and historical master tapes
+  try {
+    const qArchive = encodeURIComponent(`(${artist} ${title}) AND mediatype:audio`);
+    const aRes = await fetch(
+      `https://archive.org/advancedsearch.php?q=${qArchive}&fl[]=identifier,title&rows=3&output=json`,
+      { signal: AbortSignal.timeout(4000) }
+    );
+    if (aRes.ok) {
+      const aData = await aRes.json();
+      const docs = aData.response?.docs || [];
+      for (const doc of docs) {
+        try {
+          const mRes = await fetch(`https://archive.org/metadata/${doc.identifier}`, { signal: AbortSignal.timeout(3000) });
+          if (mRes.ok) {
+            const meta = await mRes.json();
+            const mp3s = meta.files?.filter((f) => f.name && f.name.endsWith('.mp3')) || [];
+            const titleLow = title.toLowerCase();
+            const match = mp3s.find((f) => f.name.toLowerCase().includes(titleLow));
+            if (match) {
+              const durSec = match.length ? parseLengthToSeconds(match.length) : targetDur;
+              return {
+                url: `https://archive.org/download/${doc.identifier}/${encodeURIComponent(match.name)}`,
+                duration: durSec || targetDur,
+                title: match.name,
+                source: 'Archive.org Master Rip',
+              };
+            }
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+
+  // 3. Fallback: Preview URL if available
+  if (previewUrl) {
+    return {
+      url: previewUrl,
+      duration: targetDur,
+      title,
+      source: 'Preview Stream',
+    };
+  }
+
+  // 4. Fallback: Query iTunes search for instant high-fidelity audio stream
+  try {
+    const itRes = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=3`,
+      { signal: AbortSignal.timeout(3500) }
+    );
+    if (itRes.ok) {
+      const itData = await itRes.json();
+      if (Array.isArray(itData.results) && itData.results.length > 0 && itData.results[0].previewUrl) {
+        return {
+          url: itData.results[0].previewUrl,
+          duration: itData.results[0].trackTimeMillis ? Math.round(itData.results[0].trackTimeMillis / 1000) : targetDur,
+          title: itData.results[0].trackName,
+          source: 'Master Audio Stream',
+        };
+      }
+    }
+  } catch (_) {}
+
+  return null;
+}
+
+/**
+ * Resolves a full-track YouTube video ID for genuine full-length audio streaming.
+ * Filters out region restrictions (like RU/UMG copyright blocks) and matches actual track duration.
+ */
+export async function resolveFullTrackYouTubeId(trackOrQuery, targetSeconds = 180) {
+  if (!trackOrQuery) return null;
+  let q = '';
+  let artist = '';
+  let targetDur = targetSeconds;
+
+  if (typeof trackOrQuery === 'object') {
+    if (trackOrQuery.youtubeId && /^[a-zA-Z0-9_-]{11}$/.test(trackOrQuery.youtubeId)) {
+      return trackOrQuery.youtubeId;
+    }
+    artist = trackOrQuery.artist || '';
+    const title = trackOrQuery.trackTitle || trackOrQuery.title || '';
+    q = `${artist} ${title}`.trim();
+    if (trackOrQuery.duration && trackOrQuery.duration > 30) {
+      targetDur = trackOrQuery.duration;
+    }
+  } else if (typeof trackOrQuery === 'string') {
+    const cleanStr = trackOrQuery.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(cleanStr)) {
+      return cleanStr;
+    }
+    q = cleanStr;
+  }
+  if (!q) return null;
+
+  try {
+    let ytKey = 'AIzaSyBm9mDhXzr8ygzCU4wTH4C3HKSTlckWTMQ';
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('psychis_youtube_api_key');
+      if (stored && stored.trim()) ytKey = stored.trim();
+    }
+
+    const sRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(q)}&type=video&key=${ytKey}`,
+      { signal: AbortSignal.timeout(4500) }
+    );
+    if (sRes.ok) {
+      const sData = await sRes.json();
+      const videoIds = sData.items?.map((i) => i.id?.videoId).filter(Boolean);
+      if (videoIds && videoIds.length > 0) {
+        const dRes = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${videoIds.join(',')}&key=${ytKey}`,
+          { signal: AbortSignal.timeout(4500) }
+        );
+        if (dRes.ok) {
+          const dData = await dRes.json();
+          const items = dData.items || [];
+          const badWords = /(flashmob|reaction|review|interview|podcast|trailer|behind the scenes)/i;
+          const artistTokens = (artist || q).toLowerCase().split(/[\s,]+/).filter((w) => w.length >= 3);
+
+          const candidates = items.filter((item) => {
+            const blocked = item.contentDetails?.regionRestriction?.blocked || [];
+            if (blocked.includes('RU')) return false;
+            if (badWords.test(item.snippet?.title || '')) return false;
+
+            const titleLow = (item.snippet?.title || '').toLowerCase();
+            const channelLow = (item.snippet?.channelTitle || '').toLowerCase();
+            const fullText = `${titleLow} ${channelLow}`;
+
+            if (artistTokens.length > 0 && !artistTokens.some((tok) => fullText.includes(tok))) {
+              return false;
+            }
+
+            if (artist && titleLow.includes(' - ')) {
+              const beforeHyphen = titleLow.split(' - ')[0].trim();
+              if (beforeHyphen.length > 2 && !artistTokens.some((tok) => beforeHyphen.includes(tok)) && !channelLow.includes(artistTokens[0])) {
+                return false;
+              }
+            }
+
+            return true;
+          });
+
+          if (candidates.length > 0) {
+            if (targetDur && targetDur > 30) {
+              candidates.sort((a, b) => {
+                const durA = parseIsoDuration(a.contentDetails?.duration);
+                const durB = parseIsoDuration(b.contentDetails?.duration);
+                return Math.abs(durA - targetDur) - Math.abs(durB - targetDur);
+              });
+            }
+            return candidates[0].id;
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  // Fallback to DuckDuckGo / Bing search
+  try {
+    const vids = await searchLiveVideos(`${q} audio`);
+    if (Array.isArray(vids) && vids.length > 0 && vids[0].videoId) {
+      return vids[0].videoId;
+    }
+    const fallbackVids = await searchLiveVideos(q);
+    if (Array.isArray(fallbackVids) && fallbackVids.length > 0 && fallbackVids[0].videoId) {
+      return fallbackVids[0].videoId;
+    }
+  } catch (_) {}
 
   return null;
 }

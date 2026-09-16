@@ -44,11 +44,10 @@ import {
   Music,
   Disc,
   Volume2,
-  Radio,
   Tv,
 } from 'lucide-react';
 import { MathFormula } from '../../utils/mathRenderer';
-import { fetchLiveArchivalPhotos, fetchWebImageCandidates, cleanDomainFromUrl, searchWebVideos, searchMusicTracks, resolveSpotifyTrackId } from '../../utils/visualSearchEngine';
+import { fetchLiveArchivalPhotos, fetchWebImageCandidates, cleanDomainFromUrl, searchWebVideos, searchMusicTracks } from '../../utils/visualSearchEngine';
 import { generateDynamicKineticAnimation, getKineticPromptSuggestions } from '../../utils/kineticVisualGenerator';
 import { useGlobalAudio } from '../../hooks/useGlobalAudio';
 
@@ -408,7 +407,6 @@ export const NodeInspector = ({
   const [resolvedInspectorMusicPreview, setResolvedInspectorMusicPreview] = useState(null);
   const [resolvedInspectorMusicArtwork, setResolvedInspectorMusicArtwork] = useState(null);
   const [resolvedSpotifyTrackId, setResolvedSpotifyTrackId] = useState(null);
-  const [showSpotifyEmbed, setShowSpotifyEmbed] = useState(false);
 
   // Live Source Mini Browser States
   const [miniBrowserKey, setMiniBrowserKey] = useState(0);
@@ -446,7 +444,6 @@ export const NodeInspector = ({
       const mData = nodeData.data?.musicData || {};
       setResolvedInspectorMusicPreview(mData.previewUrl || null);
       setResolvedInspectorMusicArtwork(mData.artwork || nodeData.data?.primaryPhoto?.url || null);
-      setShowSpotifyEmbed(false);
 
       const directSpotifyId =
         mData.spotifyId ||
@@ -461,7 +458,12 @@ export const NodeInspector = ({
         if (mq) {
           searchMusicTracks(mq).then((tracks) => {
             if (Array.isArray(tracks) && tracks.length > 0) {
-              if (tracks[0].previewUrl && !mData.previewUrl) setResolvedInspectorMusicPreview(tracks[0].previewUrl);
+              if (tracks[0].previewUrl && !mData.previewUrl) {
+                setResolvedInspectorMusicPreview(tracks[0].previewUrl);
+                if (nodeData.data?.musicData) {
+                  nodeData.data.musicData.previewUrl = tracks[0].previewUrl;
+                }
+              }
               if (tracks[0].artwork && !mData.artwork) setResolvedInspectorMusicArtwork(tracks[0].artwork);
               if (tracks[0].spotifyId) setResolvedSpotifyTrackId(tracks[0].spotifyId);
             }
@@ -623,17 +625,10 @@ export const NodeInspector = ({
     data.photos?.[0]?.url ||
     'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800&auto=format&fit=crop';
 
-  const effectiveSpotifyTrackId =
-    resolvedSpotifyTrackId ||
-    data.musicData?.spotifyId ||
-    (data.musicData?.id && String(data.musicData.id).startsWith('spotify-') ? String(data.musicData.id).replace(/^spotify-/, '') : null) ||
-    (data.musicData?.fullTrackUrl?.match(/(?:track\/|track:)([a-zA-Z0-9]{22})/i)?.[1]) ||
-    (data.url?.match(/(?:track\/|track:)([a-zA-Z0-9]{22})/i)?.[1]) ||
-    null;
-
   const isMusicInspectorPlaying =
     Boolean(currentTrack) &&
-    ((effectiveInspectorMusicPreview && currentTrack.previewUrl === effectiveInspectorMusicPreview) ||
+    ((currentTrack.id && currentTrack.id === nodeData?.id) ||
+      (effectiveInspectorMusicPreview && currentTrack.previewUrl === effectiveInspectorMusicPreview) ||
       (currentTrack.trackTitle === (data.musicData?.trackTitle || data.title) &&
         currentTrack.artist === (data.musicData?.artist || '')));
 
@@ -1150,113 +1145,41 @@ export const NodeInspector = ({
 
                   {/* Playback Actions */}
                   <div className="flex flex-col gap-2 pt-1 border-t border-white/10">
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* 1. Play in Global Audio Queue */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const previewToPlay = effectiveInspectorMusicPreview || data.musicData?.previewUrl || '';
-                          if (isMusicInspectorPlaying) {
-                            togglePlayPause();
-                          } else {
-                            playTrack({
-                              id: nodeData.id,
-                              trackTitle: data.musicData?.trackTitle || data.title,
-                              artist: data.musicData?.artist || 'Artist',
-                              album: data.musicData?.album || '',
-                              year: data.musicData?.year || '',
-                              genre: data.musicData?.genre || 'Music',
-                              previewUrl: previewToPlay,
-                              fullTrackUrl: data.musicData?.fullTrackUrl || data.url,
-                              duration: data.musicData?.duration || 30,
-                              artwork: effectiveInspectorMusicArtwork,
-                              source: data.musicData?.source || 'Public Audio Engine',
-                            });
-                          }
-                        }}
-                        className="py-2.5 px-3 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-mono text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                      >
-                        {isMusicInspectorPlaying && isGlobalAudioPlaying ? (
-                          <>
-                            <Pause className="w-3.5 h-3.5 fill-current" />
-                            <span>Pause Preview</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
-                            <span>Play in Queue</span>
-                          </>
-                        )}
-                      </button>
-
-                      {/* 2. Listen to Entire Full Track via Spotify API */}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (showSpotifyEmbed) {
-                            setShowSpotifyEmbed(false);
-                            return;
-                          }
-                          if (isGlobalAudioPlaying) {
-                            togglePlayPause();
-                          }
-                          setShowSpotifyEmbed(true);
-                          if (!effectiveSpotifyTrackId) {
-                            const q = `${data.musicData?.artist || ''} ${data.musicData?.trackTitle || data.title || ''}`.trim();
-                            const sid = await resolveSpotifyTrackId(data.musicData || q);
-                            if (sid) {
-                              setResolvedSpotifyTrackId(sid);
-                            }
-                          }
-                        }}
-                        className={`py-2.5 px-3 font-mono text-[11px] font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all border cursor-pointer ${
-                          showSpotifyEmbed
-                            ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/40 shadow-xs'
-                            : 'bg-emerald-950/60 hover:bg-emerald-900/60 active:scale-[0.98] text-emerald-300 border-emerald-500/30'
-                        }`}
-                        title="Stream the complete full track in-place via Spotify Player API"
-                      >
-                        <Radio className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>{showSpotifyEmbed ? 'Close Full Track' : 'Listen Full Track'}</span>
-                      </button>
-                    </div>
-
-                    {/* 🎧 In-App Spotify Player Embed (Full Track API Playback) */}
-                    {showSpotifyEmbed && (
-                      <div className="w-full rounded-2xl overflow-hidden border border-emerald-500/40 bg-[#121212] shadow-xl mt-1 animate-in fade-in slide-in-from-top-1">
-                        <div className="flex items-center justify-between px-3 py-1.5 bg-black/60 border-b border-white/10 text-[10px] font-mono text-emerald-400">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="font-bold tracking-wider uppercase">Spotify Master Stream (Full Track)</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setShowSpotifyEmbed(false)}
-                            className="text-white/60 hover:text-white p-0.5 rounded cursor-pointer"
-                            title="Close Spotify Player"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        {effectiveSpotifyTrackId ? (
-                          <iframe
-                            src={`https://open.spotify.com/embed/track/${effectiveSpotifyTrackId}?utm_source=generator&theme=0`}
-                            width="100%"
-                            height="152"
-                            frameBorder="0"
-                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                            loading="lazy"
-                            className="w-full border-0 block"
-                            title={data.musicData?.trackTitle || data.title || 'Spotify Track Player'}
-                          />
-                        ) : (
-                          <div className="p-6 text-center text-xs font-mono text-white/70 flex flex-col items-center justify-center gap-2">
-                            <Disc className="w-6 h-6 animate-spin text-emerald-400" />
-                            <span>Resolving full track stream via Spotify API...</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isMusicInspectorPlaying) {
+                          togglePlayPause();
+                        } else {
+                          playTrack({
+                            id: nodeData?.id,
+                            trackTitle: data.musicData?.trackTitle || data.title,
+                            artist: data.musicData?.artist,
+                            album: data.musicData?.album,
+                            year: data.musicData?.year,
+                            genre: data.musicData?.genre,
+                            previewUrl: effectiveInspectorMusicPreview,
+                            fullAudioUrl: data.musicData?.fullAudioUrl || null,
+                            duration: data.musicData?.duration && data.musicData.duration > 30 ? data.musicData.duration : 180,
+                            artwork: effectiveInspectorMusicArtwork,
+                            source: data.musicData?.source || 'Spotify Track',
+                          });
+                        }
+                      }}
+                      className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-black font-mono text-[11px] font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
+                    >
+                      {isMusicInspectorPlaying && isGlobalAudioPlaying ? (
+                        <>
+                          <Pause className="w-3.5 h-3.5 fill-current" />
+                          <span>Pause Full Track</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                          <span>Play Full Track</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </section>
               )}

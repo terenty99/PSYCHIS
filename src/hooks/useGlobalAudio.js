@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { resolveFullTrackAudio } from '../utils/visualSearchEngine.js';
 
 // Singleton Audio State
 let audioState = {
@@ -7,25 +8,41 @@ let audioState = {
   currentIndex: 0,
   isPlaying: false,
   currentTime: 0,
-  duration: 30,
+  duration: 180,
   volume: 0.85,
+  previousVolume: 0.85,
   isMuted: false,
 };
 
-const listeners = new Set();
 let globalAudio = null;
+const listeners = new Set();
 
-function getAudioElement() {
+function getOrCreateAudio() {
   if (typeof window === 'undefined') return null;
   if (!globalAudio) {
     globalAudio = new Audio();
-    globalAudio.volume = audioState.volume;
     globalAudio.preload = 'auto';
+    globalAudio.volume = audioState.volume;
+    globalAudio.muted = audioState.isMuted;
 
     globalAudio.addEventListener('timeupdate', () => {
-      audioState.currentTime = globalAudio.currentTime;
-      audioState.duration = globalAudio.duration || audioState.currentTrack?.duration || 30;
-      notify();
+      if (globalAudio) {
+        audioState.currentTime = globalAudio.currentTime;
+        notify();
+      }
+    });
+
+    globalAudio.addEventListener('loadedmetadata', () => {
+      if (globalAudio && globalAudio.duration && !isNaN(globalAudio.duration) && isFinite(globalAudio.duration)) {
+        const d = Math.round(globalAudio.duration);
+        if (d > 30 || !audioState.duration || audioState.duration <= 30) {
+          audioState.duration = d;
+          if (audioState.currentTrack) {
+            audioState.currentTrack.duration = d;
+          }
+        }
+        notify();
+      }
     });
 
     globalAudio.addEventListener('play', () => {
@@ -40,19 +57,21 @@ function getAudioElement() {
 
     globalAudio.addEventListener('ended', () => {
       audioState.isPlaying = false;
-      audioState.currentTime = 0;
-      // Auto-advance to next track in queue if available
-      if (audioState.queue.length > 0 && audioState.currentIndex < audioState.queue.length - 1) {
-        actions.nextTrack();
-      } else {
-        notify();
-      }
+      actions.nextTrack();
+      notify();
     });
 
     globalAudio.addEventListener('error', (e) => {
-      console.warn('[GlobalAudio playback error]:', e);
-      audioState.isPlaying = false;
-      notify();
+      console.warn('[GlobalAudio] stream error, attempting fallback');
+      if (audioState.currentTrack) {
+        const track = audioState.currentTrack;
+        if (track.previewUrl && globalAudio.src !== track.previewUrl) {
+          globalAudio.src = track.previewUrl;
+          if (audioState.isPlaying) {
+            globalAudio.play().catch(() => {});
+          }
+        }
+      }
     });
   }
   return globalAudio;
@@ -66,8 +85,7 @@ function notify() {
 export const actions = {
   playTrack: (track, newQueue = null) => {
     if (!track) return;
-    const audio = getAudioElement();
-    if (!audio) return;
+    const audio = getOrCreateAudio();
 
     const trackObj = {
       id: track.id || `track-${Date.now()}`,
@@ -76,81 +94,118 @@ export const actions = {
       album: track.album || '',
       year: track.year || '',
       genre: track.genre || 'Music',
-      previewUrl: track.previewUrl || track.url || '',
-      fullTrackUrl: track.fullTrackUrl || '',
-      duration: track.duration || 30,
+      duration: track.duration && track.duration > 30 ? track.duration : 180,
       artwork: track.artwork || '',
-      source: track.source || 'Public Audio Engine',
+      source: track.source || 'Spotify Track',
+      previewUrl: track.previewUrl || '',
+      fullAudioUrl: track.fullAudioUrl || null,
     };
 
     if (newQueue && Array.isArray(newQueue) && newQueue.length > 0) {
       audioState.queue = newQueue;
-      const idx = newQueue.findIndex((t) => (t.id && t.id === trackObj.id) || (t.previewUrl && t.previewUrl === trackObj.previewUrl));
+      const idx = newQueue.findIndex((t) => (t.id && t.id === trackObj.id) || (t.trackTitle === trackObj.trackTitle && t.artist === trackObj.artist));
       audioState.currentIndex = idx !== -1 ? idx : 0;
-    } else if (!audioState.queue.some((t) => t.previewUrl === trackObj.previewUrl)) {
+    } else if (!audioState.queue.some((t) => t.id === trackObj.id || (t.trackTitle === trackObj.trackTitle && t.artist === trackObj.artist))) {
       audioState.queue = [trackObj, ...audioState.queue];
       audioState.currentIndex = 0;
     }
 
     audioState.currentTrack = trackObj;
     audioState.currentTime = 0;
-    audioState.duration = trackObj.duration || 30;
+    audioState.duration = trackObj.duration;
+    audioState.isPlaying = true;
+    notify();
 
-    if (trackObj.previewUrl) {
-      if (audio.src !== trackObj.previewUrl) {
-        audio.src = trackObj.previewUrl;
-        audio.load();
+    const playStream = (url) => {
+      if (!audio || !url) return;
+      if (audio.src !== url) {
+        audio.src = url;
       }
-      audio.play().then(() => {
-        audioState.isPlaying = true;
-        notify();
-      }).catch((err) => {
+      audio.currentTime = 0;
+      audio.volume = audioState.isMuted ? 0 : audioState.volume;
+      audio.muted = audioState.isMuted;
+      audio.play().catch((err) => {
         console.warn('[GlobalAudio play error]:', err.message);
-        audioState.isPlaying = false;
-        notify();
       });
-    } else if (trackObj.trackTitle || trackObj.artist) {
-      // Dynamically resolve preview URL on demand if missing
-      import('../utils/visualSearchEngine.js').then(({ searchMusicTracks }) => {
-        const q = `${trackObj.artist || ''} ${trackObj.trackTitle || ''}`.trim();
-        searchMusicTracks(q).then((tracks) => {
-          if (Array.isArray(tracks) && tracks.length > 0 && tracks[0].previewUrl) {
-            trackObj.previewUrl = tracks[0].previewUrl;
-            if (!trackObj.artwork && tracks[0].artwork) trackObj.artwork = tracks[0].artwork;
-            audio.src = trackObj.previewUrl;
-            audio.load();
-            audio.play().then(() => {
-              audioState.isPlaying = true;
-              notify();
-            }).catch(() => {});
+    };
+
+    if (trackObj.fullAudioUrl) {
+      playStream(trackObj.fullAudioUrl);
+    } else if (trackObj.previewUrl) {
+      playStream(trackObj.previewUrl);
+
+      resolveFullTrackAudio(trackObj, trackObj.duration).then((res) => {
+        if (res && res.url && res.url !== trackObj.previewUrl && audioState.currentTrack?.id === trackObj.id) {
+          trackObj.fullAudioUrl = res.url;
+          if (res.duration && res.duration > 30) {
+            trackObj.duration = res.duration;
+            audioState.duration = res.duration;
           }
-        }).catch(() => {});
-      });
+          if (audio && audioState.isPlaying) {
+            const currentPos = audio.currentTime;
+            audio.src = res.url;
+            if (currentPos > 0) {
+              audio.currentTime = currentPos;
+            }
+            audio.play().catch(() => {});
+          }
+          notify();
+        }
+      }).catch(() => {});
+    } else {
+      // Neither fullAudioUrl nor previewUrl was immediately provided
+      // Prime audio instance synchronously to register user gesture activation
+      try {
+        audio.pause();
+      } catch (_) {}
+
+      resolveFullTrackAudio(trackObj, trackObj.duration).then((res) => {
+        if (res && res.url && audioState.currentTrack?.id === trackObj.id) {
+          trackObj.fullAudioUrl = res.url;
+          trackObj.previewUrl = trackObj.previewUrl || res.url;
+          if (res.duration && res.duration > 30) {
+            trackObj.duration = res.duration;
+            audioState.duration = res.duration;
+          }
+          if (audio && audioState.isPlaying) {
+            playStream(res.url);
+          }
+          notify();
+        }
+      }).catch(() => {});
     }
   },
 
   togglePlayPause: () => {
-    const audio = getAudioElement();
-    if (!audio || !audioState.currentTrack) return;
+    const audio = getOrCreateAudio();
+    if (!audioState.currentTrack || !audio) return;
 
     if (audioState.isPlaying) {
       audio.pause();
       audioState.isPlaying = false;
-      notify();
     } else {
-      audio.play().then(() => {
-        audioState.isPlaying = true;
-        notify();
-      }).catch((e) => console.warn(e));
+      if (!audio.src || audio.src === '' || audio.src === window.location.href) {
+        actions.playTrack(audioState.currentTrack);
+        return;
+      }
+      audio.play().catch((err) => {
+        console.warn('[GlobalAudio resume error]:', err.message);
+        actions.playTrack(audioState.currentTrack);
+      });
+      audioState.isPlaying = true;
     }
+    notify();
   },
 
   seek: (seconds) => {
-    const audio = getAudioElement();
-    if (!audio) return;
+    const audio = getOrCreateAudio();
     const safeTime = Math.max(0, Math.min(audioState.duration, seconds));
-    audio.currentTime = safeTime;
     audioState.currentTime = safeTime;
+    if (audio) {
+      try {
+        audio.currentTime = safeTime;
+      } catch (_) {}
+    }
     notify();
   },
 
@@ -162,11 +217,8 @@ export const actions = {
   },
 
   prevTrack: () => {
-    const audio = getAudioElement();
-    if (audio && audio.currentTime > 3) {
-      audio.currentTime = 0;
-      audioState.currentTime = 0;
-      notify();
+    if (audioState.currentTime > 3) {
+      actions.seek(0);
       return;
     }
     if (audioState.queue.length === 0) return;
@@ -176,10 +228,10 @@ export const actions = {
   },
 
   dismiss: () => {
-    const audio = getAudioElement();
+    const audio = getOrCreateAudio();
     if (audio) {
       audio.pause();
-      audio.currentTime = 0;
+      audio.src = '';
     }
     audioState.isPlaying = false;
     audioState.currentTrack = null;
@@ -188,24 +240,36 @@ export const actions = {
   },
 
   setVolume: (val) => {
-    const audio = getAudioElement();
-    const clamped = Math.max(0, Math.min(1, val));
+    const clamped = Math.max(0, Math.min(1, Math.round(val * 100) / 100));
+    if (clamped > 0) {
+      audioState.previousVolume = clamped;
+    }
     audioState.volume = clamped;
     audioState.isMuted = clamped === 0;
+
+    const audio = getOrCreateAudio();
     if (audio) {
       audio.volume = clamped;
       audio.muted = audioState.isMuted;
     }
+
     notify();
   },
 
+  adjustVolumeDelta: (delta) => {
+    const current = audioState.isMuted ? 0 : audioState.volume;
+    const next = Math.max(0, Math.min(1, Math.round((current + delta) * 100) / 100));
+    actions.setVolume(next);
+  },
+
   toggleMute: () => {
-    const audio = getAudioElement();
-    audioState.isMuted = !audioState.isMuted;
-    if (audio) {
-      audio.muted = audioState.isMuted;
+    if (audioState.isMuted) {
+      const restore = audioState.previousVolume > 0 ? audioState.previousVolume : 0.85;
+      actions.setVolume(restore);
+    } else {
+      audioState.previousVolume = audioState.volume;
+      actions.setVolume(0);
     }
-    notify();
   },
 };
 
@@ -213,7 +277,6 @@ export function useGlobalAudio() {
   const [state, setState] = useState(() => ({ ...audioState }));
 
   useEffect(() => {
-    getAudioElement();
     listeners.add(setState);
     return () => {
       listeners.delete(setState);

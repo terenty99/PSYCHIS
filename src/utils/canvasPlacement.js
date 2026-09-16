@@ -86,18 +86,18 @@ export function getNodeDimensions(nodeOrData) {
     }
   }
 
-  const isVideo = data.mediaType === 'video' || effectiveStructure === 'video_top' || Boolean(data.videoData) || Boolean(data.videoQuery);
   const isMusic = data.mediaType === 'music' || effectiveStructure === 'music_card' || Boolean(data.musicData) || Boolean(data.tracks);
+  const isVideo = !isMusic && (data.mediaType === 'video' || effectiveStructure === 'video_top' || Boolean(data.videoData) || Boolean(data.videoQuery));
   const isSplitMedia = effectiveStructure === 'split_media_right' || effectiveStructure === 'split_media_left';
   const isSplitFormula = effectiveStructure === 'split_formula';
 
   // 1. DYNAMIC WIDTH
   let width = layout.width || nodeOrData.width;
   if (!width || typeof width !== 'number' || isNaN(width) || width < 250) {
-    if (isVideo) {
-      width = 420;
-    } else if (isMusic) {
+    if (isMusic) {
       width = 390;
+    } else if (isVideo) {
+      width = 420;
     } else if (isSplitMedia) {
       width = 460;
     } else if (isSplitFormula) {
@@ -128,10 +128,10 @@ export function getNodeDimensions(nodeOrData) {
     if (layout.density === 'expanded') estHeight += 40;
     else if (layout.density === 'compact') estHeight -= 20;
 
-    if (isVideo) {
-      estHeight = 380;
-    } else if (isMusic) {
+    if (isMusic) {
       estHeight = 340;
+    } else if (isVideo) {
+      estHeight = 380;
     } else if (isSplitMedia) {
       // In horizontal split layout, media is side-by-side with text rather than stacked
       estHeight = Math.max(160, estHeight + (data.detailedSynthesis ? 40 : 15));
