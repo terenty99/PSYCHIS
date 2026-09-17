@@ -70,22 +70,9 @@
       ],
       "icon": "public/icon.icns",
       "category": "public.app-category.productivity",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
       "identity": null
-    },
-    "dmg": {
-      "title": "PSYCHIS Setup",
-      "contents": [
-        {
-          "x": 130,
-          "y": 220
-        },
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ]
     }
   },
   "dependencies": {
