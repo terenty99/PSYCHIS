@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getStoredBackendUrl, getStoredAiMode } from '../utils/geminiClient';
+import { getStoredBackendUrl, getStoredAiMode } from '../utils/engineClient';
 
 /**
  * PSYCHIS — The Autonomous Semantic Loom

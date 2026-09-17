@@ -228,7 +228,7 @@ export const SpawnedNode = ({
           url: node.data.gifUrl,
           svg: node.data.gifSvg || null,
           type: 'gif',
-          author: node.data.author || 'AI Kinetic Synthesizer',
+          author: node.data.author || 'Kinetic Simulation Engine',
           title: node.data.gifTitle || node.data.title || 'Kinetic Simulation',
           caption: node.data.gifCaption || null,
         }
@@ -266,11 +266,9 @@ export const SpawnedNode = ({
   const density = layout.density || 'comfortable';
 
   const descClampClass =
-    density === 'expanded'
-      ? 'line-clamp-6'
-      : density === 'compact'
-      ? 'line-clamp-2'
-      : 'line-clamp-4';
+    density === 'compact'
+      ? 'line-clamp-3'
+      : '';
 
   const textCorpus = [
     node.data?.title,
@@ -419,12 +417,13 @@ export const SpawnedNode = ({
   );
 
   const renderText = (isLong = false) => {
-    const content = isLong
-      ? (node.data?.detailedSynthesis || node.data?.description || 'Synthesized knowledge artifact.')
-      : (node.data?.description || 'Synthesized knowledge artifact.');
+    const content =
+      node.data?.description ||
+      node.data?.detailedSynthesis ||
+      'Synthesized knowledge artifact.';
 
     return (
-      <p className={`text-[9.5px] text-text-secondary leading-[1.45] mb-2.5 ${isLong ? 'line-clamp-6 whitespace-pre-line' : descClampClass}`}>
+      <p className={`text-[9.5px] text-text-secondary leading-[1.5] mb-2.5 break-words ${isLong ? 'whitespace-pre-line' : ''} ${descClampClass}`}>
         {content}
       </p>
     );
@@ -715,37 +714,79 @@ export const SpawnedNode = ({
 
   const renderInquiries = () => null;
 
+  const renderClippedReferences = () => {
+    if (!Array.isArray(node.data?.references) || node.data.references.length === 0) return null;
+    return (
+      <div className="mb-2 pt-1.5 border-t border-grey-medium/40 flex flex-col gap-1 w-full text-left">
+        <div className="flex items-center justify-between text-[8px] font-mono font-medium text-text-muted">
+          <span className="flex items-center gap-1">
+            <span className="text-emerald-600">📎</span>
+            <span>Citations ({node.data.references.length})</span>
+          </span>
+        </div>
+        <div className="flex flex-col gap-1 max-h-[70px] overflow-y-auto scrollbar-none w-full">
+          {node.data.references.slice(0, 3).map((ref, idx) => (
+            <div
+              key={idx}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenBrowser?.(ref.url);
+              }}
+              className="group/ref flex items-start gap-1 p-1 rounded bg-grey-soft/70 hover:bg-emerald-50 border border-grey-medium/40 hover:border-emerald-200 transition-colors cursor-pointer text-left"
+              title={`Open in browser: ${ref.url}`}
+            >
+              <span className="text-[8px] text-text-muted group-hover/ref:text-emerald-600 shrink-0 mt-0.5">↗</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-mono text-[8.5px] font-semibold text-text-primary group-hover/ref:text-emerald-800 truncate">
+                  {ref.title || ref.source || 'Citation'}
+                </div>
+                {ref.snippet && (
+                  <div className="text-[7.5px] text-text-secondary line-clamp-1 italic">
+                    "{ref.snippet}"
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderFooter = () => (
-    <div className="flex justify-between items-center font-mono text-[8px] pt-1.5 border-t border-grey-soft mt-auto">
-      <span className="text-text-muted truncate max-w-[140px]">
-        {node.data.source || node.data.institution || node.data.category || 'AI Synthesis // 2026'}
-      </span>
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          type="button"
-          onClick={(e) => {
-            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
-            const targetUrl = node.data?.url || node.data?.sourceUrl;
-            const validUrl = targetUrl && !targetUrl.includes('wikipedia.org/wiki/Special:Search')
-              ? targetUrl
-              : `https://html.duckduckgo.com/html/?q=${encodeURIComponent(node.data?.title || 'research')}`;
-            onOpenBrowser?.(validUrl);
-          }}
-          className="text-[#645e57] hover:text-[#2B2724] font-medium hover:underline cursor-pointer flex items-center gap-0.5 transition-colors"
-          title="Open source in built-in browser"
-        >
-          <span>🌐</span> browser
-        </button>
-        <button
-          onClick={(e) => {
-            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
-            e.stopPropagation();
-            onInspect?.(node.id);
-          }}
-          className="text-text-primary font-semibold hover:underline cursor-pointer"
-        >
-          view +
-        </button>
+    <div className="flex flex-col w-full mt-auto">
+      {renderClippedReferences()}
+      <div className="flex justify-between items-center font-mono text-[8px] pt-1.5 border-t border-grey-soft">
+        <span className="text-text-muted truncate max-w-[140px]">
+          {node.data.source || node.data.institution || node.data.category || 'Research Dossier'}
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+              const targetUrl = node.data?.url || node.data?.sourceUrl;
+              const validUrl = targetUrl && !targetUrl.includes('wikipedia.org/wiki/Special:Search')
+                ? targetUrl
+                : `https://html.duckduckgo.com/html/?q=${encodeURIComponent(node.data?.title || 'research')}`;
+              onOpenBrowser?.(validUrl);
+            }}
+            className="text-[#645e57] hover:text-[#2B2724] font-medium hover:underline cursor-pointer flex items-center gap-0.5 transition-colors"
+            title="Open source in built-in browser"
+          >
+            <span>🌐</span> browser
+          </button>
+          <button
+            onClick={(e) => {
+              if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+              e.stopPropagation();
+              onInspect?.(node.id);
+            }}
+            className="text-text-primary font-semibold hover:underline cursor-pointer"
+          >
+            view +
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -763,7 +804,11 @@ export const SpawnedNode = ({
         top: `${node.position?.y ?? 0}px`,
         width: `${dynamicWidth}px`,
       }}
-      className={node.data?.justMaterialized ? 'animate-materialize' : ''}
+      className={`${node.data?.justMaterialized ? 'animate-materialize' : ''} ${
+        node.data?._justClipped && Date.now() - node.data._justClipped < 5000
+          ? '!ring-2 !ring-emerald-500 !shadow-[0_0_25px_rgba(16,185,129,0.35)] transition-all duration-700'
+          : ''
+      }`}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       onPointerEnter={onPointerEnter}

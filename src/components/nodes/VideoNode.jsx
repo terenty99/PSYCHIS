@@ -131,7 +131,7 @@ export const VideoNode = ({
   // Density & layout classes
   const density = data.layout?.density || 'comfortable';
   const descClampClass =
-    density === 'expanded' ? 'line-clamp-6' : density === 'compact' ? 'line-clamp-2' : 'line-clamp-4';
+    density === 'compact' ? 'line-clamp-3' : 'break-words';
 
   const nodeWidth = isTheater ? 780 : (data.layout?.width || 420);
 
@@ -292,7 +292,7 @@ export const VideoNode = ({
 
       {/* 📝 4. SYNTHESIS DOSSIER */}
       <p className={`text-[10px] text-text-secondary leading-[1.5] mb-3 ${descClampClass}`}>
-        {data.detailedSynthesis || data.description || 'Step-by-step practical procedural demonstration and audiovisual analysis.'}
+        {data.description || data.detailedSynthesis || 'Step-by-step practical procedural demonstration and audiovisual analysis.'}
       </p>
 
       {/* 🔗 6. FOOTER */}

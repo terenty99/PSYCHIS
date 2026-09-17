@@ -38,7 +38,7 @@ import {
   setStoredSpotifyCredentials,
   testSpotifyConnection,
   DEFAULT_GROQ_KEY,
-} from '../../utils/geminiClient';
+} from '../../utils/engineClient';
 import {
   getStoredTavilyKey,
   setStoredTavilyKey,

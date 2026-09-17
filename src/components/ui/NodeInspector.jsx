@@ -335,7 +335,7 @@ const getNodeTypeConfig = (type) => {
       return {
         icon: Sparkles,
         label: 'Parametric Discovery // 2026',
-        badge: 'AI DISCOVERY',
+        badge: 'DISCOVERY',
       };
     default:
       return {
@@ -731,7 +731,7 @@ export const NodeInspector = ({
           type: 'gif',
           title: gifItem.title,
           caption: gifItem.caption,
-          author: 'AI Kinetic Synthesizer',
+          author: 'Kinetic Simulation Engine',
         },
         ...(Array.isArray(nodeData.data?.media) ? nodeData.data.media.filter((m) => m.type !== 'gif') : []),
       ],
@@ -743,7 +743,7 @@ export const NodeInspector = ({
           type: 'gif',
           title: gifItem.title,
           caption: gifItem.caption,
-          author: 'AI Kinetic Synthesizer',
+          author: 'Kinetic Simulation Engine',
           tag: '60fps Kinetic',
         },
         ...(Array.isArray(nodeData.data?.photos) ? nodeData.data.photos.filter((p) => p.type !== 'gif') : []),
@@ -1902,8 +1902,13 @@ export const NodeInspector = ({
                       <span className="font-sans text-[12px] font-medium text-text-primary leading-snug">
                         {ref.title}
                       </span>
+                      {ref.snippet && (
+                        <p className="text-[11px] text-text-secondary italic border-l-2 border-emerald-500/60 pl-2.5 py-0.5 my-0.5 bg-grey-soft/40 rounded-r">
+                          "{ref.snippet}"
+                        </p>
+                      )}
                       <div className="flex items-center justify-between font-mono text-[10px] text-text-muted">
-                        <span>{ref.source} ({ref.year})</span>
+                        <span>{ref.source}{ref.year ? ` (${ref.year})` : ref.clippedAt ? ` [clipped ${ref.clippedAt}]` : ''}</span>
                         <button
                           onClick={() => handleOpenSourceInBrowser(ref.url)}
                           className="text-text-primary hover:underline flex items-center gap-0.5 cursor-pointer font-medium"

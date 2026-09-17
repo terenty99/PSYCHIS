@@ -5,7 +5,7 @@
  * ZERO HARDCODED STOCK IMAGES: returns only genuine, relevant media matching the entity, or empty.
  */
 
-import { getStoredYouTubeKey } from './geminiClient.js';
+import { getStoredYouTubeKey } from './engineClient.js';
 
 export const VISUAL_ARCHIVES = {};
 

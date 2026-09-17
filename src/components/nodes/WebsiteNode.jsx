@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
-import { Globe, Lock, ExternalLink, ArrowUpRight } from 'lucide-react';
+import { Globe, Lock, ExternalLink, ArrowUpRight, Bookmark } from 'lucide-react';
 
 export const WebsiteNode = ({
   node,
@@ -49,7 +49,11 @@ export const WebsiteNode = ({
         top: `${node.position?.y ?? 0}px`,
         width: `${dynamicWidth}px`,
       }}
-      className={node.data?.justMaterialized ? 'animate-materialize' : ''}
+      className={`${node.data?.justMaterialized ? 'animate-materialize' : ''} ${
+        node.data?._justClipped && Date.now() - node.data._justClipped < 5000
+          ? '!ring-2 !ring-emerald-500 !shadow-[0_0_25px_rgba(16,185,129,0.35)] transition-all duration-700'
+          : ''
+      }`}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       onPointerEnter={onPointerEnter}
@@ -161,9 +165,46 @@ export const WebsiteNode = ({
         {node.data.title || hostname}
       </h3>
 
-      <p className="text-[10px] text-text-secondary leading-[1.45] mb-2.5 line-clamp-2">
+      <p className="text-[10px] text-text-secondary leading-[1.5] mb-2.5 break-words">
         {node.data.description || 'Live web signal mapped to spatial canvas.'}
       </p>
+
+      {/* Clipped References & Citations */}
+      {Array.isArray(node.data?.references) && node.data.references.length > 0 && (
+        <div className="mb-2.5 pt-1.5 border-t border-grey-medium/50 flex flex-col gap-1">
+          <div className="flex items-center justify-between text-[9px] font-mono font-medium text-text-muted">
+            <span className="flex items-center gap-1">
+              <Bookmark className="w-2.5 h-2.5 text-emerald-600" />
+              <span>Clipped Citations ({node.data.references.length})</span>
+            </span>
+          </div>
+          <div className="flex flex-col gap-1 max-h-[85px] overflow-y-auto scrollbar-none">
+            {node.data.references.map((ref, idx) => (
+              <div
+                key={idx}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenBrowser?.(ref.url);
+                }}
+                className="group/ref flex items-start gap-1 p-1 rounded bg-grey-soft/70 hover:bg-emerald-50 border border-grey-medium/50 hover:border-emerald-300 transition-colors cursor-pointer text-left"
+                title={`Open in browser: ${ref.url}`}
+              >
+                <ExternalLink className="w-2.5 h-2.5 text-text-muted group-hover/ref:text-emerald-600 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-mono text-[9px] font-semibold text-text-primary group-hover/ref:text-emerald-800 truncate">
+                    {ref.title || ref.source || 'Citation'}
+                  </div>
+                  {ref.snippet && (
+                    <div className="text-[8px] text-text-secondary line-clamp-1 italic mt-0.5">
+                      "{ref.snippet}"
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="flex gap-1.5 pt-1.5 border-t border-grey-soft">

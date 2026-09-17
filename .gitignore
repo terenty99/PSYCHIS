@@ -3,17 +3,13 @@ node_modules/
 .pnp
 .pnp.js
 
-# Agent & Assistant Folders
-.agents/
-.claude/
-.gemini/
-.system_generated/
-uiux-designer-antigravityskills-com/
-3d-web-experience/
-backup_site_v*/
-mock_site/
+# Python cache
 __pycache__/
 *.pyc
+
+# Local backups & mocks
+backup_site_v*/
+mock_site/
 
 # Testing & Artifacts
 coverage/
@@ -26,6 +22,8 @@ coverage/
 .env.test.local
 .env.production.local
 
-# OS files
+# OS & Editor files
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/

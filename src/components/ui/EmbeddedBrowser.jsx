@@ -203,6 +203,7 @@ const TabFrameItem = ({
   isElectron,
   onUpdateNav,
   onLoadingChange,
+  onRegisterWebview,
 }) => {
   const iframeRef = useRef(null);
   const videoRef = useRef(null);
@@ -212,16 +213,38 @@ const TabFrameItem = ({
   const videoMeta = getVideoMetadata(tab.url);
   const effectiveFrameUrl = videoMeta?.embedUrl || tab.url;
 
-  // Electron webview event listeners
+  // Register webview instance with parent for direct extraction
+  useEffect(() => {
+    if (webviewRef.current && onRegisterWebview) {
+      onRegisterWebview(tab.id, webviewRef.current);
+      return () => onRegisterWebview(tab.id, null);
+    }
+  }, [tab.id, onRegisterWebview]);
+
+  // Electron webview event listeners with full navigation and redirect tracking
   useEffect(() => {
     const webview = webviewRef.current;
     if (!webview || !isElectron) return;
+
+    const checkAndSync = () => {
+      try {
+        const curUrl = webview.getURL?.();
+        const curTitle = webview.getTitle?.();
+        if (curUrl && curUrl !== 'about:blank' && curUrl !== lastNavUrlRef.current) {
+          lastNavUrlRef.current = curUrl;
+          onUpdateNav?.(tab.id, curUrl, curTitle || null);
+        } else if (curTitle && curTitle !== tab.title) {
+          onUpdateNav?.(tab.id, null, curTitle);
+        }
+      } catch (_) {}
+    };
 
     const handleDidNavigate = (e) => {
       if (e.url && e.url !== lastNavUrlRef.current) {
         lastNavUrlRef.current = e.url;
         onUpdateNav?.(tab.id, e.url, null);
       }
+      checkAndSync();
     };
 
     const handleTitleUpdated = (e) => {
@@ -231,22 +254,35 @@ const TabFrameItem = ({
     };
 
     const handleStartLoading = () => onLoadingChange?.(tab.id, true);
-    const handleStopLoading = () => onLoadingChange?.(tab.id, false);
+    const handleStopLoading = () => {
+      onLoadingChange?.(tab.id, false);
+      checkAndSync();
+    };
+
+    const handleDomReady = () => {
+      checkAndSync();
+    };
 
     webview.addEventListener('did-navigate', handleDidNavigate);
     webview.addEventListener('did-navigate-in-page', handleDidNavigate);
+    webview.addEventListener('did-redirect-navigation', handleDidNavigate);
+    webview.addEventListener('will-navigate', handleDidNavigate);
     webview.addEventListener('page-title-updated', handleTitleUpdated);
     webview.addEventListener('did-start-loading', handleStartLoading);
     webview.addEventListener('did-stop-loading', handleStopLoading);
+    webview.addEventListener('dom-ready', handleDomReady);
 
     return () => {
       webview.removeEventListener('did-navigate', handleDidNavigate);
       webview.removeEventListener('did-navigate-in-page', handleDidNavigate);
+      webview.removeEventListener('did-redirect-navigation', handleDidNavigate);
+      webview.removeEventListener('will-navigate', handleDidNavigate);
       webview.removeEventListener('page-title-updated', handleTitleUpdated);
       webview.removeEventListener('did-start-loading', handleStartLoading);
       webview.removeEventListener('did-stop-loading', handleStopLoading);
+      webview.removeEventListener('dom-ready', handleDomReady);
     };
-  }, [isElectron, tab.id, onUpdateNav, onLoadingChange]);
+  }, [isElectron, tab.id, tab.title, onUpdateNav, onLoadingChange]);
 
   const isHomepage = tab.url === 'psychis://home' || tab.url === 'about:blank' || !tab.url;
 
@@ -351,6 +387,15 @@ export const EmbeddedBrowser = ({
   const tabsContainerRef = useRef(null);
   const bookmarksRef = useRef(null);
   const lastPropUrlRef = useRef(initialUrl);
+  const webviewsRef = useRef({});
+
+  const handleRegisterWebview = useCallback((tabId, webview) => {
+    if (webview) {
+      webviewsRef.current[tabId] = webview;
+    } else {
+      delete webviewsRef.current[tabId];
+    }
+  }, []);
 
   const isElectron = typeof window !== 'undefined' && (
     Boolean(window.process?.versions?.electron) ||
@@ -653,16 +698,46 @@ export const EmbeddedBrowser = ({
     }
   };
 
-  const handleClip = () => {
-    if (!activeTab?.url) return;
-    const textToClip = `[Live Web Reference from ${activeTab.url}]`;
+  const handleClip = async () => {
+    let clipUrl = activeTab?.url;
+    let clipTitle = activeTab?.title;
+    let selectedText = '';
+
+    try {
+      const activeWebview = webviewsRef.current?.[activeTabId];
+      if (activeWebview) {
+        const realUrl = activeWebview.getURL?.();
+        const realTitle = activeWebview.getTitle?.();
+        if (realUrl && realUrl !== 'about:blank') clipUrl = realUrl;
+        if (realTitle) clipTitle = realTitle;
+        const sel = await activeWebview.executeJavaScript('window.getSelection().toString()').catch(() => '');
+        if (sel && typeof sel === 'string') selectedText = sel.trim();
+      }
+    } catch (_) {}
+
+    if (!clipUrl) return;
+
+    const targetNodeId = activeNode?.id;
+    if (!targetNodeId) {
+      setClipStatus('no_node');
+      setTimeout(() => setClipStatus(''), 2500);
+      return;
+    }
+
+    const textToClip = selectedText
+      ? `"${selectedText}"`
+      : `[Live Web Reference from ${clipUrl}]`;
+
     onClipToNode?.({
       text: textToClip,
-      url: activeTab.url,
-      nodeId: activeNode?.id,
+      url: clipUrl,
+      title: clipTitle,
+      nodeId: targetNodeId,
+      snippet: selectedText || null,
     });
+
     setClipStatus('clipped');
-    setTimeout(() => setClipStatus(''), 1500);
+    setTimeout(() => setClipStatus(''), 2000);
   };
 
   const handleOpenExternal = () => {
@@ -982,15 +1057,24 @@ export const EmbeddedBrowser = ({
             <button
               onClick={handleClip}
               className={`btn-contemplative !h-7 !px-2 text-[11px] font-mono flex items-center gap-1 transition-all ${
-                clipStatus === 'clipped' ? '!bg-emerald-50 !border-emerald-300 text-emerald-700' : ''
+                clipStatus === 'clipped'
+                  ? '!bg-emerald-50 !border-emerald-300 text-emerald-700'
+                  : clipStatus === 'no_node'
+                  ? '!bg-amber-50 !border-amber-300 text-amber-700'
+                  : ''
               }`}
-              title="Clip reference to selected node dossier"
+              title={activeNode?.data?.title ? `Clip reference to "${activeNode.data.title}"` : 'Select a node on canvas to clip reference'}
               aria-label="Clip page reference to selected node"
             >
               {clipStatus === 'clipped' ? (
                 <>
                   <Check className="w-3 h-3 text-emerald-600" />
                   <span className="text-[10px]">Clipped!</span>
+                </>
+              ) : clipStatus === 'no_node' ? (
+                <>
+                  <Bookmark className="w-3 h-3 text-amber-600" />
+                  <span className="text-[10px]">Select Node!</span>
                 </>
               ) : (
                 <>
@@ -1002,20 +1086,41 @@ export const EmbeddedBrowser = ({
 
             {/* Map to Graph */}
             <button
-              onClick={() => {
-                onMapToGraph?.(activeTab.url);
-                setClipStatus('mapped');
-                setTimeout(() => setClipStatus(''), 1500);
+              onClick={async () => {
+                if (clipStatus === 'mapping') return;
+                setClipStatus('mapping');
+                try {
+                  let mapUrl = activeTab.url;
+                  try {
+                    const activeWebview = webviewsRef.current?.[activeTabId];
+                    if (activeWebview) {
+                      const realUrl = activeWebview.getURL?.();
+                      if (realUrl && realUrl !== 'about:blank') mapUrl = realUrl;
+                    }
+                  } catch (_) {}
+                  await onMapToGraph?.(mapUrl);
+                  setClipStatus('mapped');
+                } catch (e) {
+                  console.error('Error mapping page to graph:', e);
+                  setClipStatus('');
+                } finally {
+                  setTimeout(() => setClipStatus(''), 1500);
+                }
               }}
+              disabled={clipStatus === 'mapping'}
               className={`btn-contemplative !h-7 !px-2 text-[11px] font-mono flex items-center gap-1 transition-all ${
                 clipStatus === 'mapped' ? '!bg-amber-50 !border-amber-300 text-amber-800' : ''
-              }`}
-              title="Map current page as new card on canvas"
+              } ${clipStatus === 'mapping' ? '!bg-amber-50/60 !border-amber-200 text-amber-700 opacity-90 cursor-wait' : ''}`}
+              title="Intelligently analyze and map current page to canvas"
               aria-label="Map page to spatial canvas"
             >
-              <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
+              {clipStatus === 'mapping' ? (
+                <Loader2 className="w-3 h-3 text-amber-600 animate-spin" />
+              ) : (
+                <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
+              )}
               <span className="hidden md:inline text-[10.5px]">
-                {clipStatus === 'mapped' ? 'Mapped!' : 'Map'}
+                {clipStatus === 'mapping' ? 'Analyzing...' : clipStatus === 'mapped' ? 'Mapped!' : 'Map'}
               </span>
             </button>
 
@@ -1072,6 +1177,7 @@ export const EmbeddedBrowser = ({
                   isElectron={isElectron}
                   onUpdateNav={handleUpdateTabNav}
                   onLoadingChange={handleTabLoadingChange}
+                  onRegisterWebview={handleRegisterWebview}
                 />
               </div>
             );

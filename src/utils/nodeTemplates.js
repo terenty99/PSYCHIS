@@ -588,6 +588,30 @@ export const NODE_TEMPLATES = {
  */
 export function createNodeFromTemplate(templateKey, id, position, customData = {}) {
   const template = NODE_TEMPLATES[templateKey] || NODE_TEMPLATES.spawned;
+  const isCustomEntity = Boolean(
+    customData.title || customData.url || customData.sourceUrl || customData.description
+  );
+
+  // If this is a real custom entity/URL, do not inherit domain-specific mock formulas or mock references
+  const baseData = isCustomEntity
+    ? {
+        category: template.category,
+        status: template.status,
+        formula: null,
+        formulaType: null,
+        formulas: [],
+        derivationSteps: [],
+        vitalStats: [],
+        references: [],
+        media: [],
+        targetedInquiries: [],
+      }
+    : {
+        category: template.category,
+        status: template.status,
+        ...template.defaultData,
+      };
+
   return {
     id: id || `node_${Date.now().toString(36)}`,
     type: template.type,
@@ -595,9 +619,7 @@ export function createNodeFromTemplate(templateKey, id, position, customData = {
     height: template.height,
     position: position || { x: 300, y: 250 },
     data: {
-      category: template.category,
-      status: template.status,
-      ...template.defaultData,
+      ...baseData,
       ...customData,
     },
   };

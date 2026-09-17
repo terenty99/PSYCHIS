@@ -1,7 +1,6 @@
 /**
- * PSYCHIS Direct In-App Groq AI Client & Multimedia Engine
- * Enables client-side querying of Groq models (Llama 3.3, GPT OSS 120B, etc.) and Tavily live search
- * with full visual enrichment and structured price hero synthesis.
+ * PSYCHIS Synthesis & Multimedia Engine Client
+ * Client-side querying of neural models, live web search, and media enrichment.
  */
 
 import {
@@ -107,7 +106,7 @@ export function getStoredGroqModel() {
     const stored = localStorage.getItem(STORAGE_KEY_GROQ_MODEL);
     if (stored) {
       if (
-        stored.includes('gemini') ||
+        stored.includes('legacy') ||
         stored.includes('llama') ||
         stored.includes('mixtral') ||
         stored.includes('deepseek') ||
@@ -286,16 +285,21 @@ CRITICAL ARCHITECTURAL RULES:
    * When appropriate, output "schemaSvg": a clean, responsive, self-contained SVG string formatted for a dark container (<svg viewBox="0 0 200 70" className="w-full h-full">...</svg>) with clean white/amber lines (stroke="#FFFFFF" or stroke="#F59E0B", strokeWidth="1.5") and legible annotations tailored specifically to that exact theorem or concept.
    * If a visual schema is NOT needed or not appropriate, set "schemaSvg": null and "schemaType": null. Do NOT force a generic placeholder.
 
-4. DOMAIN ROUTING (STEM vs CHARACTERS / HUMANITIES / CULTURE):
-   * CHARACTERS, BIOGRAPHIES, TELEVISION, CINEMA, HISTORY, LITERATURE, CULTURE:
-     - When the subject is a person, character, actor, TV show, movie, anime, book, or cultural topic:
-       * "formula": MUST BE NULL! NEVER invent pseudoscientific or metaphorical equations!
-       * "formulaType": MUST BE NULL!
-       * "derivationSteps": MUST BE [] (EMPTY ARRAY)!
-       * "schemaSvg": MUST BE NULL!
-       * "schemaType": null!
-       * "visualSearchQuery": Clean entity name for photo lookup.
-   * GENUINE STEM (Mathematics, Physics, Chemistry, Kinematics, Engineering):
+4. DOMAIN ROUTING & STRICT FORMULA GOVERNANCE:
+   * STRICT FORMULA RESTRICTION:
+     "formula", "formulaType", and "derivationSteps" are STRICTLY RESERVED for subjects that are fundamentally defined by established, canonical mathematical or physical laws/theorems with well-known governing equations (e.g. Navier-Stokes, Einstein field equations, Euler's formula, Carnot efficiency, Law of Cosines, Ohm's law, Schrödinger equation).
+   * FOR ALL OTHER DOMAINS — ABSOLUTE PROHIBITION ON FORMULAS & PSEUDOSCIENTIFIC BOUNDS:
+     - External web pages, websites, URLs, portals, articles, blogs, news, online platforms;
+     - Schools, universities, academic contests, olympiads, competitions, events, institutions;
+     - Characters, biographies, historical figures, television, cinema, literature, humanities, pop culture;
+     - Food, recipes, products, companies, everyday topics:
+     * "formula": MUST BE NULL! NEVER invent pseudoscientific equations or arbitrary tolerance bounds!
+     * "formulaType": MUST BE NULL!
+     * "derivationSteps": MUST BE [] (EMPTY ARRAY)!
+     * "schemaSvg": MUST BE NULL!
+     * "schemaType": null!
+     * "visualSearchQuery": Clean entity name for photo lookup.
+   * GENUINE STEM (Strictly canonical Mathematics, Physics, Chemistry, Kinematic Mechanisms):
      * "formula": Valid LaTeX string formatted for KaTeX.
      * "formulaType": Canonical designation.
      * "derivationSteps": Array of 2 to 4 step-by-step mathematical proof objects with LaTeX formulas.
@@ -303,27 +307,30 @@ CRITICAL ARCHITECTURAL RULES:
 
 4. CONTENT-ADAPTIVE DIVERSE NODE STRUCTURE & MEDIA ARCHETYPES:
    * Content dictates form. Every entity MUST have a tailored "layout.structure" and "mediaType" suited to its nature.
-   * AUTONOMOUS VIDEO DECISION:
-     - Practical demonstrations, how-to guides, and step-by-step physical processes (e.g. "how to cook soup", origami, mechanical assembly, lab experiments, sports technique, tutorials).
-     - Audiovisual culture (music videos, video essays, movie trailers, speeches, anime fight scenes, historic broadcasts, or when explicitly requested).
-     - For video: "mediaType": "video", "layout": {"structure": "video_top", "width": 420}, "videoQuery": "clean search query", "videoPlatform": "youtube"
-   * AUTONOMOUS MUSIC DECISION:
-     - Specific tracks or songs (e.g. "Killer Queen", "Creep" -> displays track info, album, release year, harmonic/lyrical analysis).
-     - Bands / Artists (e.g. "PAINFINDER GROUP", "Radiohead" -> presents artist dossier + their defining track).
-     - Musical genres, albums, and music theory concepts with audio examples.
-     - For music: "mediaType": "music", "layout": {"structure": "music_card", "width": 390}, "musicData": {"trackTitle": "Track Name", "artist": "Artist/Band", "album": "Album", "year": "YYYY", "genre": "Genre", "query": "clean search query"}
-   * Available structure types:
-     - "video_top": Video player strictly spanning the TOP (width: 420px), title & synthesis below.
-     - "music_card": Interactive waveform & acoustic hero card (width: 390px).
-     - "split_media_right": WIDE HORIZONTAL CARD (width: 460px). Text on LEFT, photo on RIGHT.
-     - "split_media_left": WIDE HORIZONTAL CARD (width: 460px). Photo on LEFT, text on RIGHT.
-     - "media_top": Vertical card (width: 320-350px). Media at the top, title & concise text below.
-     - "media_bottom": Vertical card (width: 320-350px). Header & rich description FIRST, media artifact at the bottom.
-     - "split_formula": WIDE MATH CARD (width: 485px). Formula card on the LEFT, geometric/physics SVG schematic on the RIGHT.
-     - "formula_top": Vertical math card (width: 340-380px). Formula card at top, schematic below, theorem statement and derivation steps.
-     - "text_dossier": Scholarly card (width: 360-420px). Deep multi-paragraph synthesis, key findings, NO photos.
-     - "minimal_quote": Compact card (width: 295px). High-impact thesis statement or quote.
-     - "kinetic_mechanism": Wide mechanism card (width: 400px). Kinematic viewport + mechanical explanation. STRICTLY ONLY for genuine physics, mechanics, robotics, and kinematics! NEVER use for food, characters, humanities, or non-physics concepts!
+    * SELECTIVE & BALANCED MEDIA DECISION (VIDEOS ALLOWED FOR SOFTWARE BUT NOT FOR EVERY PROMPT, STRICT CLUSTER DIVERSITY):
+      - Software tools, apps, platforms, scientific experiments, and cultural works CAN have video cards when an authentic practical tutorial, workflow demonstration, or trailer adds genuine value (e.g. an OBS Studio step-by-step setup tutorial video, a Blender 3D modeling workflow, or an Elden Ring gameplay trailer).
+      - HOWEVER, DO NOT output video cards for every prompt! Across general prompts, videos should appear selectively (~20-30% of prompts). Default media representation for most entities, websites, platforms, organizations, and concepts is high-resolution photography, official logos, UI screenshots, or diagrams ("mediaType": "photo" or "website").
+      - STRICT CLUSTER MEDIA DIVERSITY MANDATE:
+        * NEVER turn multiple nodes in the same cluster into video players! In any cluster of nodes (primary node + branch nodes), there MUST be AT MOST ONE video card!
+        * If the primary node is a video (e.g. OBS Studio video card), all related branch nodes (e.g. Twitch, YouTube, Discord) MUST be photo/logo cards ("mediaType": "photo" with their clean official brand logo or UI screenshot) or analytical dossiers, NEVER another video player!
+        * If a branch node is chosen as a companion video demonstration, the primary node and all other branch nodes MUST be photo/logo/dossier cards.
+    * AUTONOMOUS MUSIC DECISION:
+      - Specific tracks or songs (e.g. "Killer Queen", "Creep" -> displays track info, album, release year, harmonic/lyrical analysis).
+      - Bands / Artists (e.g. "PAINFINDER GROUP", "Radiohead" -> presents artist dossier + their defining track).
+      - Musical genres, albums, and music theory concepts with audio examples.
+      - For music: "mediaType": "music", "layout": {"structure": "music_card", "width": 390}, "musicData": {"trackTitle": "Track Name", "artist": "Artist/Band", "album": "Album", "year": "YYYY", "genre": "Genre", "query": "clean search query"}
+    * Available structure types:
+      - "video_top": Video player strictly spanning the TOP (width: 420px), title & synthesis below (RESERVED ONLY FOR GENUINE VIDEOS).
+      - "music_card": Interactive waveform & acoustic hero card (width: 390px).
+      - "split_media_right": WIDE HORIZONTAL CARD (width: 460px). Text on LEFT, photo on RIGHT.
+      - "split_media_left": WIDE HORIZONTAL CARD (width: 460px). Photo on LEFT, text on RIGHT.
+      - "media_top": Vertical card (width: 320-350px). Media at the top, title & concise text below.
+      - "media_bottom": Vertical card (width: 320-350px). Header & rich description FIRST, media artifact at the bottom.
+      - "split_formula": WIDE MATH CARD (width: 485px). Formula card on the LEFT, geometric/physics SVG schematic on the RIGHT.
+      - "formula_top": Vertical math card (width: 340-380px). Formula card at top, schematic below, theorem statement and derivation steps.
+      - "text_dossier": Scholarly card (width: 360-420px). Deep multi-paragraph synthesis, key findings, NO photos.
+      - "minimal_quote": Compact card (width: 295px). High-impact thesis statement or quote.
+      - "kinetic_mechanism": Wide mechanism card (width: 400px). Kinematic viewport + mechanical explanation. STRICTLY ONLY for genuine physics, mechanics, robotics, and kinematics! NEVER use for food, characters, humanities, or non-physics concepts!
     * Targeted follow-up inquiries ("targetedInquiries"):
       - DO NOT always generate inquiries. ONLY generate 1-2 targeted follow-up inquiries if this specific topic has an unsolved question, deep branching controversy, or notable ambiguity worth probing.
       - For ordinary entities, biographies, specific figures (e.g. Joe Biden, Patrick Jane, food recipes, standard sub-branches), return an EMPTY ARRAY: "targetedInquiries": [].
@@ -361,8 +368,8 @@ CRITICAL ARCHITECTURAL RULES:
   "status": "Short status",
   "source": "Platform / Archive",
   "url": "https://...",
-  "description": "2-3 precise sentences directly answering the inquiry.",
-  "detailedSynthesis": "Extended technical dossier or cultural exploration.",
+  "description": "2 to 3 complete, concise sentences directly explaining the entity. Every sentence MUST be finished with a final period — NEVER cut off mid-sentence or leave trailing ellipses (...). Keep between 180 and 320 characters so it fits cleanly on the card.",
+  "detailedSynthesis": "Extended technical dossier or cultural exploration (deep multi-paragraph synthesis for inspector).",
   "priceQuote": null,
   "mediaType": "photo",
   "videoQuery": null,
@@ -536,11 +543,9 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
   const queryLower = (query || '').toLowerCase();
   const combinedText = `${query} ${node.title || ''} ${node.category || ''} ${node.description || ''}`.toLowerCase();
 
-  // User explicitly asks for video footage, trailer, gameplay, or procedural demonstration
+  // User explicitly asks for video footage, trailer, gameplay, or clip
   const isUserExplicitVideo =
-    /\b(watch video|video of|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|клип|видео|посмотреть)\b/i.test(queryLower) ||
-    /\b(how to (cook|make|bake|prepare|assemble|fix|build|fold|play|perform|draw|repair))\b/i.test(queryLower) ||
-    /\b(recipe|cooking|origami|mechanical assembly|lab experiment|sports technique)\b/i.test(queryLower);
+    /\b(watch video|video of|movie trailer|trailer|gameplay clip|speedrun clip|fight scene|anime fight|speech clip|historic footage|broadcast footage|клип|видео|посмотреть видео)\b/i.test(queryLower);
 
   // User explicitly asks for music track, song, spotify, audio, or musician
   const isUserExplicitMusic =
@@ -554,9 +559,9 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
     node.layout?.structure === 'music_card' ||
     Boolean(node.tracks);
 
-  const hasVideoStructure =
+  const hasExplicitVideoStructure =
     node.mediaType === 'video' ||
-    Boolean(node.videoData) ||
+    Boolean(node.videoData?.videoId) ||
     node.layout?.structure === 'video_top';
 
   const isSemanticMusic =
@@ -564,24 +569,19 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
     /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(combinedText);
 
   const isSemanticVideo =
-    /\b(video essay|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|interview)\b/i.test(combinedText) ||
-    /\b(how to (cook|make|bake|prepare|assemble|fix|build|fold|play|perform|draw|repair))\b/i.test(combinedText) ||
-    /\b(recipe|cooking|origami|mechanical assembly|lab experiment|sports technique)\b/i.test(combinedText);
+    /\b(movie trailer|official trailer|gameplay clip|speedrun clip|anime fight scene|historic broadcast footage|tutorial video|video demonstration)\b/i.test(combinedText);
 
-  // 1. Music decision: Prioritized whenever music/track is explicitly requested or structured,
-  // preventing casual "music video" or "watch" mentions in descriptions from stealing the card!
+  // 1. Music decision: Prioritized whenever music/track is explicitly requested or structured
   const isMusicExplicit =
     !isUserExplicitVideo &&
-    (isUserExplicitMusic || hasMusicStructure || (isSemanticMusic && !isSemanticVideo && !hasVideoStructure));
+    (isUserExplicitMusic || hasMusicStructure || (isSemanticMusic && !isSemanticVideo && !hasExplicitVideoStructure));
 
-  // 2. Video decision: Active only when not a music track and genuine video intent exists
+  // 2. Video decision: Active when explicit video intent exists OR when model specifically designated video structure
   const isVideoExplicit =
     !isMusicExplicit &&
     (isUserExplicitVideo ||
-      hasVideoStructure ||
-      Boolean(node.videoQuery) ||
-      isSemanticVideo ||
-      /\b(video|watch)\b/i.test(combinedText));
+      hasExplicitVideoStructure ||
+      isSemanticVideo);
 
   // 1A. Video Node Enrichment
   if (isVideoExplicit) {
@@ -716,12 +716,27 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
     }
   }
 
-  // 2. Enrich each branch node with media IN PARALLEL
+  // 2. Enrich each branch node with media IN PARALLEL (Enforcing Cluster Media Diversity)
   if (Array.isArray(node.branchNodes) && node.branchNodes.length > 0) {
+    const primaryIsVideo = node.mediaType === 'video' || Boolean(node.videoData?.videoId);
+    let videoSlotTaken = primaryIsVideo && !isUserExplicitVideo;
+
     await Promise.allSettled(
       node.branchNodes.map(async (bn) => {
         try {
-          if (bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || bn.videoQuery) {
+          const isBrandOrPlatform =
+            /\b(twitch|youtube|discord|github|obs|blender|photoshop|steam|reddit|twitter|tiktok|spotify|netflix|vlc|ffmpeg)\b/i.test(bn.title || '') ||
+            /\b(platform|software|app|company|portal|engine|service|tool|broadcasting|streaming)\b/i.test(`${bn.title || ''} ${bn.category || ''}`);
+
+          const wantsVideo =
+            (bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || Boolean(bn.videoQuery) || Boolean(bn.videoData)) &&
+            !bn.musicData;
+
+          // Only allow branch to be video if slot is open or user explicitly asked for multi-videos
+          const canBeVideo = wantsVideo && (!videoSlotTaken || isUserExplicitVideo);
+
+          if (canBeVideo) {
+            videoSlotTaken = true;
             if (!bn.videoData) {
               const vQ = bn.videoQuery || bn.title || query;
               const bVids = await searchWebVideos(vQ);
@@ -746,13 +761,21 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
               }
             }
           } else {
+            // Photo / Logo branch
+            bn.mediaType = 'photo';
+            bn.videoData = null;
+            bn.videoQuery = null;
+            if (bn.layout?.structure === 'video_top') {
+              bn.layout.structure = 'auto';
+            }
+
             const isMockBranch = (p) => !p?.url || p.url.includes('images.unsplash.com') || String(p.id || '').startsWith('photo-gen-');
             const hasBranchPhotos = Array.isArray(bn.photos) && bn.photos.length > 0 && !bn.photos.some(isMockBranch);
             const hasBranchPrimary = Boolean(bn.primaryPhoto && !isMockBranch(bn.primaryPhoto));
             if (!hasBranchPhotos || !hasBranchPrimary) {
-              const branchTarget = bn.visualSearchQuery || bn.title;
+              const branchTarget = bn.visualSearchQuery || (isBrandOrPlatform ? `${bn.title} logo official` : bn.title);
               if (branchTarget) {
-                const branchContext = bn.category || bn.title || '';
+                const branchContext = isBrandOrPlatform ? 'official logo vector icon' : (bn.category || bn.title || '');
                 const bPhotos = await fetchAiCuratedPhotos({
                   query: branchTarget,
                   nodeTitle: bn.title,
@@ -841,16 +864,35 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
 export function buildPsychisUserPrompt(rawArgs) {
   const args = typeof rawArgs === 'string' ? { query: rawArgs } : (rawArgs || {});
   const query = String(args.query || '').trim();
-  const workspaceName = args.workspaceName || 'Applied Kinematics';
+  const workspaceName = args.workspaceName || '';
   const activeNodeContext = args.activeNodeContext || null;
   const existingNodes = args.existingNodes || [];
   const tavilyData = args.tavilyData || null;
   const isFinancial = Boolean(args.isFinancial);
   const isSingle = args.isSingle !== false;
+  const isUrlTarget = /^https?:\/\//i.test(query) || Boolean(args.isUrl);
 
-  let userContent = `PRIMARY RESEARCH TARGET: "${query}"\nWorkspace Context: "${workspaceName}"`;
+  let userContent = `PRIMARY RESEARCH TARGET: "${query}"`;
+  if (workspaceName && workspaceName !== 'Applied Kinematics' && !isUrlTarget) {
+    userContent += `\nWorkspace Context: "${workspaceName}"`;
+  }
   if (activeNodeContext) {
     userContent += `\nConnected Entity Context: "${activeNodeContext.title || ''}" (${activeNodeContext.category || ''})`;
+  }
+
+  if (isUrlTarget) {
+    let domainName = query;
+    try {
+      domainName = new URL(query).hostname.replace(/^www\./, '');
+    } catch (_) {}
+
+    userContent += `\n\nCRITICAL LIVE WEB PAGE ANALYSIS DIRECTIVE:
+The primary target is a live web page / URL: "${query}" (Domain: "${domainName}").
+1. Extract and formulate the authentic name/title of this website, organization, competition, event, project, or article (e.g. "Международная олимпиада школьников «Изумруд»").
+2. Set "category": authentic category (e.g. "academic competition // live portal", "news article", "documentation", etc.).
+3. Write a concise, factual 2-3 sentence description summarizing what this web page or organization actually does.
+4. ABSOLUTE PROHIBITION ON EQUATIONS: This is an online web resource or organization, NOT a physics paper. You MUST set "formula": null, "formulaType": null, "derivationSteps": [], and "schemaSvg": null! NEVER invent excursion tolerance bounds, kinematics equations, or mock physics formulas!
+5. Set "url": "${query}", "source": "${domainName}", and "mediaType": "website" (or "video" if YouTube, "music" if Spotify).`;
   }
 
   if (Array.isArray(existingNodes) && existingNodes.length > 0) {
@@ -960,7 +1002,7 @@ export function attachTavilyMetadata(rawNode, tavilyData, query) {
       rawNode.url = topResult.url;
     }
     rawNode.sourceUrl = rawNode.url || topResult.url;
-    if (!rawNode.source || rawNode.source.toLowerCase().includes('wikipedia') || rawNode.source.includes('AI Synthesis')) {
+    if (!rawNode.source || rawNode.source.toLowerCase().includes('wikipedia') || rawNode.source.includes('AI Synthesis') || rawNode.source.includes('Research Dossier') || rawNode.source.includes('Knowledge Dossier')) {
       rawNode.source = topResult.title || cleanDomainFromUrl(topResult.url);
     }
     if (tavilyData.answer && (!rawNode.detailedSynthesis || rawNode.detailedSynthesis.includes('spatial dossier'))) {
@@ -1084,8 +1126,9 @@ export async function queryGroqDirect(rawParams) {
   const params = typeof rawParams === 'string' ? { query: rawParams } : (rawParams || {});
   const query = String(params.query || '').trim();
   const activeNodeContext = params.activeNodeContext || null;
-  const workspaceName = params.workspaceName || 'Applied Kinematics';
+  const workspaceName = params.workspaceName || '';
   const existingNodes = params.existingNodes || [];
+  const isUrl = Boolean(params.isUrl || /^https?:\/\//i.test(query));
 
   const apiKey = getStoredGroqKey();
   const model = getStoredGroqModel();
@@ -1103,15 +1146,16 @@ export async function queryGroqDirect(rawParams) {
   // Tavily web retrieval
   const tavilyKey = getStoredTavilyKey();
   let tavilyData = null;
-  if (tavilyKey) {
+  if (tavilyKey && query.length > 2) {
     try {
       const searchTarget = isFinancial ? `${query} актуальный курс котировка уровень цена сегодня` : query;
       const tRes = await searchTavily({
         query: searchTarget,
         apiKey: tavilyKey,
+        maxResults: 5,
+        searchDepth: 'advanced',
         includeAnswer: true,
         includeImages: !isFinancial,
-        maxResults: 5,
       });
       if (tRes && tRes.success && (tRes.results?.length > 0 || tRes.answer)) {
         tavilyData = tRes;
@@ -1128,6 +1172,7 @@ export async function queryGroqDirect(rawParams) {
     tavilyData,
     isFinancial,
     isSingle,
+    isUrl,
   });
 
   const now = Date.now();

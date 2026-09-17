@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "PSYCHIS — Contemplative White-Grey Spatial Knowledge Engine",
+  "description": "PSYCHIS — Interactive Spatial Knowledge & Research Canvas",
   "scripts": {
     "app": "electron electron_main.cjs",
     "dev": "vite",

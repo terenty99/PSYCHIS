@@ -5,7 +5,7 @@ import {
   getStoredAiMode,
   getStoredBackendUrl,
   getStoredTavilyKey,
-} from '../utils/geminiClient';
+} from '../utils/engineClient';
 
 export function useSparkTelemetry() {
   const [telemetry, setTelemetry] = useState({

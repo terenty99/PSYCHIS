@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspens
 import { SpatialCanvas } from './layout/SpatialCanvas';
 import { TopNavDock } from './components/ui/TopNavDock';
 import { GlobalMusicPlayer } from './components/ui/GlobalMusicPlayer';
-import { EmbeddedBrowser } from './components/ui/EmbeddedBrowser';
+import { EmbeddedBrowser, getVideoMetadata } from './components/ui/EmbeddedBrowser';
 import { NodeInspector } from './components/ui/NodeInspector';
 import { SparkTerminal } from './components/ui/SparkTerminal';
 import { CanvasControls } from './components/ui/CanvasControls';
@@ -16,7 +16,7 @@ import { useNodeInspector } from './hooks/useNodeInspector';
 import { RELATIONSHIP_TYPES } from './utils/colorTokens';
 import { createNodeFromTemplate, NODE_TEMPLATES } from './utils/nodeTemplates';
 import { findCollisionFreePosition, findClusterPositions, getNodeDimensions } from './utils/canvasPlacement';
-import { queryDirectAi, enrichNodeWithRealPhotos, extractStructuredPriceQuote, getStoredAiMode, getStoredBackendUrl } from './utils/geminiClient';
+import { queryDirectAi, enrichNodeWithRealPhotos, extractStructuredPriceQuote, getStoredAiMode, getStoredBackendUrl } from './utils/engineClient';
 import { searchTavily, getStoredTavilyKey } from './utils/tavilyClient';
 import {
   loadSavedWorkspaces,
@@ -30,6 +30,7 @@ import { exportTrainingJsonlFile } from './utils/trainingJsonlExporter';
 import { sanitizeNodeData } from './utils/nodeSanitizer';
 import { useSemanticLoom } from './hooks/useSemanticLoom';
 import { autoTidyNodes } from './utils/convexHull';
+import { parseWebPage } from './utils/webParser';
 import { FileUp } from 'lucide-react';
 
 const NewInvestigationModal = lazy(() =>
@@ -47,6 +48,11 @@ const AccessKeyModal = lazy(() =>
     default: m.AccessKeyModal,
   }))
 );
+
+// 5-minute TTL cache for deterministic web page parsing with FIFO eviction
+const WEB_PAGE_CACHE_TTL = 5 * 60 * 1000; // 300,000 ms
+const WEB_PAGE_CACHE_MAX = 50;
+const webPageCache = new Map();
 
 const INITIAL_NODES = [
   {
@@ -488,7 +494,7 @@ export function App() {
       });
 
       const isRootMusic = cluster.primaryNode?.mediaType === 'music' || cluster.primaryNode?.layout?.structure === 'music_card' || Boolean(cluster.primaryNode?.musicData) || Boolean(cluster.primaryNode?.tracks);
-      const isRootVideo = !isRootMusic && (cluster.primaryNode?.mediaType === 'video' || cluster.primaryNode?.layout?.structure === 'video_top' || Boolean(cluster.primaryNode?.videoData) || Boolean(cluster.primaryNode?.videoQuery));
+      const isRootVideo = !isRootMusic && (cluster.primaryNode?.mediaType === 'video' || cluster.primaryNode?.layout?.structure === 'video_top' || Boolean(cluster.primaryNode?.videoData?.videoId));
 
       const rootNode = {
         id: rootId,
@@ -525,7 +531,7 @@ export function App() {
           };
 
           const bIsMusic = bn.mediaType === 'music' || bn.layout?.structure === 'music_card' || Boolean(bn.musicData) || Boolean(bn.tracks);
-          const bIsVideo = !bIsMusic && (bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || Boolean(bn.videoData) || Boolean(bn.videoQuery));
+          const bIsVideo = !bIsMusic && (bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || Boolean(bn.videoData?.videoId));
 
           initialNodes.push({
             id: branchId,
@@ -595,7 +601,7 @@ export function App() {
             }
 
             const isMus = liveNode.mediaType === 'music' || Boolean(liveNode.musicData) || Boolean(liveNode.tracks) || liveNode.layout?.structure === 'music_card';
-            const isVid = !isMus && (liveNode.mediaType === 'video' || Boolean(liveNode.videoData) || Boolean(liveNode.videoQuery) || liveNode.layout?.structure === 'video_top');
+            const isVid = !isMus && (liveNode.mediaType === 'video' || Boolean(liveNode.videoData?.videoId) || liveNode.layout?.structure === 'video_top');
 
             setNodes((prev) =>
               prev.map((n) =>
@@ -1612,7 +1618,7 @@ export function App() {
       // Calculate collision-free coordinates for the full cluster using dynamic dimensions
       const cleanSynthesized = sanitizeNodeData(synthesizedData);
       const isMusic = cleanSynthesized.mediaType === 'music' || cleanSynthesized.layout?.structure === 'music_card' || Boolean(cleanSynthesized.musicData) || Boolean(cleanSynthesized.tracks);
-      const isVideo = !isMusic && (cleanSynthesized.mediaType === 'video' || cleanSynthesized.layout?.structure === 'video_top' || Boolean(cleanSynthesized.videoData) || Boolean(cleanSynthesized.videoQuery));
+      const isVideo = !isMusic && (cleanSynthesized.mediaType === 'video' || cleanSynthesized.layout?.structure === 'video_top' || Boolean(cleanSynthesized.videoData?.videoId));
       const branchList = (!isUrl && Array.isArray(cleanSynthesized.branchNodes)) ? cleanSynthesized.branchNodes : [];
       const primaryDims = getNodeDimensions(cleanSynthesized);
 
@@ -1648,8 +1654,8 @@ export function App() {
           title: isUrl ? domainTitle : (cleanSynthesized.title || domainTitle),
           url: cleanUrl || cleanSynthesized.url,
           sourceUrl: cleanUrl || cleanSynthesized.sourceUrl,
-          source: cleanUrl ? domainTitle : (cleanSynthesized.source || 'AI Synthesis // 2026'),
-          category: cleanSynthesized.category || (isUrl ? 'live web archive // origin' : 'ai synthesis // 2026'),
+          source: cleanUrl ? domainTitle : (cleanSynthesized.source || 'Research Dossier'),
+          category: cleanSynthesized.category || (isUrl ? 'live web archive // origin' : 'research dossier'),
           status: cleanSynthesized.status || (isUrl ? 'live crawled' : 'synthesized node'),
         },
       };
@@ -1800,7 +1806,7 @@ export function App() {
         };
 
         const bIsMusic = cleanBn.mediaType === 'music' || cleanBn.layout?.structure === 'music_card' || Boolean(cleanBn.musicData) || Boolean(cleanBn.tracks);
-        const bIsVideo = !bIsMusic && (cleanBn.mediaType === 'video' || cleanBn.layout?.structure === 'video_top' || Boolean(cleanBn.videoData) || Boolean(cleanBn.videoQuery));
+        const bIsVideo = !bIsMusic && (cleanBn.mediaType === 'video' || cleanBn.layout?.structure === 'video_top' || Boolean(cleanBn.videoData?.videoId));
 
         createdNodes.push({
           id: branchId,
@@ -1959,19 +1965,51 @@ export function App() {
     }
   };
 
-  const handleMapToGraph = (url) => {
-    if (!url) return;
+  const createFallbackWebsiteNode = (url) => {
+    if (!url) return null;
     const cleanUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`;
     let domain = url;
-    try { domain = new URL(cleanUrl).hostname; } catch (e) { domain = url; }
+    try {
+      domain = new URL(cleanUrl).hostname;
+    } catch (e) {
+      domain = url;
+    }
 
-    const newId = `0x${(nodes.length + 1).toString(16).padStart(2, '0')}`;
+    let nextNum = nodes.length + 1;
+    while (nodes.some((n) => n.id === `0x${nextNum.toString(16).padStart(2, '0')}`)) {
+      nextNum++;
+    }
+    const newId = `0x${nextNum.toString(16).padStart(2, '0')}`;
     const newPos = {
       x: (-pan.x + window.innerWidth / 2) / zoom - 160,
       y: (-pan.y + window.innerHeight / 2) / zoom - 130,
     };
 
-    const newWebsiteNode = {
+    const videoMeta = getVideoMetadata ? getVideoMetadata(cleanUrl) : null;
+    if (videoMeta) {
+      return createNodeFromTemplate('video', newId, newPos, {
+        title: `${domain} Video`,
+        url: cleanUrl,
+        sourceUrl: cleanUrl,
+        source: domain,
+        institution: `Media Signal // ${domain}`,
+        category: 'audiovisual // video stream',
+        videoData: {
+          videoId: videoMeta.videoId,
+          embedUrl: videoMeta.embedUrl,
+          title: videoMeta.title || `${domain} Video`,
+        },
+        references: [
+          {
+            title: `${domain} Live Video Reference`,
+            source: domain,
+            url: cleanUrl,
+          },
+        ],
+      });
+    }
+
+    return {
       id: newId,
       type: 'website',
       width: 320,
@@ -1992,25 +2030,329 @@ export function App() {
             title: `${domain} Live Web Reference`,
             source: domain,
             url: cleanUrl,
-          }
-        ]
+          },
+        ],
       },
     };
-
-    const newEdge = {
-      id: `edge-${selectedNodeId || '0x01'}-${newId}`,
-      source: selectedNodeId || '0x01',
-      target: newId,
-      relationshipType: RELATIONSHIP_TYPES.ORIGIN_URL,
-      label: 'origin url',
-    };
-
-    setNodes((prev) => [...prev, newWebsiteNode]);
-    setEdges((prev) => [...prev, newEdge]);
-    closeBrowser();
   };
 
-  const handleClipToNode = useCallback(({ text, url, nodeId, title }) => {
+  const createIntelligentNodeFromUrl = async (url, existingNodes = []) => {
+    if (!url) return null;
+    const cleanUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`;
+    let domain = url;
+    try {
+      domain = new URL(cleanUrl).hostname;
+    } catch (e) {
+      domain = url;
+    }
+
+    // Helper: fetch HTML text with 10s AbortController timeout
+    const fetchHtmlWithTimeout = async (targetUrl, timeoutMs = 10000) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(targetUrl, {
+          signal: controller.signal,
+          headers: {
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+        });
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.text();
+      } catch (err) {
+        clearTimeout(timeoutId);
+        throw err;
+      }
+    };
+
+    // Helper: fetch and parse HTML with 5-minute TTL cache and FIFO eviction
+    const getOrParseHtml = async (targetUrl) => {
+      const now = Date.now();
+      if (webPageCache.has(targetUrl)) {
+        const cached = webPageCache.get(targetUrl);
+        if (now - cached.timestamp < WEB_PAGE_CACHE_TTL) {
+          return cached.data;
+        }
+        webPageCache.delete(targetUrl);
+      }
+
+      try {
+        const html = await fetchHtmlWithTimeout(targetUrl, 10000);
+        const parsed = await parseWebPage(html, targetUrl);
+        if (parsed && parsed.success) {
+          if (webPageCache.size >= WEB_PAGE_CACHE_MAX) {
+            const oldestKey = webPageCache.keys().next().value;
+            if (oldestKey) webPageCache.delete(oldestKey);
+          }
+          webPageCache.set(targetUrl, { data: parsed, timestamp: now });
+          return parsed;
+        }
+        return null;
+      } catch (err) {
+        console.warn('Deterministic web parsing fetch/parse error:', err);
+        return null;
+      }
+    };
+
+    try {
+      // 1. Quick pre-detection for video and Spotify
+      const videoMeta = getVideoMetadata ? getVideoMetadata(cleanUrl) : null;
+      const isSpotifyUrl = /open\.spotify\.com\/(track|album|artist|playlist)\//i.test(cleanUrl);
+
+      let node = null;
+      let parsingMethod = 'structured';
+
+      // 2. Try structured parsing FIRST via getOrParseHtml(cleanUrl)
+      const parsed = await getOrParseHtml(cleanUrl);
+      const hasSufficientData = Boolean(
+        parsed && (parsed.title?.trim() || parsed.description?.trim())
+      );
+
+      if (hasSufficientData) {
+        const firstVideo = Array.isArray(parsed.videos) && parsed.videos.length > 0 ? parsed.videos[0] : null;
+        const photos = Array.isArray(parsed.images)
+          ? parsed.images.slice(0, 5).map((img) => ({
+              url: typeof img === 'string' ? img : img.url,
+              title: typeof img === 'string' ? '' : (img.title || img.alt || ''),
+              caption: typeof img === 'string' ? '' : (img.alt || img.title || ''),
+            }))
+          : [];
+
+        let derivedMediaType = 'website';
+        if (videoMeta || parsed.contentType === 'video' || firstVideo) {
+          derivedMediaType = 'video';
+        } else if (isSpotifyUrl || parsed.contentType === 'audio' || parsed.contentType === 'music') {
+          derivedMediaType = 'music';
+        } else if (parsed.contentType === 'gallery') {
+          derivedMediaType = 'photo';
+        }
+
+        node = {
+          title: parsed.title || domain,
+          description: parsed.description || `Live scholarly and web intelligence mapped directly from ${cleanUrl}.`,
+          detailedSynthesis:
+            parsed.mainContent?.summary ||
+            (parsed.mainContent?.text ? parsed.mainContent.text.slice(0, 1000) : (parsed.description || `Structured web signal extracted from ${cleanUrl}.`)),
+          mediaType: derivedMediaType,
+          source: parsed.siteName || domain,
+          institution: parsed.publisher || parsed.siteName || `Web Signal // ${domain}`,
+          author: parsed.author || '',
+          publishedDate: parsed.publishedDate || '',
+          videoData: firstVideo
+            ? {
+                url: firstVideo.url,
+                videoId: firstVideo.videoId || (firstVideo.url?.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([^&?/#\s]{11})/i)?.[1]) || '',
+                embedUrl: firstVideo.url,
+                title: firstVideo.title || parsed.title || domain,
+                platform: firstVideo.type || (firstVideo.videoId ? 'youtube' : 'web'),
+                poster: firstVideo.poster || '',
+                thumbnail: firstVideo.poster || '',
+                ...firstVideo,
+              }
+            : null,
+          photos,
+          primaryPhoto: photos[0] || null,
+          formula: null,
+          formulaType: null,
+          formulas: [],
+          derivationSteps: [],
+          vitalStats: [],
+          _structuredData: parsed.structuredData || null,
+          _mainContent: parsed.mainContent || null,
+          _metadata: parsed.metadata || null,
+          parsingMethod: 'structured',
+        };
+        parsingMethod = 'structured';
+      } else {
+        // Fall back to existing queryDirectAi call
+        try {
+          const result = await queryDirectAi({
+            query: cleanUrl,
+            url: cleanUrl,
+            isUrl: true,
+            existingNodes: existingNodes,
+          });
+
+          if (result?.success && result?.node) {
+            node = {
+              ...result.node,
+              parsingMethod: 'ai',
+            };
+            parsingMethod = 'ai';
+          } else {
+            throw new Error('AI analysis did not yield a valid node');
+          }
+        } catch (aiErr) {
+          console.warn('AI analysis fallback failed, creating minimal fallback nodeData:', aiErr);
+          parsingMethod = 'fallback';
+          node = {
+            title: domain,
+            description: `Live scholarly and web intelligence mapped directly from ${cleanUrl}. Connects external literature to the spatial knowledge network.`,
+            detailedSynthesis: `External web entry point captured from active research session. Serves as reference signal for dialectical cross-referencing and empirical evidence mapping.`,
+            mediaType: videoMeta ? 'video' : (isSpotifyUrl ? 'music' : 'website'),
+            source: domain,
+            institution: `Web Signal // ${domain}`,
+            formula: null,
+            formulaType: null,
+            formulas: [],
+            derivationSteps: [],
+            vitalStats: [],
+            references: [
+              {
+                title: `${domain} Live Web Reference`,
+                source: domain,
+                url: cleanUrl,
+              },
+            ],
+            photos: [],
+            parsingMethod: 'fallback',
+          };
+        }
+      }
+
+      // 3. Determine node template key based on analysis and media detection
+      let templateKey = 'website'; // Default for external URL mapping is website
+
+      if (videoMeta || node.mediaType === 'video' || Boolean(node.videoData)) {
+        templateKey = 'video';
+      } else if (isSpotifyUrl || node.mediaType === 'music' || Boolean(node.musicData) || node.layout?.structure === 'music_card') {
+        templateKey = 'music';
+      } else if (node.layout?.structure === 'price_hero') {
+        templateKey = 'website'; // financial quotes use website template base
+      } else if (node.mediaType === 'photo' || (Array.isArray(node.photos) && node.photos.length > 0) || node.mediaType === 'website') {
+        templateKey = 'website';
+      }
+
+      // Generate unique ID and center coordinates
+      let nextNum = nodes.length + 1;
+      while (nodes.some((n) => n.id === `0x${nextNum.toString(16).padStart(2, '0')}`)) {
+        nextNum++;
+      }
+      const newId = `0x${nextNum.toString(16).padStart(2, '0')}`;
+      const centerPos = {
+        x: (-pan.x + window.innerWidth / 2) / zoom - 160,
+        y: (-pan.y + window.innerHeight / 2) / zoom - 130,
+      };
+
+      // 4. Create node from appropriate template
+      const newNode = createNodeFromTemplate(
+        templateKey,
+        newId,
+        centerPos,
+        node
+      );
+
+      // If direct video metadata was detected from URL, ensure videoData is populated
+      if (videoMeta && templateKey === 'video') {
+        newNode.data.videoData = {
+          videoId: videoMeta.videoId,
+          embedUrl: videoMeta.embedUrl,
+          title: newNode.data.title || videoMeta.title || domain,
+          ...(newNode.data.videoData || {}),
+        };
+        newNode.data.mediaType = 'video';
+      }
+
+      // 5. Enrich with real media & styling
+      const enrichedData = await enrichNodeWithRealPhotos(
+        newNode.data,
+        cleanUrl,
+        currentWorkspace?.name || '',
+        nodes
+      );
+
+      newNode.data = {
+        ...newNode.data,
+        ...enrichedData,
+      };
+
+      // 6. Guarantee origin URL provenance, filter out mock template citations
+      newNode.data.url = cleanUrl;
+      newNode.data.sourceUrl = cleanUrl;
+      if (!newNode.data.source) newNode.data.source = domain;
+
+      // Filter out domain-mismatched template mock references
+      const isMockRef = (r) =>
+        !r ||
+        (r.title && (r.title.includes('Sub-Micron Cryogenic') || r.title.includes('Chebyshev Kinematic Linkage'))) ||
+        (r.url && r.url.includes('2307.12008'));
+
+      const currentRefs = (Array.isArray(newNode.data.references) ? newNode.data.references : [])
+        .filter((r) => !isMockRef(r));
+
+      if (!currentRefs.some((r) => r.url === cleanUrl)) {
+        newNode.data.references = [
+          {
+            title: newNode.data.title || `${domain} Live Web Reference`,
+            source: domain,
+            url: cleanUrl,
+          },
+          ...currentRefs,
+        ];
+      } else {
+        newNode.data.references = currentRefs;
+      }
+
+      // Ensure mock template formula doesn't leak into web pages
+      if (newNode.data.formula && (newNode.data.formula.includes('0.042') || newNode.data.formula.includes('2307.12008'))) {
+        newNode.data.formula = null;
+        newNode.data.formulaType = null;
+        newNode.data.formulas = [];
+      }
+
+      newNode.type = templateKey;
+      return newNode;
+    } catch (error) {
+      console.error('Error creating intelligent node from URL:', error);
+      return createFallbackWebsiteNode(url);
+    }
+  };
+
+  const handleMapToGraph = async (url) => {
+    if (!url) return;
+
+    try {
+      const newNode = await createIntelligentNodeFromUrl(url, nodes);
+      if (newNode) {
+        setNodes((prev) => [...prev, newNode]);
+        if (selectedNodeId) {
+          setEdges((prev) => [
+            ...prev,
+            {
+              id: `edge-${selectedNodeId}-${newNode.id}`,
+              source: selectedNodeId,
+              target: newNode.id,
+              relationshipType: RELATIONSHIP_TYPES.ORIGIN_URL,
+              label: 'origin url',
+            },
+          ]);
+        }
+      }
+    } catch (error) {
+      console.error('Error in intelligent mapping:', error);
+      const originalNode = createFallbackWebsiteNode(url);
+      if (originalNode) {
+        setNodes((prev) => [...prev, originalNode]);
+        if (selectedNodeId) {
+          setEdges((prev) => [
+            ...prev,
+            {
+              id: `edge-${selectedNodeId}-${originalNode.id}`,
+              source: selectedNodeId,
+              target: originalNode.id,
+              relationshipType: RELATIONSHIP_TYPES.ORIGIN_URL,
+              label: 'origin url',
+            },
+          ]);
+        }
+      }
+    }
+  };
+
+  const handleClipToNode = useCallback(({ text, url, nodeId, title, snippet }) => {
     const targetId = nodeId || selectedNodeId;
     if (!targetId) return;
 
@@ -2019,24 +2361,41 @@ export function App() {
         if (n.id !== targetId) return n;
         const currentRefs = Array.isArray(n.data?.references) ? n.data.references : [];
         let domain = url;
-        try { domain = new URL(url).hostname; } catch (e) { domain = url; }
+        try {
+          domain = new URL(url).hostname.replace(/^www\./, '');
+        } catch (e) {
+          domain = url;
+        }
+
+        const cleanTitle = title && title !== 'google.com' && title !== 'New Tab'
+          ? title
+          : `${domain} Web Citation`;
+
         const newRef = {
-          title: title || `${domain} Web Citation`,
+          title: cleanTitle,
           source: domain,
           url: url,
+          snippet: snippet || (text && !text.startsWith('[Live Web Reference') ? text : null),
+          clippedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
+
+        // Put newest reference at the top; de-duplicate if same URL
+        const updatedRefs = [newRef, ...currentRefs.filter((r) => r.url !== url)];
+
+        // Append to description if not already present
         const currentDesc = n.data?.description || '';
-        const updatedDesc = currentDesc
-          ? `${currentDesc}\n\n[Web Citation: ${url}]`
-          : `[Web Citation: ${url}]`;
+        const citationNote = snippet
+          ? `\n\n[Web Citation: "${snippet}" — ${cleanTitle} (${url})]`
+          : `\n\n[Web Citation: ${cleanTitle} (${url})]`;
+        const updatedDesc = currentDesc.includes(url) ? currentDesc : `${currentDesc}${citationNote}`;
 
         return {
           ...n,
           data: {
             ...n.data,
-            references: [...currentRefs, newRef],
+            references: updatedRefs,
             description: updatedDesc,
-            sourceUrl: n.data?.sourceUrl || url,
+            _justClipped: Date.now(),
           },
         };
       })

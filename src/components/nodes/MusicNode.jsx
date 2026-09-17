@@ -228,7 +228,7 @@ export const MusicNode = ({
 
   const density = data.layout?.density || 'comfortable';
   const descClampClass =
-    density === 'expanded' ? 'line-clamp-5' : density === 'compact' ? 'line-clamp-2' : 'line-clamp-3';
+    density === 'compact' ? 'line-clamp-3' : 'break-words';
 
   return (
     <SmartGlassPanel
@@ -468,7 +468,7 @@ export const MusicNode = ({
 
       {/* 📝 4. SYNTHESIS DOSSIER */}
       <p className={`text-[10px] text-text-secondary leading-[1.5] mb-3 ${descClampClass}`}>
-        {data.detailedSynthesis || data.description || `Harmonic analysis, rhythmic syncopation, and stylistic genesis of ${trackTitle}.`}
+        {data.description || data.detailedSynthesis || `Harmonic analysis, rhythmic syncopation, and stylistic genesis of ${trackTitle}.`}
       </p>
 
       {/* 🔗 6. FOOTER */}

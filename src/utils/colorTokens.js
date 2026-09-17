@@ -1,4 +1,4 @@
-﻿export const COLOR_TOKENS = {
+export const COLOR_TOKENS = {
   whitePure: '#FFFFFF',
   whiteWarm: '#F8F7F5',
   whiteSubtle: '#F5F4F2',

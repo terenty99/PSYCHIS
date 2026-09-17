@@ -150,13 +150,22 @@ export function isNonStemOrHumanitiesTopic(title = '', category = '', desc = '')
   const combined = `${title} ${category} ${desc}`.toLowerCase();
   return (
     /\b(character|protagonist|antagonist|villain|detective|consultant|agent|officer|actor|actress|director|author|person|biography|figure|fictional|historical figure|profile)\b/i.test(combined) ||
-    /\b(television|tv show|series|episode|movie|cinema|film|anime|manga|animation|novel|book|play|drama|literature|pop culture|music|album|folklore|mythology)\b/i.test(combined)
+    /\b(television|tv show|series|episode|movie|cinema|film|anime|manga|animation|novel|book|play|drama|literature|pop culture|music|album|folklore|mythology)\b/i.test(combined) ||
+    /\b(website|web page|portal|olympiad|олимпиад|конкурс|соревновани|competition|contest|school|university|университет|институт|школ|academy|college|faculty|conference|event|festival|exhibition|expo)\b/i.test(combined) ||
+    /\b(service|platform|software|app|tool|shop|store|product|company|firm|agency|news|blog|article|manual|documentation|guide)\b/i.test(combined)
   );
 }
 
 export function isPseudoscientificFormula(formulaStr) {
   if (!formulaStr || typeof formulaStr !== 'string') return false;
   return /\b(authority|empathy|justice|truth|morality|sanity|psyche|behavior|character|lisbon|jane|emotion|crime|karma|love|hate|hero|villain)\b/i.test(formulaStr);
+}
+
+export function isLeakedTemplateFormula(formulaStr, title = '', category = '') {
+  if (!formulaStr || typeof formulaStr !== 'string') return false;
+  const isKinematicsTopic = /chebyshev|flexure|cryogenic|straight-line|four-bar|inflection circle|kinematic/i.test(`${title} ${category}`);
+  if (isKinematicsTopic) return false;
+  return formulaStr.includes('0.042') || formulaStr.includes('2307.12008') || formulaStr.includes('Euler-Savary');
 }
 
 export function sanitizeNodeData(rawData) {
@@ -167,7 +176,7 @@ export function sanitizeNodeData(rawData) {
       status: 'synthesized',
       description: 'Synthesized knowledge artifact.',
       detailedSynthesis: 'Synthesized knowledge artifact.',
-      source: 'AI Synthesis',
+      source: 'Knowledge Dossier',
       url: null,
       formula: null,
       formulaType: null,
@@ -195,12 +204,13 @@ export function sanitizeNodeData(rawData) {
   let schemaType = schemaSvg ? (rawData.schemaType || 'custom_svg') : null;
   let derivationSteps = Array.isArray(rawData.derivationSteps) ? rawData.derivationSteps : [];
 
-  // DOMAIN PROTECTION: Human characters, television, cinema, history, and humanities
+  // DOMAIN PROTECTION: Human characters, television, websites, competitions, and humanities
   // must NEVER be polluted with pseudoscientific fake formulas, fake proofs, or circuit schematics!
   const isHumanities = isNonStemOrHumanitiesTopic(title, category, description);
   const isBogusFormula = isPseudoscientificFormula(formula);
+  const isLeakedMockFormula = isLeakedTemplateFormula(formula, title, category);
 
-  if (isHumanities || isBogusFormula) {
+  if (isHumanities || isBogusFormula || isLeakedMockFormula) {
     formula = null;
     formulaType = null;
     schemaSvg = null;
@@ -243,17 +253,14 @@ export function sanitizeNodeData(rawData) {
 
   const combinedCorpus = `${title} ${category} ${description}`.toLowerCase();
   const isExplicitVideoQuery =
-    /\b(watch video|video of|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|клип|видео)\b/i.test(combinedCorpus) ||
-    /\b(how to (cook|make|bake|prepare|assemble|fix|build|fold|play|perform|draw|repair))\b/i.test(combinedCorpus) ||
-    /\b(recipe|cooking|origami|mechanical assembly|lab experiment|sports technique)\b/i.test(combinedCorpus);
+    /\b(watch video|video of|movie trailer|trailer|gameplay clip|speedrun clip|fight scene|anime fight|speech clip|historic footage|broadcast footage|клип|видео)\b/i.test(combinedCorpus);
 
   const isSemanticMusic =
     /\b(band|rock band|artist|track|song|album|music|musician|singer|composer|breakcore|rock|jazz|hiphop|rap|metal|punk|electronic|ambient|symphony|orchestra|dj|ep|single|remix|soundtrack|discography|vocalist|guitarist|drummer|pianist|radiohead|queen|beethoven|mozart|painfinder|nirvana|daft punk|pink floyd|beatles|led zeppelin|chopin|bach)\b/i.test(combinedCorpus);
 
   const isSemanticVideo =
     !isSemanticMusic &&
-    (/\b(video essay|movie trailer|demonstration|tutorial|masterclass|walkthrough|skateboarding|workout|diy)\b/i.test(combinedCorpus) ||
-    (combinedCorpus.startsWith('how to') && !/\b(prove|calculate|solve|derive)\b/i.test(combinedCorpus)));
+    /\b(movie trailer|official trailer|gameplay clip|speedrun clip|anime fight scene|historic broadcast footage|tutorial video|video demonstration)\b/i.test(combinedCorpus);
 
   // Video & Music Archetype Sanitization: Music takes precedence when music structure or metadata is present!
   const isMusic =
@@ -266,14 +273,18 @@ export function sanitizeNodeData(rawData) {
 
   const isVideo =
     !isMusic &&
-    (rawData.mediaType === 'video' ||
-      Boolean(rawData.videoData) ||
-      Boolean(rawData.videoQuery) ||
+    (Boolean(rawData.videoData?.videoId) ||
+      rawData.mediaType === 'video' ||
       layout?.structure === 'video_top' ||
+      (Boolean(rawData.videoQuery) && isExplicitVideoQuery) ||
       isSemanticVideo ||
       isExplicitVideoQuery);
 
-  const mediaType = isMusic ? 'music' : isVideo ? 'video' : sanitizeString(rawData.mediaType, 'photo');
+  const mediaType = isMusic
+    ? 'music'
+    : isVideo
+    ? 'video'
+    : sanitizeString(rawData.mediaType, 'photo');
 
   const videoData = isVideo ? {
     id: sanitizeString(rawData.videoData?.id, `vid-${Date.now()}`),
@@ -319,6 +330,11 @@ export function sanitizeNodeData(rawData) {
       structure: 'music_card',
       width: layout?.width || 390,
     };
+  } else if (effectiveLayout?.structure === 'video_top') {
+    effectiveLayout = {
+      ...(layout || {}),
+      structure: 'auto',
+    };
   }
 
   return {
@@ -331,8 +347,8 @@ export function sanitizeNodeData(rawData) {
     url,
     mediaType,
     videoData,
-    videoQuery: sanitizeString(rawData.videoQuery, null),
-    videoPlatform: sanitizeString(rawData.videoPlatform, 'youtube'),
+    videoQuery: isVideo ? sanitizeString(rawData.videoQuery, null) : null,
+    videoPlatform: isVideo ? sanitizeString(rawData.videoPlatform, 'youtube') : null,
     musicData,
     savedTimestamp,
     formula,
@@ -350,6 +366,28 @@ export function sanitizeNodeData(rawData) {
     isKinetic: Boolean(rawData.isKinetic || rawData.gifUrl || rawData.gifSvg),
     hasKinetic: Boolean(rawData.hasKinetic || rawData.gifUrl || rawData.gifSvg),
     media: Array.isArray(rawData.media) ? rawData.media : [],
+    references: Array.isArray(rawData.references)
+      ? rawData.references
+          .filter((r) => {
+            if (!r || typeof r !== 'object') return false;
+            const refTitle = r.title || '';
+            const refUrl = r.url || '';
+            const isMockRef =
+              refTitle.includes('Sub-Micron Cryogenic') ||
+              refTitle.includes('Chebyshev Kinematic Linkage') ||
+              refUrl.includes('2307.12008');
+            const isChebyshevOrCryo = /chebyshev|flexure|cryogenic|four-bar|straight-line|kinematic/i.test(`${title} ${category}`);
+            if (isMockRef && !isChebyshevOrCryo) return false;
+            return true;
+          })
+          .map((r) => ({
+            title: sanitizeString(r.title, 'Live Web Reference'),
+            source: sanitizeString(r.source, 'Web Source'),
+            url: sanitizeString(r.url, ''),
+            ...(r.year ? { year: sanitizeString(r.year) } : {}),
+            ...(r.snippet ? { snippet: sanitizeString(r.snippet) } : {}),
+          }))
+      : [],
     targetedInquiries,
     connections,
     connectedNodeIds,

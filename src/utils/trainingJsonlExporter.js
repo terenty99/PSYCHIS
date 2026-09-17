@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PSYCHIS AI Training JSONL Exporter
  * Converts spatial knowledge nodes, mathematical derivations, and relational edges
  * into structured { input, reasoning_steps, output } training pairs for local AI models.

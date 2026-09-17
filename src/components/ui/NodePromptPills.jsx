@@ -20,7 +20,7 @@ export function generateSmartQuestionsForNode(node) {
     .replace(/^Introduction to /i, '')
     .trim();
 
-  // If node already has valid targeted inquiries from AI or template, use them
+  // If node already has valid targeted inquiries, use them
   if (rawInquiries.length > 0) {
     return rawInquiries.slice(0, 4);
   }
@@ -246,7 +246,7 @@ export const NodePromptPills = ({
       <div className="w-full flex items-center justify-between mb-0.5 px-1 font-mono text-[9px] font-semibold text-text-muted uppercase tracking-wider">
         <div className="flex items-center gap-1.5">
           <Sparkles className="w-2.5 h-2.5 text-amber-600" />
-          <span>AI PROBE // ПОПУЛЯРНЫЕ ВОПРОСЫ</span>
+          <span>RESEARCH PROBES</span>
         </div>
         {onDismiss && (
           <button

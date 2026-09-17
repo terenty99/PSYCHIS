@@ -128,6 +128,14 @@ export function getNodeDimensions(nodeOrData) {
     if (layout.density === 'expanded') estHeight += 40;
     else if (layout.density === 'compact') estHeight -= 20;
 
+    // Adaptively adjust height based on description length so spatial layout accommodates completed text
+    const descLen = (data.description || data.detailedSynthesis || '').length;
+    if (descLen > 260) {
+      estHeight += 40;
+    } else if (descLen > 140) {
+      estHeight += 20;
+    }
+
     if (isMusic) {
       estHeight = 340;
     } else if (isVideo) {

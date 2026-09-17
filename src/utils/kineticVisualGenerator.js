@@ -221,7 +221,7 @@ export function generateDynamicKineticAnimation(nodeData, customPrompt = '') {
     title: displayTitle,
     caption: displayCaption,
     type: 'gif',
-    author: 'AI Kinetic Synthesizer',
+    author: 'Kinetic Simulation Engine',
   };
 }
 
