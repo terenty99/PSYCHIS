@@ -8,8 +8,21 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 from urllib.parse import urlparse
 
-import requests
-from bs4 import BeautifulSoup
+try:
+    import requests
+except ImportError:
+    requests = None
+
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None
+
+try:
+    import trafilatura
+except ImportError:
+    trafilatura = None
+
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
@@ -271,16 +284,9 @@ CRITICAL ARCHITECTURAL RULES:
 Return ONLY valid JSON. Note: For video queries, set "mediaType": "video", "layout": {"structure": "video_top"}, "videoQuery": "clean search query". For music queries, set "mediaType": "music", "layout": {"structure": "music_card"}, "musicData": {"trackTitle": "...", "artist": "...", "album": "...", "year": "...", "genre": "...", "query": "..."}.
 """
 
-# ?? API ROUTES ??
-
-@app.get("/")
-def root_status():
-    return {
-        "status": "online",
-        "engine": "PSYCHIS Spatial Backend v2026.1",
-        "dataset_file": str(DATASET_FILE.name),
-        "dataset_entries": sum(1 for _ in open(DATASET_FILE, 'r', encoding='utf-8')) if DATASET_FILE.exists() else 0
-    }
+# ??# ══════════════════════════════════════════════════════════════════════════════
+# 🌐 API ROUTES & DATASET INGESTION
+# ══════════════════════════════════════════════════════════════════════════════
 
 def parse_ai_json(raw_text: str) -> Dict[str, Any]:
     """Robustly parses JSON responses from LLMs, automatically fixing raw LaTeX backslashes."""
