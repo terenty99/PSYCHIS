@@ -1,7 +1,7 @@
 {
   "name": "psychis",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "electron_main.cjs",
   "author": "terenty99",
   "type": "module",
@@ -73,6 +73,10 @@
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "identity": null
+    },
+    "dmg": {
+      "sign": false,
+      "writeUpdateInfo": false
     }
   },
   "dependencies": {

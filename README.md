@@ -98,7 +98,34 @@ cd backend
 pip install -r requirements.txt
 python server.py
 ```
-The server starts at `http://localhost:8000`.
+The server starts at `http://localhost:8000` (or `http://psychis.site:8000`).
+
+---
+
+## Desktop Releases (Windows & macOS)
+
+Precompiled native desktop releases are built and released automatically via GitHub Actions:
+
+- **Windows**: `PSYCHIS Setup 1.0.1.exe` (NSIS installer) & `PSYCHIS 1.0.1.exe` (portable)
+- **macOS**: `PSYCHIS-1.0.1.dmg` (Disk Image installer) & `PSYCHIS-1.0.1-mac.zip` (.app bundle) supporting both **Apple Silicon (arm64)** and **Intel (x64)** architectures.
+
+### macOS Installation
+1. Download the `.dmg` or `.zip` file from the [Releases](https://github.com/terenty99/PSYCHIS/releases) tab.
+2. Open the `.dmg` and drag `PSYCHIS.app` to your `/Applications` folder (or extract `PSYCHIS.app` from `.zip`).
+3. If macOS displays an alert regarding an unidentified developer, right-click (or Control-click) `PSYCHIS.app`, select **Open**, and click **Open** (or in Terminal run: `xattr -cr /Applications/PSYCHIS.app`).
+
+---
+
+## Dataset Collection & Local Model Training
+
+PSYCHIS includes an autonomous telemetry pipeline designed for fine-tuning open-weights models (e.g. Qwen, Llama) locally on your PC:
+- **Shadow Dataset Logging**: Every prompt sent to Spark, every web/visual search query, and every synthesized knowledge node is formatted into an instruction-tuning pair and streamed to the server.
+- **Remote Server Collection**: Beta test users seamlessly stream interactions to `psychis.site` without requiring a local Python backend.
+- **1-Click Dataset Export**: You can download all accumulated training data at any time from:
+  ```
+  http://psychis.site:8000/api/dataset/download
+  ```
+  or directly within the in-app Spark Terminal.
 
 ---
 

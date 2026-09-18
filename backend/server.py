@@ -106,16 +106,28 @@ class ClusterSynthesizeRequest(BaseModel):
     cluster_title: Optional[str] = "Topological Constellation"
     nodes: List[Dict[str, Any]] = Field(..., description="Nodes inside this cluster")
 
+class IngestionRecordRequest(BaseModel):
+    instruction: str = Field(..., description="Prompt, inquiry, or search query")
+    action_type: Optional[str] = Field("spark_prompt", description="spark_prompt | visual_search | web_search | direct_ai | node_created | investigation_seed | probe")
+    input: Optional[Any] = Field(None, description="Input context, parameters, active node, workspace name")
+    output: Optional[Any] = Field(None, description="Textual or JSON serialized output")
+    structured_output: Optional[Any] = Field(None, description="Full node object or search results array")
+    client_handle: Optional[str] = Field("Researcher", description="Client identifier or researcher handle")
+    workspace_name: Optional[str] = Field(None, description="Active workspace")
+    timestamp: Optional[str] = Field(None, description="ISO timestamp")
+
 # ?? SHADOW DATASET LOGGER ??
-def shadow_log_training_pair(instruction: str, context: Any, response_data: Dict[str, Any]):
+def shadow_log_training_pair(instruction: str, context: Any, response_data: Any, action_type: str = "spark_prompt"):
     """Silently appends the interaction pair to training_dataset.jsonl for later local PC training."""
     try:
+        output_str = json.dumps(response_data, ensure_ascii=False) if not isinstance(response_data, str) else response_data
         record = {
             "timestamp": datetime.utcnow().isoformat(),
+            "action_type": action_type,
             "instruction": instruction,
             "input": context,
-            "output": json.dumps(response_data, ensure_ascii=False),
-            "structured_output": response_data
+            "output": output_str,
+            "structured_output": response_data if isinstance(response_data, (dict, list)) else None
         }
         with open(DATASET_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -302,6 +314,71 @@ def is_direct_concept_query(query: str) -> bool:
     )
     is_explicit_single = bool(re.search(r"\b(single|one|solo|isolated|standalone)\s+(node|concept|card|entity)\b", q)) or "single node" in q or "one node" in q
     return is_specific or is_explicit_single
+
+@app.get("/")
+@app.get("/api/health")
+def health_check():
+    """Health status and dataset statistics for clients."""
+    dataset_entries = 0
+    size_bytes = 0
+    if DATASET_FILE.exists():
+        try:
+            with open(DATASET_FILE, "r", encoding="utf-8") as f:
+                dataset_entries = sum(1 for _ in f)
+            size_bytes = DATASET_FILE.stat().st_size
+        except Exception:
+            pass
+    return {
+        "status": "ok",
+        "service": "psychis-shadow-backend",
+        "domain": "psychis.site",
+        "version": "2026.1",
+        "dataset_entries": dataset_entries,
+        "dataset_size_bytes": size_bytes,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+@app.post("/api/dataset/record")
+async def ingest_dataset_record(req: IngestionRecordRequest, background_tasks: BackgroundTasks):
+    """
+    Ingests and saves ANY prompt, search query, or created node into training_dataset.jsonl.
+    Allows clients (desktop app, friends in beta test, web app) to continuously
+    build a comprehensive training dataset for local model training.
+    """
+    def write_record():
+        try:
+            output_val = req.output
+            if output_val is None and req.structured_output is not None:
+                output_val = json.dumps(req.structured_output, ensure_ascii=False)
+            elif isinstance(output_val, (dict, list)):
+                output_val = json.dumps(output_val, ensure_ascii=False)
+            elif not isinstance(output_val, str):
+                output_val = str(output_val or "")
+
+            parsed_structured = req.structured_output
+            if parsed_structured is None and isinstance(output_val, str) and output_val.startswith("{"):
+                try:
+                    parsed_structured = json.loads(output_val)
+                except Exception:
+                    parsed_structured = None
+
+            record = {
+                "timestamp": req.timestamp or datetime.utcnow().isoformat(),
+                "action_type": req.action_type or "spark_prompt",
+                "instruction": req.instruction,
+                "input": req.input or {"workspace_name": req.workspace_name, "client_handle": req.client_handle},
+                "output": output_val,
+                "structured_output": parsed_structured,
+                "client_handle": req.client_handle,
+                "workspace_name": req.workspace_name
+            }
+            with open(DATASET_FILE, "a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except Exception as e:
+            print(f"[Dataset Ingest Error]: {e}")
+
+    background_tasks.add_task(write_record)
+    return {"success": True, "message": "Interaction saved to training dataset."}
 
 @app.post("/api/spark")
 async def execute_spark_query(req: SparkQueryRequest, background_tasks: BackgroundTasks):

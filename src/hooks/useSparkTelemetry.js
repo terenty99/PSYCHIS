@@ -46,9 +46,9 @@ export function useSparkTelemetry() {
     if (aiMode !== 'direct') {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 600);
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
 
-        const res = await fetch(`${backendUrl}/`, {
+        const res = await fetch(`${backendUrl.replace(/\/+$/, '')}/api/health`, {
           method: 'GET',
           signal: controller.signal,
         });

@@ -74,6 +74,9 @@ export function setStoredAiMode(mode) {
   }
 }
 
+export const OFFICIAL_REMOTE_BACKEND_URL = 'http://psychis.site:8000';
+export const OFFICIAL_SERVER_DOMAIN = 'psychis.site';
+
 export function getStoredBackendUrl() {
   if (typeof localStorage !== 'undefined') {
     return localStorage.getItem(STORAGE_KEY_BACKEND_URL) || 'http://localhost:8000';
@@ -1460,6 +1463,15 @@ export async function fetchAiCuratedPhotos({
     };
     const livePhotos = await fetchLiveArchivalPhotos(searchTerm, count, contextHint, seenClusterUrls, nodeContext);
     if (livePhotos && livePhotos.length > 0) {
+      try {
+        recordTelemetryInteraction({
+          instruction: `Visual search: ${searchTerm}`,
+          input: { searchTerm, count, contextHint, nodeTitle, nodeCategory },
+          output: livePhotos,
+          structured_output: livePhotos,
+          action_type: 'visual_search',
+        });
+      } catch (_) {}
       return livePhotos;
     }
   } catch (err) {
@@ -1468,3 +1480,140 @@ export async function fetchAiCuratedPhotos({
 
   return [];
 }
+
+/**
+ * Streams any user prompt, search, or created node to the psychis.site server
+ * to accumulate training pairs for local model training.
+ */
+export async function recordTelemetryInteraction({
+  instruction,
+  input = null,
+  output = null,
+  structured_output = null,
+  action_type = 'spark_prompt',
+  workspace_name = null,
+  client_handle = 'Researcher'
+}) {
+  if (!instruction && !structured_output) return false;
+
+  const payload = {
+    instruction: typeof instruction === 'string' ? instruction : JSON.stringify(instruction),
+    action_type,
+    input: input || (workspace_name ? { workspace_name, client_handle } : null),
+    output: typeof output === 'string' ? output : (output ? JSON.stringify(output) : (structured_output ? JSON.stringify(structured_output) : '')),
+    structured_output: structured_output || null,
+    client_handle: client_handle || 'Researcher',
+    workspace_name: workspace_name || 'Applied Kinematics',
+    timestamp: new Date().toISOString()
+  };
+
+  const configuredUrl = getStoredBackendUrl();
+  const candidateUrls = [
+    configuredUrl,
+    OFFICIAL_REMOTE_BACKEND_URL,
+    'https://psychis.site',
+    'http://psychis.site'
+  ].filter(Boolean);
+
+  const uniqueUrls = Array.from(new Set(candidateUrls));
+
+  for (const baseUrl of uniqueUrls) {
+    try {
+      const cleanBase = baseUrl.replace(/\/+$/, '');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
+      const res = await fetch(`${cleanBase}/api/dataset/record`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        return true;
+      }
+    } catch (_) {
+      // Continue to next endpoint fallback
+    }
+  }
+
+  // If unreachable right now, save in pending queue in localStorage
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const PENDING_KEY = 'psychis_pending_dataset_records';
+      const existing = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+      existing.push(payload);
+      if (existing.length > 150) existing.shift();
+      localStorage.setItem(PENDING_KEY, JSON.stringify(existing));
+    }
+  } catch (_) {}
+
+  return false;
+}
+
+export async function flushPendingTelemetryRecords() {
+  if (typeof localStorage === 'undefined') return;
+  const PENDING_KEY = 'psychis_pending_dataset_records';
+  try {
+    const raw = localStorage.getItem(PENDING_KEY);
+    if (!raw) return;
+    const queue = JSON.parse(raw);
+    if (!Array.isArray(queue) || queue.length === 0) return;
+
+    const configuredUrl = getStoredBackendUrl();
+    const candidateUrls = Array.from(new Set([
+      configuredUrl,
+      OFFICIAL_REMOTE_BACKEND_URL,
+      'https://psychis.site',
+      'http://psychis.site'
+    ])).filter(Boolean);
+
+    let activeEndpoint = null;
+    for (const url of candidateUrls) {
+      try {
+        const clean = url.replace(/\/+$/, '');
+        const c = new AbortController();
+        const t = setTimeout(() => c.abort(), 2000);
+        const r = await fetch(`${clean}/api/health`, { signal: c.signal });
+        clearTimeout(t);
+        if (r.ok) {
+          activeEndpoint = clean;
+          break;
+        }
+      } catch (_) {}
+    }
+
+    if (!activeEndpoint) return;
+
+    const remaining = [];
+    for (const item of queue) {
+      try {
+        const res = await fetch(`${activeEndpoint}/api/dataset/record`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item)
+        });
+        if (!res.ok) remaining.push(item);
+      } catch (_) {
+        remaining.push(item);
+      }
+    }
+    if (remaining.length === 0) {
+      localStorage.removeItem(PENDING_KEY);
+    } else {
+      localStorage.setItem(PENDING_KEY, JSON.stringify(remaining));
+    }
+  } catch (_) {}
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    flushPendingTelemetryRecords();
+  });
+  setTimeout(() => {
+    flushPendingTelemetryRecords();
+  }, 3000);
+}
+

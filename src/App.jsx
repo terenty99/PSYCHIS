@@ -16,7 +16,7 @@ import { useNodeInspector } from './hooks/useNodeInspector';
 import { RELATIONSHIP_TYPES } from './utils/colorTokens';
 import { createNodeFromTemplate, NODE_TEMPLATES } from './utils/nodeTemplates';
 import { findCollisionFreePosition, findClusterPositions, getNodeDimensions } from './utils/canvasPlacement';
-import { queryDirectAi, enrichNodeWithRealPhotos, extractStructuredPriceQuote, getStoredAiMode, getStoredBackendUrl } from './utils/engineClient';
+import { queryDirectAi, enrichNodeWithRealPhotos, extractStructuredPriceQuote, getStoredAiMode, getStoredBackendUrl, recordTelemetryInteraction } from './utils/engineClient';
 import { searchTavily, getStoredTavilyKey } from './utils/tavilyClient';
 import {
   loadSavedWorkspaces,
@@ -619,11 +619,38 @@ export function App() {
                   : n
               )
             );
+            if (liveNode) {
+              try {
+                recordTelemetryInteraction({
+                  instruction: seedTopic,
+                  input: { workspace_name: name, type: 'investigation_seed_live' },
+                  output: liveNode,
+                  structured_output: liveNode,
+                  action_type: 'investigation_seed',
+                  workspace_name: name,
+                  client_handle: clientAuth?.handle || 'Researcher 01',
+                });
+              } catch (_) {}
+            }
           }
         } catch (e) {}
       };
 
       enrichWithLiveAi();
+
+      if (initialNodes.length > 0) {
+        try {
+          recordTelemetryInteraction({
+            instruction: seedTopic,
+            input: { workspace_name: name, initial_node_count: initialNodes.length },
+            output: initialNodes[0].data,
+            structured_output: { initialNodes: initialNodes.map((n) => n.data), initialEdges },
+            action_type: 'investigation_seed',
+            workspace_name: name,
+            client_handle: clientAuth?.handle || 'Researcher 01',
+          });
+        } catch (_) {}
+      }
     }
 
     const newWs = {
@@ -1892,6 +1919,28 @@ export function App() {
         const filtered = tempEdgeId ? prev.filter((e) => e.id !== tempEdgeId) : prev;
         return [...filtered, ...createdEdges];
       });
+
+      // Stream to psychis.site server for local model training dataset
+      try {
+        recordTelemetryInteraction({
+          instruction: text,
+          input: {
+            active_node_id: effectiveSourceId,
+            workspace_name: currentWorkspace?.name || 'Applied Kinematics',
+            is_url: isUrl,
+            total_created_nodes: createdNodes.length,
+          },
+          output: primaryNode.data,
+          structured_output: {
+            primaryNode: primaryNode.data,
+            branchNodes: createdNodes.slice(1).map((bn) => bn.data),
+            edges: createdEdges,
+          },
+          action_type: isUrl ? 'url_investigation' : 'spark_prompt',
+          workspace_name: currentWorkspace?.name || 'Applied Kinematics',
+          client_handle: currentUser?.handle || 'Researcher',
+        });
+      } catch (_) {}
     } catch (clusterErr) {
       if (signal?.aborted) {
         setNodes((prev) => prev.filter((n) => n.id !== newId && n.type !== 'generating_preview'));

@@ -480,15 +480,34 @@ export const AISettingsModal = ({ isOpen = false, onClose, onSettingsSaved }) =>
             </div>
 
             <div>
-              <label className="block font-mono text-[10px] font-bold text-[#4A4540] uppercase tracking-wider mb-1 flex items-center gap-1">
-                <Server className="w-3 h-3 text-[#6B655A]" />
-                <span>Backend Port / URL</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="font-mono text-[10px] font-bold text-[#4A4540] uppercase tracking-wider flex items-center gap-1">
+                  <Server className="w-3 h-3 text-[#6B655A]" />
+                  <span>Backend Port / URL</span>
+                </label>
+                <div className="flex items-center gap-1.5 font-mono text-[9px]">
+                  <button
+                    type="button"
+                    onClick={() => setBackendUrl('http://psychis.site:8000')}
+                    className="text-cyan-700 hover:underline cursor-pointer"
+                  >
+                    psychis.site
+                  </button>
+                  <span className="text-[#A8A49E]">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setBackendUrl('http://localhost:8000')}
+                    className="text-[#6B655A] hover:underline cursor-pointer"
+                  >
+                    localhost
+                  </button>
+                </div>
+              </div>
               <input
                 type="text"
                 value={backendUrl}
                 onChange={(e) => setBackendUrl(e.target.value)}
-                placeholder="http://localhost:8000"
+                placeholder="http://psychis.site:8000"
                 className="w-full bg-[#F8F7F4] border border-[#D5D2CC] rounded-xl px-2.5 py-1.5 font-mono text-xs text-[#1A1816] outline-none focus:border-[#1A1816]"
               />
             </div>
