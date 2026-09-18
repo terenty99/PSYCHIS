@@ -11,9 +11,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "dist:all": "npm run build && electron-builder -mw"
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never",
+    "dist:all": "npm run build && electron-builder -mw --publish never"
   },
   "build": {
     "appId": "com.terenty99.psychis",
@@ -72,7 +72,7 @@
       "category": "public.app-category.productivity",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "identity": null
+      "identity": "-"
     },
     "dmg": {
       "sign": false,

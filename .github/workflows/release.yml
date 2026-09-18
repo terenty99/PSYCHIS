@@ -43,13 +43,19 @@ jobs:
       - name: Build and Package (Windows)
         if: matrix.target == 'win'
         run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          DEBUG: electron-builder
 
       - name: Build and Package (macOS)
         if: matrix.target == 'mac'
         run: npm run dist:mac
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: true
+          DEBUG: electron-builder
 
       - name: Archive Build Artifacts
         uses: actions/upload-artifact@v4
