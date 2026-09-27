@@ -1,0 +1,8 @@
+body{margin:0;width:1920px;height:1080px;background:#F6F5F2;overflow:hidden}
+*,*::before,*::after{animation:none!important;transition:none!important}
+#root{position:relative;width:1920px;height:1080px;overflow:hidden}
+#brand>div{gap:22px}
+#brand>div>div{padding:10px}
+#brand span{font-size:60px;letter-spacing:-2px;line-height:1}
+.node-wrap article{backdrop-filter:none}
+.cluster-layer{position:absolute;inset:0;pointer-events:none}

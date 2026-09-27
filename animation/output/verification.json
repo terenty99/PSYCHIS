@@ -1,0 +1,17 @@
+{
+  "duration_seconds": 15,
+  "master_frames": 450,
+  "gif_frames": 300,
+  "gif_bytes": 9815154,
+  "mp4_bytes": 5109298,
+  "nodes": 49,
+  "overlaps": [],
+  "duplicate_titles": [],
+  "loop_max_channel_delta": 1,
+  "diagram_motion_pixel_change": {
+    "spring": 14836.0,
+    "packet": 24263.0,
+    "pendulum": 8990.0,
+    "phasor": 1047.0
+  }
+}
