@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/psychis_minimal_lockup.svg" width="220" alt="PSYCHIS — two nodes joined by a curved connection, with the project wordmark">
+  <img src="public/favicon.svg" width="220" alt="PSYCHIS — two nodes joined by a curved connection, with the project wordmark">
 </p>
 
 <p align="center"><strong>A space to think in connections.</strong></p>
