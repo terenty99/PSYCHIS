@@ -8,7 +8,7 @@ PSYCHIS is a spatial workspace for researching the web. Start with a question, d
 
 Research often leaves behind a trail of tabs, disconnected notes, and conversations that are easier to continue than to revisit. PSYCHIS gives that investigation a visible structure: what you found, where it came from, how it relates to another idea, and what you want to explore next.
 
-![Animated tour of PSYCHIS showing research cards, connections, and clusters on a spatial canvas](docs/media/psychis-readme.gif)
+![Animated tour of PSYCHIS showing research cards, connections, and clusters on a spatial canvas](public/psychis-readme.gif)
 
 ## Research that keeps its context
 
