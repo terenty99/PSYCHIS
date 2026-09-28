@@ -2,7 +2,7 @@
   <img src="public/favicon.svg" width="220" alt="PSYCHIS — two nodes joined by a curved connection, with the project wordmark">
 </p>
 
-<p align="center"><strong>No matter where you are.Everyone is always connected.</strong></p>
+<p align="center"><strong>No matter where you are. Everyone is always connected.</strong></p>
 
 PSYCHIS is a spatial workspace for researching the web. Start with a question, develop it with Spark, and arrange sources, explanations, formulas, moving diagrams, and media as connected objects on a persistent canvas.
 
