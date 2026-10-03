@@ -7,7 +7,6 @@ export const NewInvestigationModal = ({
   onCreateInvestigation,
 }) => {
   const [theme, setTheme] = useState('');
-  const [startWithSeedNode, setStartWithSeedNode] = useState(true);
 
   if (!isOpen) return null;
 
@@ -15,8 +14,7 @@ export const NewInvestigationModal = ({
     e.preventDefault();
     const cleanTheme = theme.trim() || 'Untitled Investigation';
     onCreateInvestigation({
-      name: cleanTheme,
-      seedTopic: startWithSeedNode ? cleanTheme : null,
+      name: cleanTheme
     });
     setTheme('');
     onClose();
@@ -79,27 +77,6 @@ export const NewInvestigationModal = ({
                 required
               />
             </div>
-          </div>
-
-          {/* Seed Node Option */}
-          <div className="p-4 bg-[#F8F7F4] border border-[#E0DED9] rounded-2xl space-y-2">
-            <label className="flex items-start gap-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={startWithSeedNode}
-                onChange={(e) => setStartWithSeedNode(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-2 border-[#6B655A] text-[#1A1816] focus:ring-0 cursor-pointer accent-[#2E2A27]"
-              />
-              <div className="text-xs">
-                <div className="font-bold text-[#1A1816] flex items-center gap-1.5 text-[12.5px]">
-                  <Sparkles className="w-4 h-4 text-amber-600" />
-                  <span>Auto-synthesize Root Knowledge Cluster</span>
-                </div>
-                <p className="text-[11px] text-[#5A554E] leading-relaxed mt-1">
-                  Generates an interconnected spatial knowledge cluster with historical/scientific facts, citations, archive photos, and dialectical counter-theses.
-                </p>
-              </div>
-            </label>
           </div>
 
           {/* Action Buttons */}
