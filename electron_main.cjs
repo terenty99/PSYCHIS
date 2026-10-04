@@ -78,15 +78,15 @@ function startLocalServer(distPath) {
       }
     });
 
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(2347, '127.0.0.1', () => {
       const port = server.address().port;
       localServer = server;
       resolve(`http://127.0.0.1:${port}`);
     });
 
     server.on('error', (err) => {
-      console.warn('[Local Server Notice]:', err.message);
-      resolve(null);
+      console.error('[Local Server Error]:', err);
+      app.quit();
     });
   });
 }
