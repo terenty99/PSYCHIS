@@ -1,23 +1,47 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
-import { SpatialCanvas } from './layout/SpatialCanvas';
-import { TopNavDock } from './components/ui/TopNavDock';
-import { GlobalMusicPlayer } from './components/ui/GlobalMusicPlayer';
-import { EmbeddedBrowser, getVideoMetadata } from './components/ui/EmbeddedBrowser';
-import { NodeInspector } from './components/ui/NodeInspector';
-import { SparkTerminal } from './components/ui/SparkTerminal';
-import { CanvasControls } from './components/ui/CanvasControls';
-import { KeyboardShortcutsModal } from './components/ui/KeyboardShortcutsModal';
-import { NodeTemplateModal } from './components/ui/NodeTemplateModal';
-import { DeleteNodeConfirmModal } from './components/ui/DeleteNodeConfirmModal';
-import { OffScreenRadar } from './components/ui/OffScreenRadar';
-import { CanvasMinimap } from './components/ui/CanvasMinimap';
-import { synthesizeKnowledgeCluster } from './utils/intelligentSynthesizer';
-import { useNodeInspector } from './hooks/useNodeInspector';
-import { RELATIONSHIP_TYPES } from './utils/colorTokens';
-import { createNodeFromTemplate, NODE_TEMPLATES } from './utils/nodeTemplates';
-import { findCollisionFreePosition, findClusterPositions, getNodeDimensions } from './utils/canvasPlacement';
-import { queryDirectAi, enrichNodeWithRealPhotos, extractStructuredPriceQuote, getStoredAiMode, getStoredBackendUrl, recordTelemetryInteraction } from './utils/engineClient';
-import { searchTavily, getStoredTavilyKey } from './utils/tavilyClient';
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+  lazy,
+  Suspense,
+} from "react";
+import { SpatialCanvas } from "./layout/SpatialCanvas";
+import { TopNavDock } from "./components/ui/TopNavDock";
+import { GlobalMusicPlayer } from "./components/ui/GlobalMusicPlayer";
+import {
+  EmbeddedBrowser,
+  getVideoMetadata,
+} from "./components/ui/EmbeddedBrowser";
+import { NodeInspector } from "./components/ui/NodeInspector";
+import { SparkTerminal } from "./components/ui/SparkTerminal";
+import { CanvasControls } from "./components/ui/CanvasControls";
+import { KeyboardShortcutsModal } from "./components/ui/KeyboardShortcutsModal";
+import { NodeTemplateModal } from "./components/ui/NodeTemplateModal";
+import { DeleteNodeConfirmModal } from "./components/ui/DeleteNodeConfirmModal";
+import { OffScreenRadar } from "./components/ui/OffScreenRadar";
+import { CanvasMinimap } from "./components/ui/CanvasMinimap";
+import { synthesizeKnowledgeCluster } from "./utils/intelligentSynthesizer";
+import { useNodeInspector } from "./hooks/useNodeInspector";
+import { RELATIONSHIP_TYPES } from "./utils/colorTokens";
+import { createNodeFromTemplate, NODE_TEMPLATES } from "./utils/nodeTemplates";
+import {
+  findCollisionFreePosition,
+  findClusterPositions,
+  getNodeDimensions,
+} from "./utils/canvasPlacement";
+import {
+  queryDirectAi,
+  enrichNodeWithRealPhotos,
+  extractStructuredPriceQuote,
+  getStoredAiMode,
+  getStoredBackendUrl,
+  recordTelemetryInteraction,
+  isResearchQuery,
+  applyResearchIntent,
+} from "./utils/engineClient";
+import { searchTavily, getStoredTavilyKey } from "./utils/tavilyClient";
 import {
   loadSavedWorkspaces,
   persistWorkspaces,
@@ -25,28 +49,28 @@ import {
   parsePsychisFile,
   STORAGE_KEY_ACTIVE_ID,
   STORAGE_KEY_AUTH,
-} from './utils/workspaceStorage';
-import { exportTrainingJsonlFile } from './utils/trainingJsonlExporter';
-import { sanitizeNodeData } from './utils/nodeSanitizer';
-import { useSemanticLoom } from './hooks/useSemanticLoom';
-import { autoTidyNodes } from './utils/convexHull';
-import { parseWebPage } from './utils/webParser';
-import { FileUp } from 'lucide-react';
+} from "./utils/workspaceStorage";
+import { exportTrainingJsonlFile } from "./utils/trainingJsonlExporter";
+import { sanitizeNodeData } from "./utils/nodeSanitizer";
+import { useSemanticLoom } from "./hooks/useSemanticLoom";
+import { autoTidyNodes } from "./utils/convexHull";
+import { parseWebPage } from "./utils/webParser";
+import { FileUp } from "lucide-react";
 
 const NewInvestigationModal = lazy(() =>
-  import('./components/ui/NewInvestigationModal').then((m) => ({
+  import("./components/ui/NewInvestigationModal").then((m) => ({
     default: m.NewInvestigationModal,
-  }))
+  })),
 );
 const AISettingsModal = lazy(() =>
-  import('./components/ui/AISettingsModal').then((m) => ({
+  import("./components/ui/AISettingsModal").then((m) => ({
     default: m.AISettingsModal,
-  }))
+  })),
 );
 const AccessKeyModal = lazy(() =>
-  import('./components/ui/AccessKeyModal').then((m) => ({
+  import("./components/ui/AccessKeyModal").then((m) => ({
     default: m.AccessKeyModal,
-  }))
+  })),
 );
 
 // 5-minute TTL cache for deterministic web page parsing with FIFO eviction
@@ -56,130 +80,135 @@ const webPageCache = new Map();
 
 const INITIAL_NODES = [
   {
-    id: '0x00',
-    type: 'website',
+    id: "0x00",
+    type: "website",
     width: 270,
     height: 210,
     position: { x: 45, y: 180 },
     data: {
       ...NODE_TEMPLATES.website.defaultData,
-      category: 'website // corpus',
-      status: 'verified',
+      category: "website // corpus",
+      status: "verified",
     },
   },
   {
-    id: '0x01',
-    type: 'mechanism',
+    id: "0x01",
+    type: "mechanism",
     width: 280,
     height: 330,
     position: { x: 345, y: 125 },
     data: {
       ...NODE_TEMPLATES.mechanism.defaultData,
-      category: 'mechanism // planar motion',
-      status: 'peer reviewed',
+      category: "mechanism // planar motion",
+      status: "peer reviewed",
     },
   },
   {
-    id: '0x02',
-    type: 'transport',
+    id: "0x02",
+    type: "transport",
     width: 270,
     height: 290,
     position: { x: 655, y: 125 },
     data: {
       ...NODE_TEMPLATES.transport.defaultData,
-      category: 'transport // solid state',
-      status: '99.1% confidence',
+      category: "transport // solid state",
+      status: "99.1% confidence",
     },
   },
   {
-    id: '0x03',
-    type: 'topological',
+    id: "0x03",
+    type: "topological",
     width: 250,
     height: 210,
     position: { x: 420, y: 480 },
     data: {
       ...NODE_TEMPLATES.topological.defaultData,
-      category: 'topological geometry',
-      status: 'verified',
+      category: "topological geometry",
+      status: "verified",
     },
   },
   {
-    id: '0x04',
-    type: 'contradiction',
+    id: "0x04",
+    type: "contradiction",
     width: 280,
     height: 270,
     position: { x: 965, y: 125 },
     data: {
       ...NODE_TEMPLATES.contradiction.defaultData,
-      category: 'refutation // counter-thesis',
-      status: 'empirically proven',
+      category: "refutation // counter-thesis",
+      status: "empirically proven",
     },
   },
   {
-    id: '0x05',
-    type: 'spawned',
+    id: "0x05",
+    type: "spawned",
     width: 270,
     height: 240,
     position: { x: 700, y: 440 },
     hidden: false,
     data: {
       ...NODE_TEMPLATES.spawned.defaultData,
-      category: 'ai discovery // 2026',
-      status: 'crawled live',
+      category: "ai discovery // 2026",
+      status: "crawled live",
     },
   },
 ];
 
 const INITIAL_EDGES = [
   {
-    id: 'edge-web-1a',
-    source: '0x00',
-    target: '0x01',
+    id: "edge-web-1a",
+    source: "0x00",
+    target: "0x01",
     relationshipType: RELATIONSHIP_TYPES.ORIGIN_URL,
-    label: 'origin',
-    description: 'Primary web documentation origin anchoring Chebyshev kinematics analysis.',
-    color: '#7A7570',
-    style: 'basic',
+    label: "origin",
+    description:
+      "Primary web documentation origin anchoring Chebyshev kinematics analysis.",
+    color: "#7A7570",
+    style: "basic",
   },
   {
-    id: 'edge-1a-1b',
-    source: '0x01',
-    target: '0x02',
+    id: "edge-1a-1b",
+    source: "0x01",
+    target: "0x02",
     relationshipType: RELATIONSHIP_TYPES.COUPLED_SYSTEM,
-    label: 'coupled',
-    description: 'Dynamic coupler linking continuous crank rotation with straight-line output motion.',
-    color: '#7A7570',
-    style: 'basic',
+    label: "coupled",
+    description:
+      "Dynamic coupler linking continuous crank rotation with straight-line output motion.",
+    color: "#7A7570",
+    style: "basic",
   },
   {
-    id: 'edge-1a-1c',
-    source: '0x01',
-    target: '0x03',
+    id: "edge-1a-1c",
+    source: "0x01",
+    target: "0x03",
     relationshipType: RELATIONSHIP_TYPES.COUPLED_SYSTEM,
-    label: 'geometry',
-    description: 'Geometric proof mapping the five-bar spherical constraint to Chebyshev coupler curves.',
-    color: '#7A7570',
-    style: 'basic',
+    label: "geometry",
+    description:
+      "Geometric proof mapping the five-bar spherical constraint to Chebyshev coupler curves.",
+    color: "#7A7570",
+    style: "basic",
   },
   {
-    id: 'edge-1b-1d',
-    source: '0x02',
-    target: '0x04',
+    id: "edge-1b-1d",
+    source: "0x02",
+    target: "0x04",
     relationshipType: RELATIONSHIP_TYPES.CONTRADICTS,
-    label: 'contradicts',
-    description: 'Physical friction contradiction: sliding linear bearings vs Chebyshev flexure pivots in ultra-high vacuum.',
-    color: '#3A3530',
-    style: 'dashed',
+    label: "contradicts",
+    description:
+      "Physical friction contradiction: sliding linear bearings vs Chebyshev flexure pivots in ultra-high vacuum.",
+    color: "#3A3530",
+    style: "dashed",
   },
   {
-    id: 'edge-1a-spawned',
-    source: '0x01',
-    target: '0x05',
+    id: "edge-1a-spawned",
+    source: "0x01",
+    target: "0x05",
     relationshipType: RELATIONSHIP_TYPES.DEFAULT,
-    label: 'ai probe',
-    description: 'Analytical investigation extending coupler midpoint inflection circle equations.',
-    color: '#7A7570',
-    style: 'arrowed',
+    label: "ai probe",
+    description:
+      "Analytical investigation extending coupler midpoint inflection circle equations.",
+    color: "#7A7570",
+    style: "arrowed",
   },
 ];
 
@@ -187,15 +216,15 @@ export function App() {
   // Multi-Workspace Storage & Active Board State
   const [workspaces, setWorkspaces] = useState(() => loadSavedWorkspaces());
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
-    const v2CleanStart = localStorage.getItem('psychis_v2_clean_start');
+    const v2CleanStart = localStorage.getItem("psychis_v2_clean_start");
     if (!v2CleanStart) {
       try {
-        localStorage.setItem('psychis_v2_clean_start', '1');
-        localStorage.setItem(STORAGE_KEY_ACTIVE_ID, 'ws-main');
+        localStorage.setItem("psychis_v2_clean_start", "1");
+        localStorage.setItem(STORAGE_KEY_ACTIVE_ID, "ws-main");
       } catch (e) {}
-      return 'ws-main';
+      return "ws-main";
     }
-    return localStorage.getItem(STORAGE_KEY_ACTIVE_ID) || 'ws-main';
+    return localStorage.getItem(STORAGE_KEY_ACTIVE_ID) || "ws-main";
   });
 
   const currentWorkspace = useMemo(() => {
@@ -206,23 +235,31 @@ export function App() {
   const [clientAuth, setClientAuth] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY_AUTH);
-      return raw ? JSON.parse(raw) : { accessKey: '2347', handle: 'Researcher 01' };
+      return raw
+        ? JSON.parse(raw)
+        : { accessKey: "2347", handle: "Researcher 01" };
     } catch {
-      return { accessKey: '2347', handle: 'Researcher 01' };
+      return { accessKey: "2347", handle: "Researcher 01" };
     }
   });
-  const isAuthenticated = Boolean(clientAuth && clientAuth.accessKey === '2347');
+  const isAuthenticated = Boolean(
+    clientAuth && clientAuth.accessKey === "2347",
+  );
 
   const [nodes, setNodes] = useState(() => {
     const raw = currentWorkspace?.nodes || INITIAL_NODES;
     return Array.isArray(raw)
-      ? raw.filter((n) => n.type !== 'generating_preview' && !n.data?.isGenerating)
+      ? raw.filter(
+          (n) => n.type !== "generating_preview" && !n.data?.isGenerating,
+        )
       : INITIAL_NODES;
   });
   const [edges, setEdges] = useState(() => {
     const raw = currentWorkspace?.edges || INITIAL_EDGES;
     return Array.isArray(raw)
-      ? raw.filter((e) => !e.id?.startsWith('preview-edge-') && !e.data?.isConstructing)
+      ? raw.filter(
+          (e) => !e.id?.startsWith("preview-edge-") && !e.data?.isConstructing,
+        )
       : INITIAL_EDGES;
   });
 
@@ -233,22 +270,22 @@ export function App() {
     return (
       currentWorkspace?.clusters || [
         {
-          id: 'cluster-kinematics-1',
-          title: 'Analytical Mechanics & Coupler Invariants',
-          nodeIds: ['0x01', '0x02', '0x03'],
-          color: 'stone',
+          id: "cluster-kinematics-1",
+          title: "Analytical Mechanics & Coupler Invariants",
+          nodeIds: ["0x01", "0x02", "0x03"],
+          color: "stone",
           isCollapsed: false,
-          category: 'Domain: Kinematics // Invariants',
-          epistemicStatus: 'peer reviewed',
+          category: "Domain: Kinematics // Invariants",
+          epistemicStatus: "peer reviewed",
           coherenceScore: 0.96,
           aiSynthesizedSummary:
-            'Synthesis of planar kinematic translation, dynamic coupler curves, and topological invariant mappings across constrained manifolds.',
+            "Synthesis of planar kinematic translation, dynamic coupler curves, and topological invariant mappings across constrained manifolds.",
         },
       ]
     );
   });
   const [selectedNodeIds, setSelectedNodeIds] = useState(() => []);
-  const [toolMode, setToolMode] = useState('hand'); // 'hand' | 'select'
+  const [toolMode, setToolMode] = useState("hand"); // 'hand' | 'select'
   const [isAnimationPaused, setIsAnimationPaused] = useState(false);
 
   // Modals
@@ -281,15 +318,18 @@ export function App() {
       if (nodeIdToRemove) {
         return prev.filter((n) => n.id !== nodeIdToRemove);
       }
-      return prev.filter((n) => n.type !== 'generating_preview' && !n.data?.isGenerating);
+      return prev.filter(
+        (n) => n.type !== "generating_preview" && !n.data?.isGenerating,
+      );
     });
     setEdges((prev) =>
       prev.filter(
         (e) =>
-          (!nodeIdToRemove || (e.source !== nodeIdToRemove && e.target !== nodeIdToRemove)) &&
+          (!nodeIdToRemove ||
+            (e.source !== nodeIdToRemove && e.target !== nodeIdToRemove)) &&
           !e.id?.startsWith(`preview-edge-`) &&
-          !e.data?.isConstructing
-      )
+          !e.data?.isConstructing,
+      ),
     );
     activeSparkNodeIdRef.current = null;
     setIsSparkGenerating(false);
@@ -345,7 +385,7 @@ export function App() {
         }
       }
     },
-    [selectNode, selectedNodeId, closeInspector]
+    [selectNode, selectedNodeId, closeInspector],
   );
 
   const handleSelectNodes = useCallback(
@@ -358,7 +398,7 @@ export function App() {
       // When tracing all nodes, NEVER open the inspector
       closeInspector();
     },
-    [selectNode, closeInspector]
+    [selectNode, closeInspector],
   );
 
   const handleClearSelection = useCallback(() => {
@@ -404,7 +444,7 @@ export function App() {
                 pan,
                 zoom,
               }
-            : ws
+            : ws,
         );
         persistWorkspaces(updated);
         return updated;
@@ -431,14 +471,14 @@ export function App() {
                 pan,
                 zoom,
               }
-            : ws
+            : ws,
         );
         persistWorkspaces(updated);
       } catch (e) {}
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [nodes, edges, clusters, pan, zoom, activeWorkspaceId]);
 
   // Switch Active Workspace
@@ -453,15 +493,15 @@ export function App() {
     const resolvedNodes =
       target.nodes !== null && target.nodes !== undefined
         ? target.nodes
-        : workspaceId === 'ws-kinematics'
-        ? INITIAL_NODES
-        : [];
+        : workspaceId === "ws-kinematics"
+          ? INITIAL_NODES
+          : [];
     const resolvedEdges =
       target.edges !== null && target.edges !== undefined
         ? target.edges
-        : workspaceId === 'ws-kinematics'
-        ? INITIAL_EDGES
-        : [];
+        : workspaceId === "ws-kinematics"
+          ? INITIAL_EDGES
+          : [];
     setNodes(resolvedNodes);
     setEdges(resolvedEdges);
     setClusters(target.clusters || []);
@@ -480,7 +520,7 @@ export function App() {
 
     if (seedTopic) {
       const cluster = synthesizeKnowledgeCluster(seedTopic);
-      const rootId = '0x01';
+      const rootId = "0x01";
       const branchList = cluster.branchNodes || [];
       const primaryDims = getNodeDimensions(cluster.primaryNode);
 
@@ -493,19 +533,31 @@ export function App() {
         existingNodes: [],
       });
 
-      const isRootMusic = cluster.primaryNode?.mediaType === 'music' || cluster.primaryNode?.layout?.structure === 'music_card' || Boolean(cluster.primaryNode?.musicData) || Boolean(cluster.primaryNode?.tracks);
-      const isRootVideo = !isRootMusic && (cluster.primaryNode?.mediaType === 'video' || cluster.primaryNode?.layout?.structure === 'video_top' || Boolean(cluster.primaryNode?.videoData?.videoId));
+      const isRootMusic =
+        cluster.primaryNode?.mediaType === "music" ||
+        cluster.primaryNode?.layout?.structure === "music_card" ||
+        Boolean(cluster.primaryNode?.musicData) ||
+        Boolean(cluster.primaryNode?.tracks);
+      const isRootVideo =
+        !isRootMusic &&
+        (cluster.primaryNode?.mediaType === "video" ||
+          cluster.primaryNode?.layout?.structure === "video_top" ||
+          Boolean(cluster.primaryNode?.videoData?.videoId));
 
       const rootNode = {
         id: rootId,
-        type: isRootMusic ? 'music' : isRootVideo ? 'video' : 'spawned',
+        type: isRootMusic ? "music" : isRootVideo ? "video" : "spawned",
         width: primaryDims.width,
         height: primaryDims.height,
         position: primaryPos,
         data: {
           ...cluster.primaryNode,
-          mediaType: isRootMusic ? 'music' : isRootVideo ? 'video' : (cluster.primaryNode.mediaType || 'photo'),
-          status: cluster.primaryNode.status || 'synthesized root',
+          mediaType: isRootMusic
+            ? "music"
+            : isRootVideo
+              ? "video"
+              : cluster.primaryNode.mediaType || "photo",
+          status: cluster.primaryNode.status || "synthesized root",
         },
       };
 
@@ -521,36 +573,57 @@ export function App() {
           };
           const bDims = getNodeDimensions(bn);
 
-          const branchRel = RELATIONSHIP_TYPES[bn.relationship] || (bn.relationship === 'CONTRADICTS' ? RELATIONSHIP_TYPES.CONTRADICTS : RELATIONSHIP_TYPES.COUPLED_SYSTEM);
+          const branchRel =
+            RELATIONSHIP_TYPES[bn.relationship] ||
+            (bn.relationship === "CONTRADICTS"
+              ? RELATIONSHIP_TYPES.CONTRADICTS
+              : RELATIONSHIP_TYPES.COUPLED_SYSTEM);
           const branchEdge = {
             id: `edge-${rootId}-${branchId}`,
             source: rootId,
             target: branchId,
             relationshipType: branchRel,
-            label: bn.relationshipLabel || (branchRel === RELATIONSHIP_TYPES.CONTRADICTS ? 'contradicts' : 'coupled dynamic'),
+            label:
+              bn.relationshipLabel ||
+              (branchRel === RELATIONSHIP_TYPES.CONTRADICTS
+                ? "contradicts"
+                : "coupled dynamic"),
           };
 
-          const bIsMusic = bn.mediaType === 'music' || bn.layout?.structure === 'music_card' || Boolean(bn.musicData) || Boolean(bn.tracks);
-          const bIsVideo = !bIsMusic && (bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || Boolean(bn.videoData?.videoId));
+          const bIsMusic =
+            bn.mediaType === "music" ||
+            bn.layout?.structure === "music_card" ||
+            Boolean(bn.musicData) ||
+            Boolean(bn.tracks);
+          const bIsVideo =
+            !bIsMusic &&
+            (bn.mediaType === "video" ||
+              bn.layout?.structure === "video_top" ||
+              Boolean(bn.videoData?.videoId));
 
           initialNodes.push({
             id: branchId,
-            type: bn.relationship === 'CONTRADICTS'
-              ? 'contradiction'
-              : bIsMusic
-              ? 'music'
-              : bIsVideo
-              ? 'video'
-              : 'spawned',
+            type:
+              bn.relationship === "CONTRADICTS"
+                ? "contradiction"
+                : bIsMusic
+                  ? "music"
+                  : bIsVideo
+                    ? "video"
+                    : "spawned",
             width: bDims.width,
             height: bDims.height,
             position: branchPos,
             data: {
               ...bn,
-              mediaType: bIsMusic ? 'music' : bIsVideo ? 'video' : (bn.mediaType || 'photo'),
+              mediaType: bIsMusic
+                ? "music"
+                : bIsVideo
+                  ? "video"
+                  : bn.mediaType || "photo",
               title: bn.title,
-              category: bn.category || 'dialectical counterpart',
-              status: 'derived relation',
+              category: bn.category || "dialectical counterpart",
+              status: "derived relation",
             },
           });
           initialEdges.push(branchEdge);
@@ -564,11 +637,11 @@ export function App() {
           const backendUrl = getStoredBackendUrl();
           let liveNode = null;
 
-          if (aiMode === 'auto' || aiMode === 'backend') {
+          if (aiMode === "auto" || aiMode === "backend") {
             try {
               const res = await fetch(`${backendUrl}/api/spark`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   query: `Synthesize comprehensive spatial knowledge graph and historical/scientific dossier for: ${seedTopic}`,
                   workspace_name: name,
@@ -581,7 +654,7 @@ export function App() {
             } catch (err) {}
           }
 
-          if (!liveNode && (aiMode === 'auto' || aiMode === 'direct')) {
+          if (!liveNode && (aiMode === "auto" || aiMode === "direct")) {
             try {
               const directRes = await queryDirectAi({
                 query: `Synthesize comprehensive spatial knowledge graph and historical/scientific dossier for: ${seedTopic}`,
@@ -594,41 +667,68 @@ export function App() {
 
           if (liveNode) {
             // If backend returned a node without live media enrichment, enrich it
-            if (!liveNode.videoData && !liveNode.musicData && (liveNode.mediaType === 'video' || liveNode.mediaType === 'music' || liveNode.videoQuery || liveNode.musicData)) {
+            if (
+              !liveNode.videoData &&
+              !liveNode.musicData &&
+              (liveNode.mediaType === "video" ||
+                liveNode.mediaType === "music" ||
+                liveNode.videoQuery ||
+                liveNode.musicData)
+            ) {
               try {
-                liveNode = await enrichNodeWithRealPhotos(liveNode, seedTopic, name, initialNodes);
+                liveNode = await enrichNodeWithRealPhotos(
+                  liveNode,
+                  seedTopic,
+                  name,
+                  initialNodes,
+                );
               } catch (_) {}
             }
 
-            const isMus = liveNode.mediaType === 'music' || Boolean(liveNode.musicData) || Boolean(liveNode.tracks) || liveNode.layout?.structure === 'music_card';
-            const isVid = !isMus && (liveNode.mediaType === 'video' || Boolean(liveNode.videoData?.videoId) || liveNode.layout?.structure === 'video_top');
+            const isMus =
+              liveNode.mediaType === "music" ||
+              Boolean(liveNode.musicData) ||
+              Boolean(liveNode.tracks) ||
+              liveNode.layout?.structure === "music_card";
+            const isVid =
+              !isMus &&
+              (liveNode.mediaType === "video" ||
+                Boolean(liveNode.videoData?.videoId) ||
+                liveNode.layout?.structure === "video_top");
 
             setNodes((prev) =>
               prev.map((n) =>
                 n.id === rootId
                   ? {
                       ...n,
-                      type: isMus ? 'music' : isVid ? 'video' : n.type,
+                      type: isMus ? "music" : isVid ? "video" : n.type,
                       data: {
                         ...n.data,
                         ...liveNode,
-                        mediaType: isMus ? 'music' : isVid ? 'video' : (liveNode.mediaType || n.data.mediaType),
+                        mediaType: isMus
+                          ? "music"
+                          : isVid
+                            ? "video"
+                            : liveNode.mediaType || n.data.mediaType,
                         title: liveNode.title || n.data.title,
                       },
                     }
-                  : n
-              )
+                  : n,
+              ),
             );
             if (liveNode) {
               try {
                 recordTelemetryInteraction({
                   instruction: seedTopic,
-                  input: { workspace_name: name, type: 'investigation_seed_live' },
+                  input: {
+                    workspace_name: name,
+                    type: "investigation_seed_live",
+                  },
                   output: liveNode,
                   structured_output: liveNode,
-                  action_type: 'investigation_seed',
+                  action_type: "investigation_seed",
                   workspace_name: name,
-                  client_handle: clientAuth?.handle || 'Researcher 01',
+                  client_handle: clientAuth?.handle || "Researcher 01",
                 });
               } catch (_) {}
             }
@@ -642,12 +742,18 @@ export function App() {
         try {
           recordTelemetryInteraction({
             instruction: seedTopic,
-            input: { workspace_name: name, initial_node_count: initialNodes.length },
+            input: {
+              workspace_name: name,
+              initial_node_count: initialNodes.length,
+            },
             output: initialNodes[0].data,
-            structured_output: { initialNodes: initialNodes.map((n) => n.data), initialEdges },
-            action_type: 'investigation_seed',
+            structured_output: {
+              initialNodes: initialNodes.map((n) => n.data),
+              initialEdges,
+            },
+            action_type: "investigation_seed",
             workspace_name: name,
-            client_handle: clientAuth?.handle || 'Researcher 01',
+            client_handle: clientAuth?.handle || "Researcher 01",
           });
         } catch (_) {}
       }
@@ -656,24 +762,27 @@ export function App() {
     const newWs = {
       id: newId,
       name: name || `Investigation ${workspaces.length + 1}`,
-      clientHandle: clientAuth?.handle || 'Researcher 01',
+      clientHandle: clientAuth?.handle || "Researcher 01",
       updatedAt: new Date().toISOString(),
       pan: { x: 0, y: 0 },
       zoom: 1,
       nodes: initialNodes,
       edges: initialEdges,
-      clusters: initialNodes.length >= 2 ? [
-        {
-          id: `cluster-${Date.now()}`,
-          title: `${name || 'Investigation'} — Constellation`,
-          nodeIds: initialNodes.map((n) => n.id),
-          isCollapsed: false,
-          category: 'Investigation Cluster',
-          epistemicStatus: 'synthesized root',
-          coherenceScore: 0.95,
-          aiSynthesizedSummary: `Primary investigation cluster seeded from topic: ${seedTopic || name || 'New Topic'}`,
-        }
-      ] : [],
+      clusters:
+        initialNodes.length >= 2
+          ? [
+              {
+                id: `cluster-${Date.now()}`,
+                title: `${name || "Investigation"} — Constellation`,
+                nodeIds: initialNodes.map((n) => n.id),
+                isCollapsed: false,
+                category: "Investigation Cluster",
+                epistemicStatus: "synthesized root",
+                coherenceScore: 0.95,
+                aiSynthesizedSummary: `Primary investigation cluster seeded from topic: ${seedTopic || name || "New Topic"}`,
+              },
+            ]
+          : [],
     };
 
     setWorkspaces((prev) => {
@@ -709,12 +818,12 @@ export function App() {
     closeBrowser();
     setIsSparkGenerating(false);
     setIsInvestigating(false);
-    setInvestigationMessage('');
+    setInvestigationMessage("");
 
     // Restore focus to window and main input so user can type immediately
     setTimeout(() => {
       window.focus();
-      const sparkInput = document.getElementById('spark-input');
+      const sparkInput = document.getElementById("spark-input");
       if (sparkInput) {
         sparkInput.focus();
       }
@@ -773,14 +882,20 @@ export function App() {
   };
 
   const handleExportTrainingJsonl = () => {
-    exportTrainingJsonlFile(currentWorkspace?.name || 'Workspace', nodes, edges);
+    exportTrainingJsonlFile(
+      currentWorkspace?.name || "Workspace",
+      nodes,
+      edges,
+    );
   };
 
   // Delete a specific node and its connected edges
   const handleDeleteNode = useCallback(
     (nodeId) => {
       setNodes((prev) => prev.filter((n) => n.id !== nodeId));
-      setEdges((prev) => prev.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      setEdges((prev) =>
+        prev.filter((e) => e.source !== nodeId && e.target !== nodeId),
+      );
       setSelectedNodeIds((prev) => prev.filter((id) => id !== nodeId));
       setClusters((prev) =>
         prev
@@ -788,22 +903,22 @@ export function App() {
             ...c,
             nodeIds: c.nodeIds.filter((id) => id !== nodeId),
           }))
-          .filter((c) => c.nodeIds.length >= 2)
+          .filter((c) => c.nodeIds.length >= 2),
       );
       if (selectedNodeId === nodeId) {
         closeInspector();
       }
       setHoveredNodeId((prev) => (prev === nodeId ? null : prev));
     },
-    [selectedNodeId, closeInspector]
+    [selectedNodeId, closeInspector],
   );
 
   // Cluster & Multi-Selection Handlers
   const handleToggleClusterCollapse = useCallback((clusterId) => {
     setClusters((prev) =>
       prev.map((c) =>
-        c.id === clusterId ? { ...c, isCollapsed: !c.isCollapsed } : c
-      )
+        c.id === clusterId ? { ...c, isCollapsed: !c.isCollapsed } : c,
+      ),
     );
   }, []);
 
@@ -816,27 +931,39 @@ export function App() {
       if (!ids || ids.length < 2) return;
 
       const memberNodes = nodes.filter((n) => ids.includes(n.id));
-      const categories = memberNodes.map((n) => n.data?.category || '').filter(Boolean);
-      const defaultCategory = categories.length > 0 ? categories[0] : 'Knowledge Constellation';
+      const categories = memberNodes
+        .map((n) => n.data?.category || "")
+        .filter(Boolean);
+      const defaultCategory =
+        categories.length > 0 ? categories[0] : "Knowledge Constellation";
 
-      const paletteKeys = ['amber', 'emerald', 'blue', 'purple', 'rose', 'teal', 'orange', 'stone'];
+      const paletteKeys = [
+        "amber",
+        "emerald",
+        "blue",
+        "purple",
+        "rose",
+        "teal",
+        "orange",
+        "stone",
+      ];
       const chosenColor = paletteKeys[clusters.length % paletteKeys.length];
 
       const newCluster = {
         id: `cluster-${Date.now()}`,
-        title: `Cluster ${clusters.length + 1}: ${defaultCategory.split('//')[0].trim() || 'Constellation'}`,
+        title: `Cluster ${clusters.length + 1}: ${defaultCategory.split("//")[0].trim() || "Constellation"}`,
         nodeIds: [...ids],
         color: chosenColor,
         isCollapsed: false,
         category: defaultCategory,
-        epistemicStatus: 'synthesized',
+        epistemicStatus: "synthesized",
         coherenceScore: 0.94,
         aiSynthesizedSummary: `Constellation uniting ${ids.length} nodes across shared conceptual coordinates.`,
       };
 
       setClusters((prev) => [...prev, newCluster]);
     },
-    [selectedNodeIds, nodes, clusters.length]
+    [selectedNodeIds, nodes, clusters.length],
   );
 
   const handleDissolveCluster = useCallback((clusterId) => {
@@ -845,13 +972,13 @@ export function App() {
 
   const handleUpdateClusterTitle = useCallback((clusterId, title) => {
     setClusters((prev) =>
-      prev.map((c) => (c.id === clusterId ? { ...c, title } : c))
+      prev.map((c) => (c.id === clusterId ? { ...c, title } : c)),
     );
   }, []);
 
   const handleUpdateClusterColor = useCallback((clusterId, colorKey) => {
     setClusters((prev) =>
-      prev.map((c) => (c.id === clusterId ? { ...c, color: colorKey } : c))
+      prev.map((c) => (c.id === clusterId ? { ...c, color: colorKey } : c)),
     );
   }, []);
 
@@ -863,33 +990,37 @@ export function App() {
       const tidiedPositions = autoTidyNodes(clusterNodes);
       setNodes((prev) =>
         prev.map((n) =>
-          tidiedPositions[n.id] ? { ...n, position: tidiedPositions[n.id] } : n
-        )
+          tidiedPositions[n.id] ? { ...n, position: tidiedPositions[n.id] } : n,
+        ),
       );
     },
-    [clusters, nodes]
+    [clusters, nodes],
   );
 
   const handleAutoTidySelection = useCallback(
     (nodeIdsToTidy) => {
       const ids =
-        nodeIdsToTidy && nodeIdsToTidy.length > 0 ? nodeIdsToTidy : selectedNodeIds;
+        nodeIdsToTidy && nodeIdsToTidy.length > 0
+          ? nodeIdsToTidy
+          : selectedNodeIds;
       if (!ids || ids.length < 2) return;
       const targetNodes = nodes.filter((n) => ids.includes(n.id));
       const tidiedPositions = autoTidyNodes(targetNodes);
       setNodes((prev) =>
         prev.map((n) =>
-          tidiedPositions[n.id] ? { ...n, position: tidiedPositions[n.id] } : n
-        )
+          tidiedPositions[n.id] ? { ...n, position: tidiedPositions[n.id] } : n,
+        ),
       );
     },
-    [selectedNodeIds, nodes]
+    [selectedNodeIds, nodes],
   );
 
   const handleChainNodes = useCallback(
     (nodeIdsToChain) => {
       const ids =
-        nodeIdsToChain && nodeIdsToChain.length > 0 ? nodeIdsToChain : selectedNodeIds;
+        nodeIdsToChain && nodeIdsToChain.length > 0
+          ? nodeIdsToChain
+          : selectedNodeIds;
       if (!ids || ids.length < 2) return;
       const newEdges = [];
       for (let i = 0; i < ids.length - 1; i++) {
@@ -898,7 +1029,7 @@ export function App() {
         const exists = edges.some(
           (e) =>
             (e.source === source && e.target === target) ||
-            (e.source === target && e.target === source)
+            (e.source === target && e.target === source),
         );
         if (!exists) {
           newEdges.push({
@@ -906,9 +1037,9 @@ export function App() {
             source,
             target,
             relationshipType: RELATIONSHIP_TYPES.COUPLED_SYSTEM,
-            label: 'sequential chain',
-            color: '#7A7570',
-            style: 'basic',
+            label: "sequential chain",
+            color: "#7A7570",
+            style: "basic",
           });
         }
       }
@@ -916,7 +1047,7 @@ export function App() {
         setEdges((prev) => [...prev, ...newEdges]);
       }
     },
-    [selectedNodeIds, edges]
+    [selectedNodeIds, edges],
   );
 
   const handleDeleteSelectedNodes = useCallback(
@@ -928,19 +1059,21 @@ export function App() {
       if (!ids || ids.length === 0) return;
       const idSet = new Set(ids);
       setNodes((prev) => prev.filter((n) => !idSet.has(n.id)));
-      setEdges((prev) => prev.filter((e) => !idSet.has(e.source) && !idSet.has(e.target)));
+      setEdges((prev) =>
+        prev.filter((e) => !idSet.has(e.source) && !idSet.has(e.target)),
+      );
       setClusters((prev) =>
         prev
           .map((c) => ({
             ...c,
             nodeIds: c.nodeIds.filter((id) => !idSet.has(id)),
           }))
-          .filter((c) => c.nodeIds.length >= 2)
+          .filter((c) => c.nodeIds.length >= 2),
       );
       setSelectedNodeIds([]);
       closeInspector();
     },
-    [selectedNodeIds, closeInspector]
+    [selectedNodeIds, closeInspector],
   );
 
   const handleSynthesizeCluster = useCallback(
@@ -953,11 +1086,11 @@ export function App() {
       const backendUrl = getStoredBackendUrl();
       try {
         const res = await fetch(`${backendUrl}/api/cluster/synthesize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             cluster_id: clusterId || `cluster-${Date.now()}`,
-            cluster_title: targetCluster?.title || 'Synthesized Constellation',
+            cluster_title: targetCluster?.title || "Synthesized Constellation",
             nodes: clusterNodes.map((n) => ({
               id: n.id,
               type: n.type,
@@ -984,21 +1117,24 @@ export function App() {
                       coherenceScore:
                         synthesis.coherenceScore || c.coherenceScore,
                       category: synthesis.emergentCategory || c.category,
-                      epistemicStatus: synthesis.epistemicStatus || 'synthesized',
+                      epistemicStatus:
+                        synthesis.epistemicStatus || "synthesized",
                     }
-                  : c
-              )
+                  : c,
+              ),
             );
             return;
           }
         }
       } catch (err) {
-        console.warn('[SynthesizeCluster API fallback]', err);
+        console.warn("[SynthesizeCluster API fallback]", err);
       }
 
       // Heuristic fallback if backend is offline
-      const categories = clusterNodes.map((n) => n.data?.category).filter(Boolean);
-      const synthesizedCat = categories[0] || 'Interdisciplinary Core';
+      const categories = clusterNodes
+        .map((n) => n.data?.category)
+        .filter(Boolean);
+      const synthesizedCat = categories[0] || "Interdisciplinary Core";
       setClusters((prev) =>
         prev.map((c) =>
           c.id === clusterId
@@ -1006,13 +1142,13 @@ export function App() {
                 ...c,
                 aiSynthesizedSummary: `Emergent synthesis uniting ${clusterNodes.length} nodes under ${synthesizedCat}. Coherence demonstrated across mathematical, mechanical, and topological boundaries.`,
                 coherenceScore: 0.94,
-                epistemicStatus: 'heuristic synthesis',
+                epistemicStatus: "heuristic synthesis",
               }
-            : c
-        )
+            : c,
+        ),
       );
     },
-    [clusters, nodes, selectedNodeIds]
+    [clusters, nodes, selectedNodeIds],
   );
 
   // Safeguarded node deletion: asks confirmation if node has >= 2 linkages
@@ -1022,7 +1158,7 @@ export function App() {
       if (!targetNode) return;
 
       const connectedEdges = edges.filter(
-        (e) => e.source === nodeId || e.target === nodeId
+        (e) => e.source === nodeId || e.target === nodeId,
       );
 
       // If it has multiple linkages (>= 2), ask user for agreement
@@ -1037,7 +1173,7 @@ export function App() {
       // Otherwise delete immediately
       handleDeleteNode(nodeId);
     },
-    [nodes, edges, handleDeleteNode]
+    [nodes, edges, handleDeleteNode],
   );
 
   const handleConfirmDeleteNode = useCallback(() => {
@@ -1054,7 +1190,9 @@ export function App() {
   // Single Node Drag Movement
   const handleNodeMove = useCallback((nodeId, newPos) => {
     setNodes((prev) =>
-      prev.map((node) => (node.id === nodeId ? { ...node, position: newPos } : node))
+      prev.map((node) =>
+        node.id === nodeId ? { ...node, position: newPos } : node,
+      ),
     );
   }, []);
 
@@ -1065,7 +1203,7 @@ export function App() {
 
   const handleUpdateEdge = useCallback((edgeId, updates) => {
     setEdges((prev) =>
-      prev.map((e) => (e.id === edgeId ? { ...e, ...updates } : e))
+      prev.map((e) => (e.id === edgeId ? { ...e, ...updates } : e)),
     );
   }, []);
 
@@ -1114,8 +1252,8 @@ export function App() {
     const boxCenterX = minX + boxWidth / 2;
     const boxCenterY = minY + boxHeight / 2;
 
-    const screenW = typeof window !== 'undefined' ? window.innerWidth : 1920;
-    const screenH = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    const screenW = typeof window !== "undefined" ? window.innerWidth : 1920;
+    const screenH = typeof window !== "undefined" ? window.innerHeight : 1080;
     const paddingX = 140;
     const paddingY = 160;
 
@@ -1139,9 +1277,9 @@ export function App() {
       const types = e.dataTransfer?.types;
       const isFileDrag =
         types &&
-        (types.includes('Files') ||
-          Array.from(types).includes('Files') ||
-          types.includes('application/x-moz-file'));
+        (types.includes("Files") ||
+          Array.from(types).includes("Files") ||
+          types.includes("application/x-moz-file"));
 
       if (!isFileDrag) return;
 
@@ -1159,9 +1297,9 @@ export function App() {
       const types = e.dataTransfer?.types;
       const isFileDrag =
         types &&
-        (types.includes('Files') ||
-          Array.from(types).includes('Files') ||
-          types.includes('application/x-moz-file'));
+        (types.includes("Files") ||
+          Array.from(types).includes("Files") ||
+          types.includes("application/x-moz-file"));
 
       if (!isFileDrag) return;
 
@@ -1177,13 +1315,13 @@ export function App() {
       }
     };
 
-    window.addEventListener('dragover', handleDragOver);
-    window.addEventListener('dragleave', handleDragLeave);
-    window.addEventListener('drop', handleDrop);
+    window.addEventListener("dragover", handleDragOver);
+    window.addEventListener("dragleave", handleDragLeave);
+    window.addEventListener("drop", handleDrop);
     return () => {
-      window.removeEventListener('dragover', handleDragOver);
-      window.removeEventListener('dragleave', handleDragLeave);
-      window.removeEventListener('drop', handleDrop);
+      window.removeEventListener("dragover", handleDragOver);
+      window.removeEventListener("dragleave", handleDragLeave);
+      window.removeEventListener("drop", handleDrop);
     };
   }, [clientAuth]);
 
@@ -1191,40 +1329,46 @@ export function App() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (deleteConfirmation) {
-        if (e.key === 'Escape') {
+        if (e.key === "Escape") {
           e.preventDefault();
           setDeleteConfirmation(null);
         }
         return;
       }
 
-      if (e.key === 'Escape' && isSparkGenerating) {
+      if (e.key === "Escape" && isSparkGenerating) {
         e.preventDefault();
         handleCancelSparkQuery();
-        if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) {
+        if (
+          ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName) ||
+          document.activeElement?.isContentEditable
+        ) {
           document.activeElement.blur();
         }
         return;
       }
 
-      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) {
-        if (e.key === 'Escape') document.activeElement.blur();
+      if (
+        ["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName) ||
+        document.activeElement?.isContentEditable
+      ) {
+        if (e.key === "Escape") document.activeElement.blur();
         return;
       }
 
       // If embedded browser is active, do not hijack Space (video play/pause) or canvas keys
       if (isBrowserOpen) {
-        if (e.key === 'Escape') {
+        if (e.key === "Escape") {
           closeBrowser();
         }
         return;
       }
 
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "g" || e.key === "G")) {
         e.preventDefault();
         if (e.shiftKey) {
           const targetCluster = clusters.find((c) =>
-            c.nodeIds.some((id) => selectedNodeIds.includes(id))
+            c.nodeIds.some((id) => selectedNodeIds.includes(id)),
           );
           if (targetCluster) {
             handleDissolveCluster(targetCluster.id);
@@ -1237,7 +1381,7 @@ export function App() {
         return;
       }
 
-      if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedNodeIds.length > 1) {
           e.preventDefault();
           handleDeleteSelectedNodes(selectedNodeIds);
@@ -1248,56 +1392,66 @@ export function App() {
           e.preventDefault();
           requestDeleteNode(targetNodeId);
         }
-      } else if (e.code === 'Space') {
+      } else if (e.code === "Space") {
         e.preventDefault();
         setIsAnimationPaused((prev) => !prev);
-      } else if (e.key === 'Escape') {
+      } else if (e.key === "Escape") {
         closeBrowser();
         closeInspector();
         setIsShortcutsOpen(false);
         setIsNewNodeModalOpen(false);
         setIsAuthModalOpen(false);
         setSelectedNodeIds([]);
-      } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+      } else if (e.key === "?" || (e.shiftKey && e.key === "/")) {
         setIsShortcutsOpen((prev) => !prev);
-      } else if (e.key === '+' || e.key === '=') {
+      } else if (e.key === "+" || e.key === "=") {
         handleZoomIn();
-      } else if (e.key === '-' || e.key === '_') {
+      } else if (e.key === "-" || e.key === "_") {
         handleZoomOut();
-      } else if (e.key === '0') {
+      } else if (e.key === "0") {
         handleResetZoom();
-      } else if (['1', '2', '3', '4', '5'].includes(e.key)) {
+      } else if (["1", "2", "3", "4", "5"].includes(e.key)) {
         const targetNode = nodes[parseInt(e.key) - 1];
         if (targetNode) {
           selectNode(targetNode.id);
           setSelectedNodeIds([targetNode.id]);
         }
-      } else if (e.key.toLowerCase() === 't' || e.key.toLowerCase() === 's') {
+      } else if (e.key.toLowerCase() === "t" || e.key.toLowerCase() === "s") {
         e.preventDefault();
-        document.getElementById('spark-input')?.focus();
-      } else if (e.key.toLowerCase() === 'n') {
+        document.getElementById("spark-input")?.focus();
+      } else if (e.key.toLowerCase() === "n") {
         e.preventDefault();
         setIsNewNodeModalOpen(true);
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'v') {
+      } else if (
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        e.key.toLowerCase() === "v"
+      ) {
         e.preventDefault();
-        setToolMode((prev) => (prev === 'select' ? 'hand' : 'select'));
-      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'h') {
+        setToolMode((prev) => (prev === "select" ? "hand" : "select"));
+      } else if (
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        e.key.toLowerCase() === "h"
+      ) {
         e.preventDefault();
-        setToolMode('hand');
-      } else if (e.key.toLowerCase() === 'b' && !isBrowserOpen) {
+        setToolMode("hand");
+      } else if (e.key.toLowerCase() === "b" && !isBrowserOpen) {
         e.preventDefault();
-        openBrowserWithUrl(browserUrl || 'psychis://home');
-      } else if (e.key.toLowerCase() === 'f') {
+        openBrowserWithUrl(browserUrl || "psychis://home");
+      } else if (e.key.toLowerCase() === "f") {
         e.preventDefault();
         handleFitView();
-      } else if (e.key.toLowerCase() === 'm') {
+      } else if (e.key.toLowerCase() === "m") {
         e.preventDefault();
         setIsMinimapOpen((prev) => !prev);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     closeBrowser,
     closeInspector,
@@ -1327,7 +1481,12 @@ export function App() {
       x: (-pan.x + window.innerWidth / 2) / zoom - 140,
       y: (-pan.y + window.innerHeight / 2) / zoom - 120,
     };
-    const newNode = createNodeFromTemplate(templateKey, newId, centerPos, customData);
+    const newNode = createNodeFromTemplate(
+      templateKey,
+      newId,
+      centerPos,
+      customData,
+    );
 
     setNodes((prev) => [...prev, newNode]);
 
@@ -1339,7 +1498,7 @@ export function App() {
           source: selectedNodeId,
           target: newId,
           relationshipType: RELATIONSHIP_TYPES.DEFAULT,
-          label: 'associated',
+          label: "associated",
         },
       ]);
     }
@@ -1348,7 +1507,7 @@ export function App() {
   // AI Web Investigation Probe Handlers
   const handleLaunchProbe = (nodeId) => {
     const target = nodes.find((n) => n.id === nodeId) || selectedNodeData;
-    const title = target?.data?.title || 'Advanced scientific frontiers';
+    const title = target?.data?.title || "Advanced scientific frontiers";
     const query = `Frontier advancements and preprints in: ${title}`;
 
     if (nodeId && selectedNodeId !== nodeId) {
@@ -1359,7 +1518,7 @@ export function App() {
     setInvestigationMessage(`Probing live preprints on "${title}"...`);
     handleExecuteSparkQuery(query, nodeId || selectedNodeId).finally(() => {
       setIsInvestigating(false);
-      setInvestigationMessage('');
+      setInvestigationMessage("");
     });
   };
 
@@ -1373,13 +1532,14 @@ export function App() {
     setInvestigationMessage(`Synthesizing discovery node for "${inquiry}"...`);
     handleExecuteSparkQuery(inquiry, parentId).finally(() => {
       setIsInvestigating(false);
-      setInvestigationMessage('');
+      setInvestigationMessage("");
     });
   };
 
   const handleExecuteSparkQuery = async (queryText, sourceNodeId = null) => {
     const text = queryText.trim();
     if (!text) return;
+    const researchIntent = isResearchQuery(text);
 
     // Abort any existing in-flight query first
     if (activeSparkAbortRef.current) {
@@ -1394,21 +1554,35 @@ export function App() {
 
     setIsSparkGenerating(true);
 
-    const isUrl = text.startsWith('http') || (text.includes('.') && !text.includes(' ') && text.length < 120);
-    const cleanUrl = isUrl ? (text.startsWith('http') ? text : `https://${text}`) : null;
+    const isUrl =
+      text.startsWith("http") ||
+      (text.includes(".") && !text.includes(" ") && text.length < 120);
+    const cleanUrl = isUrl
+      ? text.startsWith("http")
+        ? text
+        : `https://${text}`
+      : null;
     let domainTitle = text;
     if (cleanUrl) {
-      try { domainTitle = new URL(cleanUrl).hostname; } catch (e) { domainTitle = text; }
+      try {
+        domainTitle = new URL(cleanUrl).hostname;
+      } catch (e) {
+        domainTitle = text;
+      }
     }
 
     const effectiveSourceId = sourceNodeId || null;
-    const effectiveSourceNode = sourceNodeId ? nodes.find((n) => n.id === sourceNodeId) : null;
+    const effectiveSourceNode = sourceNodeId
+      ? nodes.find((n) => n.id === sourceNodeId)
+      : null;
 
     let nextNum = nodes.length + 1;
-    while (nodes.some((n) => n.id === `0x${nextNum.toString(16).padStart(2, '0')}`)) {
+    while (
+      nodes.some((n) => n.id === `0x${nextNum.toString(16).padStart(2, "0")}`)
+    ) {
       nextNum++;
     }
-    const newId = `0x${nextNum.toString(16).padStart(2, '0')}`;
+    const newId = `0x${nextNum.toString(16).padStart(2, "0")}`;
     activeSparkNodeIdRef.current = newId;
 
     const baseCenterPos = effectiveSourceNode?.position
@@ -1431,17 +1605,25 @@ export function App() {
     });
 
     const safePreviewPos = {
-      x: typeof previewPos?.x === 'number' && !isNaN(previewPos.x) ? previewPos.x : baseCenterPos.x,
-      y: typeof previewPos?.y === 'number' && !isNaN(previewPos.y) ? previewPos.y : baseCenterPos.y,
+      x:
+        typeof previewPos?.x === "number" && !isNaN(previewPos.x)
+          ? previewPos.x
+          : baseCenterPos.x,
+      y:
+        typeof previewPos?.y === "number" && !isNaN(previewPos.y)
+          ? previewPos.y
+          : baseCenterPos.y,
     };
 
-    const tempEdgeId = effectiveSourceId ? `preview-edge-${effectiveSourceId}-${newId}` : null;
+    const tempEdgeId = effectiveSourceId
+      ? `preview-edge-${effectiveSourceId}-${newId}`
+      : null;
 
     try {
       // Immediately spawn the in-canvas progressive construction preview node!
       const previewNode = {
         id: newId,
-        type: 'generating_preview',
+        type: "generating_preview",
         width: candidateDims.width,
         height: candidateDims.height,
         position: safePreviewPos,
@@ -1456,7 +1638,7 @@ export function App() {
 
       setNodes((prev) => [...prev, previewNode]);
       // Do not auto-select generating preview node so probe only appears after user explicitly clicks on a node
-      if (typeof setSelectedNodeId === 'function') {
+      if (typeof setSelectedNodeId === "function") {
         setSelectedNodeId(null);
       }
       setSelectedNodeIds([]);
@@ -1469,11 +1651,11 @@ export function App() {
             id: tempEdgeId,
             source: effectiveSourceId,
             target: newId,
-            style: 'dashed',
-            color: '#06B6D4',
+            style: "dashed",
+            color: "#06B6D4",
             data: {
               isConstructing: true,
-              label: 'forging link...',
+              label: "forging link...",
             },
           },
         ]);
@@ -1484,18 +1666,20 @@ export function App() {
       const backendUrl = getStoredBackendUrl();
 
       // 1. Try local backend server if permitted
-      if ((aiMode === 'auto' || aiMode === 'backend') && !signal.aborted) {
+      if ((aiMode === "auto" || aiMode === "backend") && !signal.aborted) {
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 6000);
 
           const response = await fetch(`${backendUrl}/api/spark`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              query: isUrl ? `Analyze the platform, architecture, and network topology of ${text}` : text,
+              query: isUrl
+                ? `Analyze the platform, architecture, and network topology of ${text}`
+                : text,
               active_node_id: effectiveSourceId,
-              workspace_name: currentWorkspace?.name || 'Applied Kinematics',
+              workspace_name: currentWorkspace?.name || "Applied Kinematics",
               context_nodes: nodes.slice(0, 15).map((n) => ({
                 id: n.id,
                 title: n.data?.title,
@@ -1514,26 +1698,34 @@ export function App() {
             }
           }
         } catch (err) {
-          console.log('[PSYCHIS Backend offline, attempting direct Groq or synthesizer]:', err.message);
+          console.log(
+            "[PSYCHIS Backend offline, attempting direct Groq or synthesizer]:",
+            err.message,
+          );
         }
       }
 
       if (signal.aborted) return;
 
       // 2. Try direct client-side AI (Groq Cloud) if backend didn't provide node
-      if (!synthesizedData && (aiMode === 'auto' || aiMode === 'direct')) {
+      if (!synthesizedData && (aiMode === "auto" || aiMode === "direct")) {
         try {
           const result = await queryDirectAi({
-            query: isUrl ? `Analyze the platform, architecture, and network topology of ${text}` : text,
+            query: isUrl
+              ? `Analyze the platform, architecture, and network topology of ${text}`
+              : text,
             activeNodeContext: effectiveSourceNode?.data || null,
-            workspaceName: currentWorkspace?.name || 'Applied Kinematics',
+            workspaceName: currentWorkspace?.name || "Applied Kinematics",
             existingNodes: nodes,
           });
           if (result?.node) {
             synthesizedData = result.node;
           }
         } catch (err) {
-          console.warn('[Direct AI query failed, falling back to Tavily or synthesizer]:', err.message);
+          console.warn(
+            "[Direct AI query failed, falling back to Tavily or synthesizer]:",
+            err.message,
+          );
         }
       }
 
@@ -1553,60 +1745,91 @@ export function App() {
             });
             if (tRes.success && (tRes.results?.length > 0 || tRes.answer)) {
               const topResult = tRes.results?.[0];
-              const isFinancial = /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|валют|доллар|евро|рубл|юан|биткоин|криптовалют|акци|индекс|котировк|цена|цене|цены|стоимост|forex|rate|price|quote|usd|eur|rub|btc|eth|stock|pepe)/i.test(text);
-              const topUrl = topResult?.url || `https://html.duckduckgo.com/html/?q=${encodeURIComponent(text)}`;
+              const isFinancialTopic =
+                /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|валют|доллар|евро|рубл|юан|биткоин|криптовалют|акци|индекс|котировк|цена|цене|цены|стоимост|forex|rate|price|quote|usd|eur|rub|btc|eth|stock|pepe)/i.test(
+                  text,
+                );
+              const isFinancial = isFinancialTopic && !researchIntent;
+              const topUrl =
+                topResult?.url ||
+                `https://html.duckduckgo.com/html/?q=${encodeURIComponent(text)}`;
               const tavilyNode = {
                 title: topResult?.title || text,
-                category: isFinancial ? 'financial quotes // live market' : 'verified web intelligence // tavily',
-                status: 'live web retrieval',
-                source: topResult?.title || 'Tavily Search Engine',
+                category: isFinancial
+                  ? "financial quotes // live market"
+                  : "verified web intelligence // tavily",
+                status: "live web retrieval",
+                source: topResult?.title || "Tavily Search Engine",
                 url: topUrl,
                 sourceUrl: topUrl,
-                description: tRes.answer || topResult?.content || `Verified web intelligence on "${text}".`,
+                description:
+                  tRes.answer ||
+                  topResult?.content ||
+                  `Verified web intelligence on "${text}".`,
                 detailedSynthesis: [
                   tRes.answer ? `### Fact Synthesis\n${tRes.answer}` : null,
-                  '### Verified Live Web Sources',
-                  ...(tRes.results || []).map((r, i) => `**[${i + 1}] [${r.title}](${r.url})**\n${r.content}`),
-                ].filter(Boolean).join('\n\n'),
-                layout: isFinancial ? { structure: 'price_hero', width: 340 } : { width: 350, density: 'comfortable' },
-                targetedInquiries: (tRes.results || []).slice(1, 4).map((r) => r.title).filter(Boolean),
+                  "### Verified Live Web Sources",
+                  ...(tRes.results || []).map(
+                    (r, i) =>
+                      `**[${i + 1}] [${r.title}](${r.url})**\n${r.content}`,
+                  ),
+                ]
+                  .filter(Boolean)
+                  .join("\n\n"),
+                layout: isFinancial
+                  ? { structure: "price_hero", width: 340 }
+                  : { width: 350, density: "comfortable" },
+                targetedInquiries: (tRes.results || [])
+                  .slice(1, 4)
+                  .map((r) => r.title)
+                  .filter(Boolean),
                 branchNodes: (tRes.results || []).slice(1, 3).map((r, idx) => ({
                   id: `branch-tavily-${idx + 1}-${Date.now()}`,
                   title: r.title,
-                  category: 'web source // context',
-                  description: (r.content || '').substring(0, 200) + '...',
+                  category: "web source // context",
+                  description: (r.content || "").substring(0, 200) + "...",
                   url: r.url,
                   sourceUrl: r.url,
                   source: r.title,
-                  mediaType: 'photo',
-                  relationship: 'COUPLED_SYSTEM',
-                  relationshipLabel: 'verified source',
+                  mediaType: "photo",
+                  relationship: "COUPLED_SYSTEM",
+                  relationshipLabel: "verified source",
                 })),
               };
 
               if (isFinancial) {
-                const quote = extractStructuredPriceQuote(text, tRes, tavilyNode);
+                const quote = extractStructuredPriceQuote(
+                  text,
+                  tRes,
+                  tavilyNode,
+                );
                 if (quote) {
                   tavilyNode.priceQuote = quote;
-                  tavilyNode.layout = { structure: 'price_hero', width: 340 };
+                  tavilyNode.layout = { structure: "price_hero", width: 340 };
                 }
               }
 
-              if (Array.isArray(tRes.images) && tRes.images.length > 0 && !isFinancial) {
-                tavilyNode.photos = tRes.images.slice(0, 5).map((imgUrl, idx) => ({
-                  url: imgUrl,
-                  thumbnail: imgUrl,
-                  title: tavilyNode.title,
-                  source: 'Tavily Web',
-                  caption: `${tavilyNode.title} (Source ${idx + 1})`,
-                }));
+              if (
+                Array.isArray(tRes.images) &&
+                tRes.images.length > 0 &&
+                !isFinancial
+              ) {
+                tavilyNode.photos = tRes.images
+                  .slice(0, 5)
+                  .map((imgUrl, idx) => ({
+                    url: imgUrl,
+                    thumbnail: imgUrl,
+                    title: tavilyNode.title,
+                    source: "Tavily Web",
+                    caption: `${tavilyNode.title} (Source ${idx + 1})`,
+                  }));
                 tavilyNode.primaryPhoto = tavilyNode.photos[0];
               }
               synthesizedData = tavilyNode;
             }
           }
         } catch (tErr) {
-          console.warn('[Standalone Tavily web search error]:', tErr);
+          console.warn("[Standalone Tavily web search error]:", tErr);
         }
       }
 
@@ -1619,22 +1842,42 @@ export function App() {
           ...cluster.primaryNode,
           branchNodes: cluster.branchNodes || [],
         };
-        const isFinancial =
-          /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|курсы|курса|курсов|валют|валюта|валюты|валютный|доллар|доллара|долларов|евро|рубл|рубль|рубля|рублей|юан|юань|юаня|юаней|биткоин|биткоина|биткоинов|криптовалют|акци|акции|акций|индекс|индексы|котировк|котировка|котировки|почем|сколько стоит|цена|цены|цене|стоимост|rate|rates|price|prices|exchange rate|cost of)/i.test(text) ||
-          /\b(usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|eth[\s/]?usd|1\s*usd|1\s*eur)\b/i.test(text);
+        const isFinancialTopic =
+          /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|курсы|курса|курсов|валют|валюта|валюты|валютный|доллар|доллара|долларов|евро|рубл|рубль|рубля|рублей|юан|юань|юаня|юаней|биткоин|биткоина|биткоинов|криптовалют|акци|акции|акций|индекс|индексы|котировк|котировка|котировки|почем|сколько стоит|цена|цены|цене|стоимост|rate|rates|price|prices|exchange rate|cost of)/i.test(
+            text,
+          ) ||
+          /\b(usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|eth[\s/]?usd|1\s*usd|1\s*eur)\b/i.test(
+            text,
+          );
+        const isFinancial = isFinancialTopic && !researchIntent;
         if (isFinancial) {
           const q = extractStructuredPriceQuote(text, null, synthesizedData);
           if (q) {
             synthesizedData.priceQuote = q;
-            synthesizedData.layout = { ...(synthesizedData.layout || {}), structure: 'price_hero', width: 340 };
+            synthesizedData.layout = {
+              ...(synthesizedData.layout || {}),
+              structure: "price_hero",
+              width: 340,
+            };
           }
         }
       }
 
+      synthesizedData = applyResearchIntent(synthesizedData, text);
+
       // Always enrich synthesized data to guarantee authentic media, video/music classification, and companion branches
-      if (synthesizedData && !synthesizedData._isEnriched) {
+      if (
+        synthesizedData &&
+        synthesizedData.kind !== "metric" &&
+        !synthesizedData._isEnriched
+      ) {
         try {
-          synthesizedData = await enrichNodeWithRealPhotos(synthesizedData, text, currentWorkspace?.name || '', nodes);
+          synthesizedData = await enrichNodeWithRealPhotos(
+            synthesizedData,
+            text,
+            currentWorkspace?.name || "",
+            nodes,
+          );
         } catch (_) {}
       }
 
@@ -1643,10 +1886,23 @@ export function App() {
       }
 
       // Calculate collision-free coordinates for the full cluster using dynamic dimensions
-      const cleanSynthesized = sanitizeNodeData(synthesizedData);
-      const isMusic = cleanSynthesized.mediaType === 'music' || cleanSynthesized.layout?.structure === 'music_card' || Boolean(cleanSynthesized.musicData) || Boolean(cleanSynthesized.tracks);
-      const isVideo = !isMusic && (cleanSynthesized.mediaType === 'video' || cleanSynthesized.layout?.structure === 'video_top' || Boolean(cleanSynthesized.videoData?.videoId));
-      const branchList = (!isUrl && Array.isArray(cleanSynthesized.branchNodes)) ? cleanSynthesized.branchNodes : [];
+      const cleanSynthesized = sanitizeNodeData(
+        applyResearchIntent(synthesizedData, text),
+      );
+      const isMusic =
+        cleanSynthesized.mediaType === "music" ||
+        cleanSynthesized.layout?.structure === "music_card" ||
+        Boolean(cleanSynthesized.musicData) ||
+        Boolean(cleanSynthesized.tracks);
+      const isVideo =
+        !isMusic &&
+        (cleanSynthesized.mediaType === "video" ||
+          cleanSynthesized.layout?.structure === "video_top" ||
+          Boolean(cleanSynthesized.videoData?.videoId));
+      const branchList =
+        !isUrl && Array.isArray(cleanSynthesized.branchNodes)
+          ? cleanSynthesized.branchNodes
+          : [];
       const primaryDims = getNodeDimensions(cleanSynthesized);
 
       const { primaryPos, branchPositions } = findClusterPositions({
@@ -1658,32 +1914,48 @@ export function App() {
       });
 
       const safePrimaryPos = {
-        x: typeof primaryPos?.x === 'number' && !isNaN(primaryPos.x) ? primaryPos.x : safePreviewPos.x,
-        y: typeof primaryPos?.y === 'number' && !isNaN(primaryPos.y) ? primaryPos.y : safePreviewPos.y,
+        x:
+          typeof primaryPos?.x === "number" && !isNaN(primaryPos.x)
+            ? primaryPos.x
+            : safePreviewPos.x,
+        y:
+          typeof primaryPos?.y === "number" && !isNaN(primaryPos.y)
+            ? primaryPos.y
+            : safePreviewPos.y,
       };
 
       const primaryNode = {
         id: newId,
         type: isUrl
-          ? 'website'
+          ? "website"
           : isMusic
-          ? 'music'
-          : isVideo
-          ? 'video'
-          : 'spawned',
+            ? "music"
+            : isVideo
+              ? "video"
+              : "spawned",
         width: primaryDims.width,
         height: primaryDims.height,
         position: safePrimaryPos,
         data: {
           ...cleanSynthesized,
           justMaterialized: true,
-          mediaType: isMusic ? 'music' : isVideo ? 'video' : (cleanSynthesized.mediaType || 'photo'),
-          title: isUrl ? domainTitle : (cleanSynthesized.title || domainTitle),
+          mediaType: isMusic
+            ? "music"
+            : isVideo
+              ? "video"
+              : cleanSynthesized.mediaType || "photo",
+          title: isUrl ? domainTitle : cleanSynthesized.title || domainTitle,
           url: cleanUrl || cleanSynthesized.url,
           sourceUrl: cleanUrl || cleanSynthesized.sourceUrl,
-          source: cleanUrl ? domainTitle : (cleanSynthesized.source || 'Research Dossier'),
-          category: cleanSynthesized.category || (isUrl ? 'live web archive // origin' : 'research dossier'),
-          status: cleanSynthesized.status || (isUrl ? 'live crawled' : 'synthesized node'),
+          source: cleanUrl
+            ? domainTitle
+            : cleanSynthesized.source || "Research Dossier",
+          category:
+            cleanSynthesized.category ||
+            (isUrl ? "live web archive // origin" : "research dossier"),
+          status:
+            cleanSynthesized.status ||
+            (isUrl ? "live crawled" : "synthesized node"),
         },
       };
 
@@ -1700,13 +1972,13 @@ export function App() {
         candidateConnections.push({
           source: sourceNodeId,
           target: newId,
-          label: cleanSynthesized.connectionLabel || 'probe',
+          label: cleanSynthesized.connectionLabel || "probe",
           explanation:
             cleanSynthesized.connectionExplanation ||
-            `Investigation inquiry extending directly from "${srcNode?.data?.title || 'active topic'}".`,
+            `Investigation inquiry extending directly from "${srcNode?.data?.title || "active topic"}".`,
           formula: cleanSynthesized.connectionFormula || null,
-          style: cleanSynthesized.connectionFormula ? 'arrowed' : 'basic',
-          color: '#7A7570',
+          style: cleanSynthesized.connectionFormula ? "arrowed" : "basic",
+          color: "#7A7570",
         });
       }
 
@@ -1714,17 +1986,28 @@ export function App() {
       if (Array.isArray(cleanSynthesized.connections)) {
         cleanSynthesized.connections.forEach((conn) => {
           if (!conn) return;
-          const target = conn.targetNodeId || conn.nodeId || conn.connectedNodeId || conn.id;
+          const target =
+            conn.targetNodeId || conn.nodeId || conn.connectedNodeId || conn.id;
           const source = conn.sourceNodeId || newId;
           if (target && target !== source) {
             candidateConnections.push({
               source: source,
               target: target,
-              label: conn.connectionLabel || conn.label || '',
-              explanation: conn.connectionExplanation || conn.explanation || conn.description || 'Epistemic connection between concepts.',
-              formula: conn.connectionFormula || conn.formula || conn.mathematics || null,
-              style: conn.style || (conn.connectionFormula || conn.formula ? 'arrowed' : 'basic'),
-              color: conn.color || '#7A7570',
+              label: conn.connectionLabel || conn.label || "",
+              explanation:
+                conn.connectionExplanation ||
+                conn.explanation ||
+                conn.description ||
+                "Epistemic connection between concepts.",
+              formula:
+                conn.connectionFormula ||
+                conn.formula ||
+                conn.mathematics ||
+                null,
+              style:
+                conn.style ||
+                (conn.connectionFormula || conn.formula ? "arrowed" : "basic"),
+              color: conn.color || "#7A7570",
             });
           }
         });
@@ -1737,26 +2020,33 @@ export function App() {
             candidateConnections.push({
               source: id,
               target: newId,
-              label: cleanSynthesized.connectionLabel || '',
-              explanation: cleanSynthesized.connectionExplanation || 'Epistemic connection between concepts.',
+              label: cleanSynthesized.connectionLabel || "",
+              explanation:
+                cleanSynthesized.connectionExplanation ||
+                "Epistemic connection between concepts.",
               formula: cleanSynthesized.connectionFormula || null,
-              style: cleanSynthesized.connectionFormula ? 'arrowed' : 'basic',
-              color: '#7A7570',
+              style: cleanSynthesized.connectionFormula ? "arrowed" : "basic",
+              color: "#7A7570",
             });
           }
         });
       }
 
       // 4. Legacy single connectedNodeId
-      if (cleanSynthesized.connectedNodeId && cleanSynthesized.connectedNodeId !== newId) {
+      if (
+        cleanSynthesized.connectedNodeId &&
+        cleanSynthesized.connectedNodeId !== newId
+      ) {
         candidateConnections.push({
           source: cleanSynthesized.connectedNodeId,
           target: newId,
-          label: cleanSynthesized.connectionLabel || '',
-          explanation: cleanSynthesized.connectionExplanation || 'Epistemic connection between concepts.',
+          label: cleanSynthesized.connectionLabel || "",
+          explanation:
+            cleanSynthesized.connectionExplanation ||
+            "Epistemic connection between concepts.",
           formula: cleanSynthesized.connectionFormula || null,
-          style: cleanSynthesized.connectionFormula ? 'arrowed' : 'basic',
-          color: '#7A7570',
+          style: cleanSynthesized.connectionFormula ? "arrowed" : "basic",
+          color: "#7A7570",
         });
       }
 
@@ -1789,15 +2079,24 @@ export function App() {
           id: edgeId,
           source: s,
           target: t,
-          relationshipType: isUrl && (s === newId || t === newId) ? RELATIONSHIP_TYPES.ORIGIN_URL : RELATIONSHIP_TYPES.DEFAULT,
-          color: conn.color || '#7A7570',
-          style: conn.style || 'basic',
-          label: conn.label || (isUrl && (s === newId || t === newId) ? 'origin url' : ''),
-          name: conn.label ? `${conn.label} Linkage` : 'Relational Linkage',
-          badge: isUrl && (s === newId || t === newId) ? 'ORIGIN // CORPUS' : 'CONCEPTUAL LINKAGE',
-          description: conn.explanation || 'Epistemic connection between concepts.',
+          relationshipType:
+            isUrl && (s === newId || t === newId)
+              ? RELATIONSHIP_TYPES.ORIGIN_URL
+              : RELATIONSHIP_TYPES.DEFAULT,
+          color: conn.color || "#7A7570",
+          style: conn.style || "basic",
+          label:
+            conn.label ||
+            (isUrl && (s === newId || t === newId) ? "origin url" : ""),
+          name: conn.label ? `${conn.label} Linkage` : "Relational Linkage",
+          badge:
+            isUrl && (s === newId || t === newId)
+              ? "ORIGIN // CORPUS"
+              : "CONCEPTUAL LINKAGE",
+          description:
+            conn.explanation || "Epistemic connection between concepts.",
           mathematics: conn.formula || null,
-          coupling: 'Direct Derivation',
+          coupling: "Direct Derivation",
         });
       });
 
@@ -1806,59 +2105,112 @@ export function App() {
         const bDims = getNodeDimensions(cleanBn);
 
         let branchNum = nextNum + 1 + idx;
-        while (nodes.some((n) => n.id === `0x${branchNum.toString(16).padStart(2, '0')}`) || createdNodes.some((n) => n.id === `0x${branchNum.toString(16).padStart(2, '0')}`)) {
+        while (
+          nodes.some(
+            (n) => n.id === `0x${branchNum.toString(16).padStart(2, "0")}`,
+          ) ||
+          createdNodes.some(
+            (n) => n.id === `0x${branchNum.toString(16).padStart(2, "0")}`,
+          )
+        ) {
           branchNum++;
         }
-        const branchId = `0x${branchNum.toString(16).padStart(2, '0')}`;
+        const branchId = `0x${branchNum.toString(16).padStart(2, "0")}`;
         const rawPos = branchPositions[idx];
         const branchPos = {
-          x: typeof rawPos?.x === 'number' && !isNaN(rawPos.x) ? rawPos.x : safePrimaryPos.x + 380,
-          y: typeof rawPos?.y === 'number' && !isNaN(rawPos.y) ? rawPos.y : safePrimaryPos.y + idx * 260,
+          x:
+            typeof rawPos?.x === "number" && !isNaN(rawPos.x)
+              ? rawPos.x
+              : safePrimaryPos.x + 380,
+          y:
+            typeof rawPos?.y === "number" && !isNaN(rawPos.y)
+              ? rawPos.y
+              : safePrimaryPos.y + idx * 260,
         };
 
-        const branchRel = RELATIONSHIP_TYPES[cleanBn.relationship] || (cleanBn.relationship === 'CONTRADICTS' ? RELATIONSHIP_TYPES.CONTRADICTS : RELATIONSHIP_TYPES.COUPLED_SYSTEM);
+        const branchRel =
+          RELATIONSHIP_TYPES[cleanBn.relationship] ||
+          (cleanBn.relationship === "CONTRADICTS"
+            ? RELATIONSHIP_TYPES.CONTRADICTS
+            : RELATIONSHIP_TYPES.COUPLED_SYSTEM);
         const branchEdge = {
           id: `edge-${newId}-${branchId}-${Date.now()}`,
           source: newId,
           target: branchId,
           relationshipType: branchRel,
-          color: branchRel === RELATIONSHIP_TYPES.CONTRADICTS ? '#3A3530' : '#7A7570',
-          style: branchRel === RELATIONSHIP_TYPES.CONTRADICTS ? 'dashed' : 'basic',
-          label: cleanBn.relationshipLabel || (branchRel === RELATIONSHIP_TYPES.CONTRADICTS ? 'contradicts' : ''),
-          name: cleanBn.edgeName || cleanBn.relationshipLabel || `${cleanBn.title || 'Branch'} Linkage`,
-          badge: cleanBn.edgeBadge || (branchRel === RELATIONSHIP_TYPES.CONTRADICTS ? 'COUNTER-THESIS // REFUTATION' : 'COUPLED DYNAMICS'),
-          description: cleanBn.edgeDescription || cleanBn.description || `Direct epistemic relationship connecting "${primaryNode.data.title}" with "${cleanBn.title}".`,
+          color:
+            branchRel === RELATIONSHIP_TYPES.CONTRADICTS
+              ? "#3A3530"
+              : "#7A7570",
+          style:
+            branchRel === RELATIONSHIP_TYPES.CONTRADICTS ? "dashed" : "basic",
+          label:
+            cleanBn.relationshipLabel ||
+            (branchRel === RELATIONSHIP_TYPES.CONTRADICTS ? "contradicts" : ""),
+          name:
+            cleanBn.edgeName ||
+            cleanBn.relationshipLabel ||
+            `${cleanBn.title || "Branch"} Linkage`,
+          badge:
+            cleanBn.edgeBadge ||
+            (branchRel === RELATIONSHIP_TYPES.CONTRADICTS
+              ? "COUNTER-THESIS // REFUTATION"
+              : "COUPLED DYNAMICS"),
+          description:
+            cleanBn.edgeDescription ||
+            cleanBn.description ||
+            `Direct epistemic relationship connecting "${primaryNode.data.title}" with "${cleanBn.title}".`,
           mathematics: cleanBn.edgeMathematics || null,
-          coupling: cleanBn.edgeCoupling || (branchRel === RELATIONSHIP_TYPES.CONTRADICTS ? 'Strict Logical Contradiction' : 'Direct Invariant Coupling'),
+          coupling:
+            cleanBn.edgeCoupling ||
+            (branchRel === RELATIONSHIP_TYPES.CONTRADICTS
+              ? "Strict Logical Contradiction"
+              : "Direct Invariant Coupling"),
         };
 
-        const bIsMusic = cleanBn.mediaType === 'music' || cleanBn.layout?.structure === 'music_card' || Boolean(cleanBn.musicData) || Boolean(cleanBn.tracks);
-        const bIsVideo = !bIsMusic && (cleanBn.mediaType === 'video' || cleanBn.layout?.structure === 'video_top' || Boolean(cleanBn.videoData?.videoId));
+        const bIsMusic =
+          cleanBn.mediaType === "music" ||
+          cleanBn.layout?.structure === "music_card" ||
+          Boolean(cleanBn.musicData) ||
+          Boolean(cleanBn.tracks);
+        const bIsVideo =
+          !bIsMusic &&
+          (cleanBn.mediaType === "video" ||
+            cleanBn.layout?.structure === "video_top" ||
+            Boolean(cleanBn.videoData?.videoId));
 
         createdNodes.push({
           id: branchId,
-          type: cleanBn.relationship === 'CONTRADICTS'
-            ? 'contradiction'
-            : bIsMusic
-            ? 'music'
-            : bIsVideo
-            ? 'video'
-            : 'spawned',
+          type:
+            cleanBn.relationship === "CONTRADICTS"
+              ? "contradiction"
+              : bIsMusic
+                ? "music"
+                : bIsVideo
+                  ? "video"
+                  : "spawned",
           width: bDims.width,
           height: bDims.height,
           position: branchPos,
           data: {
             ...cleanBn,
-            mediaType: bIsMusic ? 'music' : bIsVideo ? 'video' : (cleanBn.mediaType || 'photo'),
+            mediaType: bIsMusic
+              ? "music"
+              : bIsVideo
+                ? "video"
+                : cleanBn.mediaType || "photo",
             title: cleanBn.title || `Branch ${idx + 1}`,
-            category: cleanBn.category || 'dialectical counterpart',
-            status: cleanBn.status || 'derived relation',
+            category: cleanBn.category || "dialectical counterpart",
+            status: cleanBn.status || "derived relation",
           },
         });
         createdEdges.push(branchEdge);
 
         // Check if branch node has additional connections to existing nodes
-        if (cleanBn.connectedNodeId && nodes.some((n) => n.id === cleanBn.connectedNodeId)) {
+        if (
+          cleanBn.connectedNodeId &&
+          nodes.some((n) => n.id === cleanBn.connectedNodeId)
+        ) {
           const tgt = cleanBn.connectedNodeId;
           const pairKey = `${branchId}->${tgt}`;
           const revPairKey = `${tgt}->${branchId}`;
@@ -1870,22 +2222,30 @@ export function App() {
               source: branchId,
               target: tgt,
               relationshipType: RELATIONSHIP_TYPES.DEFAULT,
-              color: '#7A7570',
-              style: 'basic',
-              label: cleanBn.connectionLabel || '',
-              name: `${cleanBn.title || 'Branch'} Linkage`,
-              badge: 'CONCEPTUAL LINKAGE',
-              description: cleanBn.connectionExplanation || `Direct connection with ${cleanBn.title}.`,
+              color: "#7A7570",
+              style: "basic",
+              label: cleanBn.connectionLabel || "",
+              name: `${cleanBn.title || "Branch"} Linkage`,
+              badge: "CONCEPTUAL LINKAGE",
+              description:
+                cleanBn.connectionExplanation ||
+                `Direct connection with ${cleanBn.title}.`,
               mathematics: cleanBn.connectionFormula || null,
-              coupling: 'Direct Derivation',
+              coupling: "Direct Derivation",
             });
           }
         }
 
         if (Array.isArray(cleanBn.connections)) {
           cleanBn.connections.forEach((bConn) => {
-            const bTgt = bConn.targetNodeId || bConn.nodeId || bConn.connectedNodeId;
-            if (bTgt && bTgt !== branchId && (nodes.some((n) => n.id === bTgt) || createdNodes.some((n) => n.id === bTgt))) {
+            const bTgt =
+              bConn.targetNodeId || bConn.nodeId || bConn.connectedNodeId;
+            if (
+              bTgt &&
+              bTgt !== branchId &&
+              (nodes.some((n) => n.id === bTgt) ||
+                createdNodes.some((n) => n.id === bTgt))
+            ) {
               const pairKey = `${branchId}->${bTgt}`;
               const revPairKey = `${bTgt}->${branchId}`;
               if (!edgeKeySet.has(pairKey) && !edgeKeySet.has(revPairKey)) {
@@ -1896,14 +2256,17 @@ export function App() {
                   source: branchId,
                   target: bTgt,
                   relationshipType: RELATIONSHIP_TYPES.DEFAULT,
-                  color: bConn.color || '#7A7570',
-                  style: bConn.style || 'basic',
-                  label: bConn.connectionLabel || bConn.label || '',
-                  name: `${cleanBn.title || 'Branch'} Linkage`,
-                  badge: 'CONCEPTUAL LINKAGE',
-                  description: bConn.connectionExplanation || bConn.explanation || `Connection between ${cleanBn.title} and Node ${bTgt}.`,
+                  color: bConn.color || "#7A7570",
+                  style: bConn.style || "basic",
+                  label: bConn.connectionLabel || bConn.label || "",
+                  name: `${cleanBn.title || "Branch"} Linkage`,
+                  badge: "CONCEPTUAL LINKAGE",
+                  description:
+                    bConn.connectionExplanation ||
+                    bConn.explanation ||
+                    `Connection between ${cleanBn.title} and Node ${bTgt}.`,
                   mathematics: bConn.connectionFormula || bConn.formula || null,
-                  coupling: 'Direct Derivation',
+                  coupling: "Direct Derivation",
                 });
               }
             }
@@ -1916,7 +2279,9 @@ export function App() {
         return [...filtered, ...createdNodes];
       });
       setEdges((prev) => {
-        const filtered = tempEdgeId ? prev.filter((e) => e.id !== tempEdgeId) : prev;
+        const filtered = tempEdgeId
+          ? prev.filter((e) => e.id !== tempEdgeId)
+          : prev;
         return [...filtered, ...createdEdges];
       });
 
@@ -1926,7 +2291,7 @@ export function App() {
           instruction: text,
           input: {
             active_node_id: effectiveSourceId,
-            workspace_name: currentWorkspace?.name || 'Applied Kinematics',
+            workspace_name: currentWorkspace?.name || "Applied Kinematics",
             is_url: isUrl,
             total_created_nodes: createdNodes.length,
           },
@@ -1936,32 +2301,44 @@ export function App() {
             branchNodes: createdNodes.slice(1).map((bn) => bn.data),
             edges: createdEdges,
           },
-          action_type: isUrl ? 'url_investigation' : 'spark_prompt',
-          workspace_name: currentWorkspace?.name || 'Applied Kinematics',
-          client_handle: currentUser?.handle || 'Researcher',
+          action_type: isUrl ? "url_investigation" : "spark_prompt",
+          workspace_name: currentWorkspace?.name || "Applied Kinematics",
+          client_handle: currentUser?.handle || "Researcher",
         });
       } catch (_) {}
     } catch (clusterErr) {
       if (signal?.aborted) {
-        setNodes((prev) => prev.filter((n) => n.id !== newId && n.type !== 'generating_preview'));
+        setNodes((prev) =>
+          prev.filter((n) => n.id !== newId && n.type !== "generating_preview"),
+        );
         if (tempEdgeId) {
-          setEdges((prev) => prev.filter((e) => e.id !== tempEdgeId && !e.id?.startsWith('preview-edge-') && !e.data?.isConstructing));
+          setEdges((prev) =>
+            prev.filter(
+              (e) =>
+                e.id !== tempEdgeId &&
+                !e.id?.startsWith("preview-edge-") &&
+                !e.data?.isConstructing,
+            ),
+          );
         }
         return;
       }
-      console.error('[Error spawning cluster in handleExecuteSparkQuery]:', clusterErr);
+      console.error(
+        "[Error spawning cluster in handleExecuteSparkQuery]:",
+        clusterErr,
+      );
       try {
         const fallbackCluster = synthesizeKnowledgeCluster(text, nodes);
         const cleanData = sanitizeNodeData({
           ...fallbackCluster.primaryNode,
           justMaterialized: true,
           title: fallbackCluster.primaryNode?.title || text,
-          status: fallbackCluster.primaryNode?.status || 'synthesized node',
+          status: fallbackCluster.primaryNode?.status || "synthesized node",
           isGenerating: false,
         });
         const fallbackNode = {
           id: newId,
-          type: 'spawned',
+          type: "spawned",
           width: fallbackCluster.primaryNode?.layout?.width || 330,
           height: 250,
           position: safePreviewPos,
@@ -1972,12 +2349,27 @@ export function App() {
           return [...filtered, fallbackNode];
         });
         if (tempEdgeId) {
-          setEdges((prev) => prev.filter((e) => e.id !== tempEdgeId && !e.id?.startsWith('preview-edge-') && !e.data?.isConstructing));
+          setEdges((prev) =>
+            prev.filter(
+              (e) =>
+                e.id !== tempEdgeId &&
+                !e.id?.startsWith("preview-edge-") &&
+                !e.data?.isConstructing,
+            ),
+          );
         }
         // Background photo enrichment on fallback node
-        enrichNodeWithRealPhotos(fallbackCluster.primaryNode, text, currentWorkspace?.name || '', nodes)
+        enrichNodeWithRealPhotos(
+          fallbackCluster.primaryNode,
+          text,
+          currentWorkspace?.name || "",
+          nodes,
+        )
           .then((enriched) => {
-            if (enriched && (enriched.photos?.length > 0 || enriched.primaryPhoto)) {
+            if (
+              enriched &&
+              (enriched.photos?.length > 0 || enriched.primaryPhoto)
+            ) {
               setNodes((latest) =>
                 latest.map((n) =>
                   n.id === newId
@@ -1989,20 +2381,30 @@ export function App() {
                           primaryPhoto: enriched.primaryPhoto,
                           layout: {
                             ...(n.data?.layout || {}),
-                            structure: enriched.layout?.structure || (enriched.photos?.length > 0 ? 'media_top' : n.data?.layout?.structure),
+                            structure:
+                              enriched.layout?.structure ||
+                              (enriched.photos?.length > 0
+                                ? "media_top"
+                                : n.data?.layout?.structure),
                           },
                         }),
                       }
-                    : n
-                )
+                    : n,
+                ),
               );
             }
           })
           .catch(() => {});
       } catch (_) {
-        setNodes((prev) => prev.filter((n) => n.id !== newId && n.type !== 'generating_preview'));
+        setNodes((prev) =>
+          prev.filter((n) => n.id !== newId && n.type !== "generating_preview"),
+        );
         if (tempEdgeId) {
-          setEdges((prev) => prev.filter((e) => e.id !== tempEdgeId && !e.id?.startsWith('preview-edge-')));
+          setEdges((prev) =>
+            prev.filter(
+              (e) => e.id !== tempEdgeId && !e.id?.startsWith("preview-edge-"),
+            ),
+          );
         }
       }
     } finally {
@@ -2016,7 +2418,9 @@ export function App() {
 
   const createFallbackWebsiteNode = (url) => {
     if (!url) return null;
-    const cleanUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`;
+    const cleanUrl = url.trim().startsWith("http")
+      ? url.trim()
+      : `https://${url.trim()}`;
     let domain = url;
     try {
       domain = new URL(cleanUrl).hostname;
@@ -2025,10 +2429,12 @@ export function App() {
     }
 
     let nextNum = nodes.length + 1;
-    while (nodes.some((n) => n.id === `0x${nextNum.toString(16).padStart(2, '0')}`)) {
+    while (
+      nodes.some((n) => n.id === `0x${nextNum.toString(16).padStart(2, "0")}`)
+    ) {
       nextNum++;
     }
-    const newId = `0x${nextNum.toString(16).padStart(2, '0')}`;
+    const newId = `0x${nextNum.toString(16).padStart(2, "0")}`;
     const newPos = {
       x: (-pan.x + window.innerWidth / 2) / zoom - 160,
       y: (-pan.y + window.innerHeight / 2) / zoom - 130,
@@ -2036,13 +2442,13 @@ export function App() {
 
     const videoMeta = getVideoMetadata ? getVideoMetadata(cleanUrl) : null;
     if (videoMeta) {
-      return createNodeFromTemplate('video', newId, newPos, {
+      return createNodeFromTemplate("video", newId, newPos, {
         title: `${domain} Video`,
         url: cleanUrl,
         sourceUrl: cleanUrl,
         source: domain,
         institution: `Media Signal // ${domain}`,
-        category: 'audiovisual // video stream',
+        category: "audiovisual // video stream",
         videoData: {
           videoId: videoMeta.videoId,
           embedUrl: videoMeta.embedUrl,
@@ -2060,7 +2466,7 @@ export function App() {
 
     return {
       id: newId,
-      type: 'website',
+      type: "website",
       width: 320,
       height: 260,
       position: newPos,
@@ -2070,8 +2476,8 @@ export function App() {
         sourceUrl: cleanUrl,
         source: domain,
         institution: `Web Signal // ${domain}`,
-        category: 'live web archive // origin',
-        status: 'mapped signal',
+        category: "live web archive // origin",
+        status: "mapped signal",
         description: `Live scholarly and web intelligence mapped directly from ${cleanUrl}. Connects external literature to the spatial knowledge network.`,
         detailedSynthesis: `External web entry point captured from active research session. Serves as reference signal for dialectical cross-referencing and empirical evidence mapping.`,
         references: [
@@ -2087,7 +2493,9 @@ export function App() {
 
   const createIntelligentNodeFromUrl = async (url, existingNodes = []) => {
     if (!url) return null;
-    const cleanUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`;
+    const cleanUrl = url.trim().startsWith("http")
+      ? url.trim()
+      : `https://${url.trim()}`;
     let domain = url;
     try {
       domain = new URL(cleanUrl).hostname;
@@ -2103,7 +2511,8 @@ export function App() {
         const response = await fetch(targetUrl, {
           signal: controller.signal,
           headers: {
-            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           },
         });
         clearTimeout(timeoutId);
@@ -2141,7 +2550,7 @@ export function App() {
         }
         return null;
       } catch (err) {
-        console.warn('Deterministic web parsing fetch/parse error:', err);
+        console.warn("Deterministic web parsing fetch/parse error:", err);
         return null;
       }
     };
@@ -2149,56 +2558,77 @@ export function App() {
     try {
       // 1. Quick pre-detection for video and Spotify
       const videoMeta = getVideoMetadata ? getVideoMetadata(cleanUrl) : null;
-      const isSpotifyUrl = /open\.spotify\.com\/(track|album|artist|playlist)\//i.test(cleanUrl);
+      const isSpotifyUrl =
+        /open\.spotify\.com\/(track|album|artist|playlist)\//i.test(cleanUrl);
 
       let node = null;
-      let parsingMethod = 'structured';
+      let parsingMethod = "structured";
 
       // 2. Try structured parsing FIRST via getOrParseHtml(cleanUrl)
       const parsed = await getOrParseHtml(cleanUrl);
       const hasSufficientData = Boolean(
-        parsed && (parsed.title?.trim() || parsed.description?.trim())
+        parsed && (parsed.title?.trim() || parsed.description?.trim()),
       );
 
       if (hasSufficientData) {
-        const firstVideo = Array.isArray(parsed.videos) && parsed.videos.length > 0 ? parsed.videos[0] : null;
+        const firstVideo =
+          Array.isArray(parsed.videos) && parsed.videos.length > 0
+            ? parsed.videos[0]
+            : null;
         const photos = Array.isArray(parsed.images)
           ? parsed.images.slice(0, 5).map((img) => ({
-              url: typeof img === 'string' ? img : img.url,
-              title: typeof img === 'string' ? '' : (img.title || img.alt || ''),
-              caption: typeof img === 'string' ? '' : (img.alt || img.title || ''),
+              url: typeof img === "string" ? img : img.url,
+              title: typeof img === "string" ? "" : img.title || img.alt || "",
+              caption:
+                typeof img === "string" ? "" : img.alt || img.title || "",
             }))
           : [];
 
-        let derivedMediaType = 'website';
-        if (videoMeta || parsed.contentType === 'video' || firstVideo) {
-          derivedMediaType = 'video';
-        } else if (isSpotifyUrl || parsed.contentType === 'audio' || parsed.contentType === 'music') {
-          derivedMediaType = 'music';
-        } else if (parsed.contentType === 'gallery') {
-          derivedMediaType = 'photo';
+        let derivedMediaType = "website";
+        if (videoMeta || parsed.contentType === "video" || firstVideo) {
+          derivedMediaType = "video";
+        } else if (
+          isSpotifyUrl ||
+          parsed.contentType === "audio" ||
+          parsed.contentType === "music"
+        ) {
+          derivedMediaType = "music";
+        } else if (parsed.contentType === "gallery") {
+          derivedMediaType = "photo";
         }
 
         node = {
           title: parsed.title || domain,
-          description: parsed.description || `Live scholarly and web intelligence mapped directly from ${cleanUrl}.`,
+          description:
+            parsed.description ||
+            `Live scholarly and web intelligence mapped directly from ${cleanUrl}.`,
           detailedSynthesis:
             parsed.mainContent?.summary ||
-            (parsed.mainContent?.text ? parsed.mainContent.text.slice(0, 1000) : (parsed.description || `Structured web signal extracted from ${cleanUrl}.`)),
+            (parsed.mainContent?.text
+              ? parsed.mainContent.text.slice(0, 1000)
+              : parsed.description ||
+                `Structured web signal extracted from ${cleanUrl}.`),
           mediaType: derivedMediaType,
           source: parsed.siteName || domain,
-          institution: parsed.publisher || parsed.siteName || `Web Signal // ${domain}`,
-          author: parsed.author || '',
-          publishedDate: parsed.publishedDate || '',
+          institution:
+            parsed.publisher || parsed.siteName || `Web Signal // ${domain}`,
+          author: parsed.author || "",
+          publishedDate: parsed.publishedDate || "",
           videoData: firstVideo
             ? {
                 url: firstVideo.url,
-                videoId: firstVideo.videoId || (firstVideo.url?.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([^&?/#\s]{11})/i)?.[1]) || '',
+                videoId:
+                  firstVideo.videoId ||
+                  firstVideo.url?.match(
+                    /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([^&?/#\s]{11})/i,
+                  )?.[1] ||
+                  "",
                 embedUrl: firstVideo.url,
                 title: firstVideo.title || parsed.title || domain,
-                platform: firstVideo.type || (firstVideo.videoId ? 'youtube' : 'web'),
-                poster: firstVideo.poster || '',
-                thumbnail: firstVideo.poster || '',
+                platform:
+                  firstVideo.type || (firstVideo.videoId ? "youtube" : "web"),
+                poster: firstVideo.poster || "",
+                thumbnail: firstVideo.poster || "",
                 ...firstVideo,
               }
             : null,
@@ -2212,9 +2642,9 @@ export function App() {
           _structuredData: parsed.structuredData || null,
           _mainContent: parsed.mainContent || null,
           _metadata: parsed.metadata || null,
-          parsingMethod: 'structured',
+          parsingMethod: "structured",
         };
-        parsingMethod = 'structured';
+        parsingMethod = "structured";
       } else {
         // Fall back to existing queryDirectAi call
         try {
@@ -2228,20 +2658,23 @@ export function App() {
           if (result?.success && result?.node) {
             node = {
               ...result.node,
-              parsingMethod: 'ai',
+              parsingMethod: "ai",
             };
-            parsingMethod = 'ai';
+            parsingMethod = "ai";
           } else {
-            throw new Error('AI analysis did not yield a valid node');
+            throw new Error("AI analysis did not yield a valid node");
           }
         } catch (aiErr) {
-          console.warn('AI analysis fallback failed, creating minimal fallback nodeData:', aiErr);
-          parsingMethod = 'fallback';
+          console.warn(
+            "AI analysis fallback failed, creating minimal fallback nodeData:",
+            aiErr,
+          );
+          parsingMethod = "fallback";
           node = {
             title: domain,
             description: `Live scholarly and web intelligence mapped directly from ${cleanUrl}. Connects external literature to the spatial knowledge network.`,
             detailedSynthesis: `External web entry point captured from active research session. Serves as reference signal for dialectical cross-referencing and empirical evidence mapping.`,
-            mediaType: videoMeta ? 'video' : (isSpotifyUrl ? 'music' : 'website'),
+            mediaType: videoMeta ? "video" : isSpotifyUrl ? "music" : "website",
             source: domain,
             institution: `Web Signal // ${domain}`,
             formula: null,
@@ -2257,30 +2690,41 @@ export function App() {
               },
             ],
             photos: [],
-            parsingMethod: 'fallback',
+            parsingMethod: "fallback",
           };
         }
       }
 
       // 3. Determine node template key based on analysis and media detection
-      let templateKey = 'website'; // Default for external URL mapping is website
+      let templateKey = "website"; // Default for external URL mapping is website
 
-      if (videoMeta || node.mediaType === 'video' || Boolean(node.videoData)) {
-        templateKey = 'video';
-      } else if (isSpotifyUrl || node.mediaType === 'music' || Boolean(node.musicData) || node.layout?.structure === 'music_card') {
-        templateKey = 'music';
-      } else if (node.layout?.structure === 'price_hero') {
-        templateKey = 'website'; // financial quotes use website template base
-      } else if (node.mediaType === 'photo' || (Array.isArray(node.photos) && node.photos.length > 0) || node.mediaType === 'website') {
-        templateKey = 'website';
+      if (videoMeta || node.mediaType === "video" || Boolean(node.videoData)) {
+        templateKey = "video";
+      } else if (
+        isSpotifyUrl ||
+        node.mediaType === "music" ||
+        Boolean(node.musicData) ||
+        node.layout?.structure === "music_card"
+      ) {
+        templateKey = "music";
+      } else if (node.layout?.structure === "price_hero") {
+        templateKey = "website"; // financial quotes use website template base
+      } else if (
+        node.mediaType === "photo" ||
+        (Array.isArray(node.photos) && node.photos.length > 0) ||
+        node.mediaType === "website"
+      ) {
+        templateKey = "website";
       }
 
       // Generate unique ID and center coordinates
       let nextNum = nodes.length + 1;
-      while (nodes.some((n) => n.id === `0x${nextNum.toString(16).padStart(2, '0')}`)) {
+      while (
+        nodes.some((n) => n.id === `0x${nextNum.toString(16).padStart(2, "0")}`)
+      ) {
         nextNum++;
       }
-      const newId = `0x${nextNum.toString(16).padStart(2, '0')}`;
+      const newId = `0x${nextNum.toString(16).padStart(2, "0")}`;
       const centerPos = {
         x: (-pan.x + window.innerWidth / 2) / zoom - 160,
         y: (-pan.y + window.innerHeight / 2) / zoom - 130,
@@ -2291,26 +2735,26 @@ export function App() {
         templateKey,
         newId,
         centerPos,
-        node
+        node,
       );
 
       // If direct video metadata was detected from URL, ensure videoData is populated
-      if (videoMeta && templateKey === 'video') {
+      if (videoMeta && templateKey === "video") {
         newNode.data.videoData = {
           videoId: videoMeta.videoId,
           embedUrl: videoMeta.embedUrl,
           title: newNode.data.title || videoMeta.title || domain,
           ...(newNode.data.videoData || {}),
         };
-        newNode.data.mediaType = 'video';
+        newNode.data.mediaType = "video";
       }
 
       // 5. Enrich with real media & styling
       const enrichedData = await enrichNodeWithRealPhotos(
         newNode.data,
         cleanUrl,
-        currentWorkspace?.name || '',
-        nodes
+        currentWorkspace?.name || "",
+        nodes,
       );
 
       newNode.data = {
@@ -2326,11 +2770,14 @@ export function App() {
       // Filter out domain-mismatched template mock references
       const isMockRef = (r) =>
         !r ||
-        (r.title && (r.title.includes('Sub-Micron Cryogenic') || r.title.includes('Chebyshev Kinematic Linkage'))) ||
-        (r.url && r.url.includes('2307.12008'));
+        (r.title &&
+          (r.title.includes("Sub-Micron Cryogenic") ||
+            r.title.includes("Chebyshev Kinematic Linkage"))) ||
+        (r.url && r.url.includes("2307.12008"));
 
-      const currentRefs = (Array.isArray(newNode.data.references) ? newNode.data.references : [])
-        .filter((r) => !isMockRef(r));
+      const currentRefs = (
+        Array.isArray(newNode.data.references) ? newNode.data.references : []
+      ).filter((r) => !isMockRef(r));
 
       if (!currentRefs.some((r) => r.url === cleanUrl)) {
         newNode.data.references = [
@@ -2346,7 +2793,11 @@ export function App() {
       }
 
       // Ensure mock template formula doesn't leak into web pages
-      if (newNode.data.formula && (newNode.data.formula.includes('0.042') || newNode.data.formula.includes('2307.12008'))) {
+      if (
+        newNode.data.formula &&
+        (newNode.data.formula.includes("0.042") ||
+          newNode.data.formula.includes("2307.12008"))
+      ) {
         newNode.data.formula = null;
         newNode.data.formulaType = null;
         newNode.data.formulas = [];
@@ -2355,7 +2806,7 @@ export function App() {
       newNode.type = templateKey;
       return newNode;
     } catch (error) {
-      console.error('Error creating intelligent node from URL:', error);
+      console.error("Error creating intelligent node from URL:", error);
       return createFallbackWebsiteNode(url);
     }
   };
@@ -2375,13 +2826,13 @@ export function App() {
               source: selectedNodeId,
               target: newNode.id,
               relationshipType: RELATIONSHIP_TYPES.ORIGIN_URL,
-              label: 'origin url',
+              label: "origin url",
             },
           ]);
         }
       }
     } catch (error) {
-      console.error('Error in intelligent mapping:', error);
+      console.error("Error in intelligent mapping:", error);
       const originalNode = createFallbackWebsiteNode(url);
       if (originalNode) {
         setNodes((prev) => [...prev, originalNode]);
@@ -2393,7 +2844,7 @@ export function App() {
               source: selectedNodeId,
               target: originalNode.id,
               relationshipType: RELATIONSHIP_TYPES.ORIGIN_URL,
-              label: 'origin url',
+              label: "origin url",
             },
           ]);
         }
@@ -2401,55 +2852,71 @@ export function App() {
     }
   };
 
-  const handleClipToNode = useCallback(({ text, url, nodeId, title, snippet }) => {
-    const targetId = nodeId || selectedNodeId;
-    if (!targetId) return;
+  const handleClipToNode = useCallback(
+    ({ text, url, nodeId, title, snippet }) => {
+      const targetId = nodeId || selectedNodeId;
+      if (!targetId) return;
 
-    setNodes((prev) =>
-      prev.map((n) => {
-        if (n.id !== targetId) return n;
-        const currentRefs = Array.isArray(n.data?.references) ? n.data.references : [];
-        let domain = url;
-        try {
-          domain = new URL(url).hostname.replace(/^www\./, '');
-        } catch (e) {
-          domain = url;
-        }
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id !== targetId) return n;
+          const currentRefs = Array.isArray(n.data?.references)
+            ? n.data.references
+            : [];
+          let domain = url;
+          try {
+            domain = new URL(url).hostname.replace(/^www\./, "");
+          } catch (e) {
+            domain = url;
+          }
 
-        const cleanTitle = title && title !== 'google.com' && title !== 'New Tab'
-          ? title
-          : `${domain} Web Citation`;
+          const cleanTitle =
+            title && title !== "google.com" && title !== "New Tab"
+              ? title
+              : `${domain} Web Citation`;
 
-        const newRef = {
-          title: cleanTitle,
-          source: domain,
-          url: url,
-          snippet: snippet || (text && !text.startsWith('[Live Web Reference') ? text : null),
-          clippedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
+          const newRef = {
+            title: cleanTitle,
+            source: domain,
+            url: url,
+            snippet:
+              snippet ||
+              (text && !text.startsWith("[Live Web Reference") ? text : null),
+            clippedAt: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          };
 
-        // Put newest reference at the top; de-duplicate if same URL
-        const updatedRefs = [newRef, ...currentRefs.filter((r) => r.url !== url)];
+          // Put newest reference at the top; de-duplicate if same URL
+          const updatedRefs = [
+            newRef,
+            ...currentRefs.filter((r) => r.url !== url),
+          ];
 
-        // Append to description if not already present
-        const currentDesc = n.data?.description || '';
-        const citationNote = snippet
-          ? `\n\n[Web Citation: "${snippet}" — ${cleanTitle} (${url})]`
-          : `\n\n[Web Citation: ${cleanTitle} (${url})]`;
-        const updatedDesc = currentDesc.includes(url) ? currentDesc : `${currentDesc}${citationNote}`;
+          // Append to description if not already present
+          const currentDesc = n.data?.description || "";
+          const citationNote = snippet
+            ? `\n\n[Web Citation: "${snippet}" — ${cleanTitle} (${url})]`
+            : `\n\n[Web Citation: ${cleanTitle} (${url})]`;
+          const updatedDesc = currentDesc.includes(url)
+            ? currentDesc
+            : `${currentDesc}${citationNote}`;
 
-        return {
-          ...n,
-          data: {
-            ...n.data,
-            references: updatedRefs,
-            description: updatedDesc,
-            _justClipped: Date.now(),
-          },
-        };
-      })
-    );
-  }, [selectedNodeId]);
+          return {
+            ...n,
+            data: {
+              ...n.data,
+              references: updatedRefs,
+              description: updatedDesc,
+              _justClipped: Date.now(),
+            },
+          };
+        }),
+      );
+    },
+    [selectedNodeId],
+  );
 
   const handleUpdateNodeData = useCallback((nodeId, patchData) => {
     setNodes((prev) =>
@@ -2462,14 +2929,14 @@ export function App() {
                 ...patchData,
               },
             }
-          : n
-      )
+          : n,
+      ),
     );
   }, []);
 
   const handleDuplicateNode = (sourceNode) => {
     if (!sourceNode) return;
-    const newId = `0x${(nodes.length + 1).toString(16).padStart(2, '0')}`;
+    const newId = `0x${(nodes.length + 1).toString(16).padStart(2, "0")}`;
     const duplicated = {
       ...sourceNode,
       id: newId,
@@ -2479,7 +2946,7 @@ export function App() {
       },
       data: {
         ...sourceNode.data,
-        title: `${sourceNode.data.title || 'Node'} (Copy)`,
+        title: `${sourceNode.data.title || "Node"} (Copy)`,
       },
     };
     setNodes((prev) => [...prev, duplicated]);
@@ -2488,9 +2955,11 @@ export function App() {
   const handleExportNodeCard = (nodeToExport) => {
     const target = nodeToExport || selectedNodeData;
     if (!target) return;
-    const blob = new Blob([JSON.stringify(target, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(target, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `psychis_node_${target.id}.json`;
     a.click();
@@ -2513,7 +2982,9 @@ export function App() {
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onOpenAISettings={() => setIsAISettingsOpen(true)}
         onLogout={handleLogout}
-        onOpenBrowser={() => openBrowserWithUrl(browserUrl || 'https://html.duckduckgo.com/')}
+        onOpenBrowser={() =>
+          openBrowserWithUrl(browserUrl || "https://html.duckduckgo.com/")
+        }
         onFitView={handleFitView}
       />
 
@@ -2654,7 +3125,11 @@ export function App() {
 
       {/* Secret Access Key Gatekeeper & Credentials Modal */}
       {(!isAuthenticated || isAuthModalOpen) && (
-        <Suspense fallback={<div className="text-center py-8">Loading Access Key Modal...</div>}>
+        <Suspense
+          fallback={
+            <div className="text-center py-8">Loading Access Key Modal...</div>
+          }
+        >
           <AccessKeyModal
             isOpen={!isAuthenticated || isAuthModalOpen}
             isGatekeeper={!isAuthenticated}
@@ -2668,7 +3143,11 @@ export function App() {
 
       {/* AI Engine & API Key Settings Modal */}
       {isAISettingsOpen && (
-        <Suspense fallback={<div className="text-center py-8">Loading AI Settings Modal...</div>}>
+        <Suspense
+          fallback={
+            <div className="text-center py-8">Loading AI Settings Modal...</div>
+          }
+        >
           <AISettingsModal
             isOpen={isAISettingsOpen}
             onClose={() => setIsAISettingsOpen(false)}
@@ -2678,7 +3157,13 @@ export function App() {
 
       {/* Start New Investigation Modal (From Scratch) */}
       {isNewInvestigationOpen && (
-        <Suspense fallback={<div className="text-center py-8">Loading Investigation Modal...</div>}>
+        <Suspense
+          fallback={
+            <div className="text-center py-8">
+              Loading Investigation Modal...
+            </div>
+          }
+        >
           <NewInvestigationModal
             isOpen={isNewInvestigationOpen}
             onClose={() => setIsNewInvestigationOpen(false)}
@@ -2705,7 +3190,8 @@ export function App() {
             Drop .psychis file to open workspace
           </h2>
           <p className="font-mono text-xs text-text-muted">
-            Release to instantly restore all nodes, mathematical models, and organic linkages.
+            Release to instantly restore all nodes, mathematical models, and
+            organic linkages.
           </p>
         </div>
       )}

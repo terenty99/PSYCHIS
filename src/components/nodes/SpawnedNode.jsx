@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
 import { MathFormula } from '../../utils/mathRenderer';
+import { MetricContent } from './MetricContent';
 
 export function extractPriceQuote(nodeData) {
   if (!nodeData) return null;
+  if (nodeData.kind === 'research') return null;
 
   const category = (nodeData.category || '').toLowerCase();
   const title = (nodeData.title || '').toLowerCase();
@@ -219,7 +221,11 @@ export const SpawnedNode = ({
   onSpecificProbe,
   onOpenBrowser,
 }) => {
-  const priceQuote = extractPriceQuote(node.data);
+  const isMetric = node.data?.kind === 'metric';
+
+  const priceQuote = isMetric
+    ? null
+    : extractPriceQuote(node.data);
 
   // Detect attached media artifacts (GIF or Photo) — prioritize assigned kinetic GIF
   const primaryMedia =
@@ -817,7 +823,9 @@ export const SpawnedNode = ({
       ariaLabel={`Spawned discovery node: ${node.data.title}`}
     >
       {/* 0. FINANCIAL & RATE LIVE QUOTE HERO (Frontline Rate Hero replaces photo) */}
-      {priceQuote ? (
+      {isMetric ? (
+        <MetricContent data={node.data} />
+      ) : priceQuote ? (
         <>
           {renderPriceHero(priceQuote)}
           {renderHeader()}

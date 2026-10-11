@@ -10,7 +10,7 @@ import {
   cleanDomainFromUrl,
   GLOBAL_CANVAS_SEEN_PHOTOS,
   GLOBAL_CANVAS_SEEN_AUTHORS,
-} from './visualSearchEngine.js';
+} from "./visualSearchEngine.js";
 
 import {
   getStoredTavilyKey,
@@ -19,7 +19,7 @@ import {
   setStoredTavilyDepth,
   searchTavily,
   testTavilyConnection,
-} from './tavilyClient.js';
+} from "./tavilyClient.js";
 
 export {
   getStoredTavilyKey,
@@ -31,22 +31,39 @@ export {
 };
 
 export const DEFAULT_GROQ_KEY = (() => {
-  const codes = [103, 115, 107, 95, 79, 88, 53, 73, 50, 102, 83, 75, 53, 77, 77, 113, 107, 103, 121, 87, 114, 101, 82, 65, 87, 71, 100, 121, 98, 51, 70, 89, 56, 106, 54, 77, 117, 121, 71, 71, 84, 99, 117, 77, 51, 83, 52, 107, 106, 75, 56, 118, 109, 75, 66, 109];
-  return codes.map((c) => String.fromCharCode(c ^ 1 ^ 1)).join('');
+  const codes = [
+    103, 115, 107, 95, 79, 88, 53, 73, 50, 102, 83, 75, 53, 77, 77, 113, 107,
+    103, 121, 87, 114, 101, 82, 65, 87, 71, 100, 121, 98, 51, 70, 89, 56, 106,
+    54, 77, 117, 121, 71, 71, 84, 99, 117, 77, 51, 83, 52, 107, 106, 75, 56,
+    118, 109, 75, 66, 109,
+  ];
+  return codes.map((c) => String.fromCharCode(c ^ 1 ^ 1)).join("");
 })();
-export const STORAGE_KEY_BACKEND_URL = 'psychis_backend_url';
-export const STORAGE_KEY_AI_MODE = 'psychis_ai_mode';
+export const STORAGE_KEY_BACKEND_URL = "psychis_backend_url";
+export const STORAGE_KEY_AI_MODE = "psychis_ai_mode";
 
-export const STORAGE_KEY_AI_PROVIDER = 'psychis_ai_provider';
-export const STORAGE_KEY_GROQ_KEY = 'psychis_groq_api_key';
-export const STORAGE_KEY_GROQ_MODEL = 'psychis_groq_model';
+export const STORAGE_KEY_AI_PROVIDER = "psychis_ai_provider";
+export const STORAGE_KEY_GROQ_KEY = "psychis_groq_api_key";
+export const STORAGE_KEY_GROQ_MODEL = "psychis_groq_model";
 
 export const GROQ_MODELS = [
-  { id: 'qwen/qwen3.8-27b', name: 'Qwen 3.8 27B (Recommended)', badge: 'Multilingual • High Rate Limit' },
-  { id: 'openai/gpt-oss-20b', name: 'GPT OSS 20B (Ultra-Fast)', badge: '250ms • High Speed' },
-  { id: 'openai/gpt-oss-120b', name: 'GPT OSS 120B (Flagship)', badge: 'Deep Reasoning' },
-  { id: 'qwen/qwen3.6-27b', name: 'Qwen 3.6 27B', badge: 'High Precision' },
-  { id: 'groq/compound', name: 'Groq Compound', badge: 'Ensemble' },
+  {
+    id: "qwen/qwen3.8-27b",
+    name: "Qwen 3.8 27B (Recommended)",
+    badge: "Multilingual • High Rate Limit",
+  },
+  {
+    id: "openai/gpt-oss-20b",
+    name: "GPT OSS 20B (Ultra-Fast)",
+    badge: "250ms • High Speed",
+  },
+  {
+    id: "openai/gpt-oss-120b",
+    name: "GPT OSS 120B (Flagship)",
+    badge: "Deep Reasoning",
+  },
+  { id: "qwen/qwen3.6-27b", name: "Qwen 3.6 27B", badge: "High Precision" },
+  { id: "groq/compound", name: "Groq Compound", badge: "Ensemble" },
 ];
 
 export const SUPPORTED_MODELS = GROQ_MODELS;
@@ -54,7 +71,7 @@ export const SUPPORTED_MODELS = GROQ_MODELS;
 export const MODEL_429_COOLDOWN = new Map();
 
 export function getStoredAiProvider() {
-  return 'groq';
+  return "groq";
 }
 
 export function setStoredAiProvider(_provider) {
@@ -62,36 +79,38 @@ export function setStoredAiProvider(_provider) {
 }
 
 export function getStoredAiMode() {
-  if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem(STORAGE_KEY_AI_MODE) || 'auto';
+  if (typeof localStorage !== "undefined") {
+    return localStorage.getItem(STORAGE_KEY_AI_MODE) || "auto";
   }
-  return 'auto';
+  return "auto";
 }
 
 export function setStoredAiMode(mode) {
-  if (typeof localStorage !== 'undefined') {
+  if (typeof localStorage !== "undefined") {
     localStorage.setItem(STORAGE_KEY_AI_MODE, mode);
   }
 }
 
-export const OFFICIAL_REMOTE_BACKEND_URL = 'http://psychis.site:8000';
-export const OFFICIAL_SERVER_DOMAIN = 'psychis.site';
+export const OFFICIAL_REMOTE_BACKEND_URL = "http://psychis.site:8000";
+export const OFFICIAL_SERVER_DOMAIN = "psychis.site";
 
 export function getStoredBackendUrl() {
-  if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem(STORAGE_KEY_BACKEND_URL) || 'http://localhost:8000';
+  if (typeof localStorage !== "undefined") {
+    return (
+      localStorage.getItem(STORAGE_KEY_BACKEND_URL) || "http://localhost:8000"
+    );
   }
-  return 'http://localhost:8000';
+  return "http://localhost:8000";
 }
 
 export function setStoredBackendUrl(url) {
-  if (typeof localStorage !== 'undefined') {
+  if (typeof localStorage !== "undefined") {
     localStorage.setItem(STORAGE_KEY_BACKEND_URL, url);
   }
 }
 
 export function getStoredGroqKey() {
-  if (typeof localStorage !== 'undefined') {
+  if (typeof localStorage !== "undefined") {
     const stored = localStorage.getItem(STORAGE_KEY_GROQ_KEY);
     if (stored && stored.trim()) return stored.trim();
   }
@@ -99,33 +118,33 @@ export function getStoredGroqKey() {
 }
 
 export function setStoredGroqKey(key) {
-  if (typeof localStorage !== 'undefined') {
+  if (typeof localStorage !== "undefined") {
     localStorage.setItem(STORAGE_KEY_GROQ_KEY, key.trim());
   }
 }
 
 export function getStoredGroqModel() {
-  if (typeof localStorage !== 'undefined') {
+  if (typeof localStorage !== "undefined") {
     const stored = localStorage.getItem(STORAGE_KEY_GROQ_MODEL);
     if (stored) {
       if (
-        stored.includes('legacy') ||
-        stored.includes('llama') ||
-        stored.includes('mixtral') ||
-        stored.includes('deepseek') ||
-        stored.includes('versatile')
+        stored.includes("legacy") ||
+        stored.includes("llama") ||
+        stored.includes("mixtral") ||
+        stored.includes("deepseek") ||
+        stored.includes("versatile")
       ) {
-        localStorage.setItem(STORAGE_KEY_GROQ_MODEL, 'qwen/qwen3.8-27b');
-        return 'qwen/qwen3.8-27b';
+        localStorage.setItem(STORAGE_KEY_GROQ_MODEL, "qwen/qwen3.8-27b");
+        return "qwen/qwen3.8-27b";
       }
       return stored;
     }
   }
-  return 'qwen/qwen3.8-27b';
+  return "qwen/qwen3.8-27b";
 }
 
 export function setStoredGroqModel(model) {
-  if (typeof localStorage !== 'undefined') {
+  if (typeof localStorage !== "undefined") {
     localStorage.setItem(STORAGE_KEY_GROQ_MODEL, model);
   }
 }
@@ -134,10 +153,10 @@ export function setStoredGroqModel(model) {
  * Dynamically queries Groq API for all models currently active on this key.
  */
 export async function fetchGroqLiveModels(apiKey) {
-  const key = (apiKey || getStoredGroqKey() || '').trim();
+  const key = (apiKey || getStoredGroqKey() || "").trim();
   if (!key) return [];
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/models', {
+    const res = await fetch("https://api.groq.com/openai/v1/models", {
       headers: {
         Authorization: `Bearer ${key}`,
       },
@@ -148,39 +167,45 @@ export async function fetchGroqLiveModels(apiKey) {
     if (data && Array.isArray(data.data)) {
       return data.data
         .filter((m) => {
-          const id = (m.id || '').toLowerCase();
+          const id = (m.id || "").toLowerCase();
           return (
             m.active !== false &&
-            !id.includes('whisper') &&
-            !id.includes('orpheus') &&
-            !id.includes('tts') &&
-            !id.includes('guard') &&
-            !id.includes('embed')
+            !id.includes("whisper") &&
+            !id.includes("orpheus") &&
+            !id.includes("tts") &&
+            !id.includes("guard") &&
+            !id.includes("embed")
           );
         })
         .map((m) => ({
           id: m.id,
           name: m.id,
-          badge: m.owned_by ? m.owned_by.toUpperCase() : 'Groq',
+          badge: m.owned_by ? m.owned_by.toUpperCase() : "Groq",
         }));
     }
   } catch (err) {
-    console.warn('Failed to fetch Groq live models:', err);
+    console.warn("Failed to fetch Groq live models:", err);
   }
   return [];
 }
 
-export const STORAGE_KEY_YOUTUBE_KEY = 'psychis_youtube_api_key';
-export const DEFAULT_YOUTUBE_API_KEY = 'AIzaSyBm9mDhXzr8ygzCU4wTH4C3HKSTlckWTMQ';
-export const STORAGE_KEY_SPOTIFY_CLIENT_ID = 'psychis_spotify_client_id';
-export const STORAGE_KEY_SPOTIFY_CLIENT_SECRET = 'psychis_spotify_client_secret';
-export const DEFAULT_SPOTIFY_CLIENT_ID = '1d15702e09ae4b8783abf14368295a9b';
-export const DEFAULT_SPOTIFY_CLIENT_SECRET = 'ad1aba9a4f034b0f9fde8dee87b041ec';
+export const STORAGE_KEY_YOUTUBE_KEY = "psychis_youtube_api_key";
+export const DEFAULT_YOUTUBE_API_KEY =
+  "AIzaSyBm9mDhXzr8ygzCU4wTH4C3HKSTlckWTMQ";
+export const STORAGE_KEY_SPOTIFY_CLIENT_ID = "psychis_spotify_client_id";
+export const STORAGE_KEY_SPOTIFY_CLIENT_SECRET =
+  "psychis_spotify_client_secret";
+export const DEFAULT_SPOTIFY_CLIENT_ID = "1d15702e09ae4b8783abf14368295a9b";
+export const DEFAULT_SPOTIFY_CLIENT_SECRET = "ad1aba9a4f034b0f9fde8dee87b041ec";
 
 export function getStoredYouTubeKey() {
-  if (typeof localStorage !== 'undefined') {
+  if (typeof localStorage !== "undefined") {
     const val = localStorage.getItem(STORAGE_KEY_YOUTUBE_KEY);
-    if (val && val.trim() && val.trim() !== 'AIzaSyCjdgdzuQV0x8eTdugTiAv4qvJwZgjVEbs') {
+    if (
+      val &&
+      val.trim() &&
+      val.trim() !== "AIzaSyCjdgdzuQV0x8eTdugTiAv4qvJwZgjVEbs"
+    ) {
       return val.trim();
     }
     return DEFAULT_YOUTUBE_API_KEY;
@@ -189,7 +214,7 @@ export function getStoredYouTubeKey() {
 }
 
 export function setStoredYouTubeKey(key) {
-  if (typeof localStorage !== 'undefined') {
+  if (typeof localStorage !== "undefined") {
     if (key && key.trim()) {
       localStorage.setItem(STORAGE_KEY_YOUTUBE_KEY, key.trim());
     } else {
@@ -199,12 +224,20 @@ export function setStoredYouTubeKey(key) {
 }
 
 export function getStoredSpotifyCredentials() {
-  if (typeof localStorage !== 'undefined') {
+  if (typeof localStorage !== "undefined") {
     const storedId = localStorage.getItem(STORAGE_KEY_SPOTIFY_CLIENT_ID);
-    const storedSecret = localStorage.getItem(STORAGE_KEY_SPOTIFY_CLIENT_SECRET);
+    const storedSecret = localStorage.getItem(
+      STORAGE_KEY_SPOTIFY_CLIENT_SECRET,
+    );
     return {
-      clientId: (storedId && storedId.trim()) ? storedId.trim() : DEFAULT_SPOTIFY_CLIENT_ID,
-      clientSecret: (storedSecret && storedSecret.trim()) ? storedSecret.trim() : DEFAULT_SPOTIFY_CLIENT_SECRET,
+      clientId:
+        storedId && storedId.trim()
+          ? storedId.trim()
+          : DEFAULT_SPOTIFY_CLIENT_ID,
+      clientSecret:
+        storedSecret && storedSecret.trim()
+          ? storedSecret.trim()
+          : DEFAULT_SPOTIFY_CLIENT_SECRET,
     };
   }
   return {
@@ -214,14 +247,17 @@ export function getStoredSpotifyCredentials() {
 }
 
 export function setStoredSpotifyCredentials(clientId, clientSecret) {
-  if (typeof localStorage !== 'undefined') {
+  if (typeof localStorage !== "undefined") {
     if (clientId && clientId.trim()) {
       localStorage.setItem(STORAGE_KEY_SPOTIFY_CLIENT_ID, clientId.trim());
     } else {
       localStorage.removeItem(STORAGE_KEY_SPOTIFY_CLIENT_ID);
     }
     if (clientSecret && clientSecret.trim()) {
-      localStorage.setItem(STORAGE_KEY_SPOTIFY_CLIENT_SECRET, clientSecret.trim());
+      localStorage.setItem(
+        STORAGE_KEY_SPOTIFY_CLIENT_SECRET,
+        clientSecret.trim(),
+      );
     } else {
       localStorage.removeItem(STORAGE_KEY_SPOTIFY_CLIENT_SECRET);
     }
@@ -229,29 +265,108 @@ export function setStoredSpotifyCredentials(clientId, clientSecret) {
 }
 
 export function isDirectConceptQuery(query) {
-  const q = (query || '').toLowerCase().trim();
+  const q = (query || "").toLowerCase().trim();
   if (!q) return true;
 
   // Music and video topics must link companion nodes (audio + video sister nodes)
   const isMusicOrVideo =
-    /\b(band|rock band|artist|track|song|album|music|musician|singer|composer|record|soundtrack|discography|single|remix|pop|rock|jazz|hiphop|hip hop|rap|metal|breakcore|techno|electronic|orchestra|symphony|audio)\b/i.test(q) ||
-    /\b(video|movie|film|trailer|clip|gameplay|speedrun|animation|anime|fight|broadcast|speech|interview|documentary|mrbeast|youtube)\b/i.test(q) ||
-    /\b(how to|tutorial|recipe|cooking|origami|demonstration|assembly|experiment)\b/i.test(q) ||
-    /\b(radiohead|queen|painfinder|beatles|nirvana|daft punk|beethoven|mozart|bach|chopin|kendrick lamar|pink floyd|aphex twin|drake|taylor swift|eminem)\b/i.test(q);
+    /\b(band|rock band|artist|track|song|album|music|musician|singer|composer|record|soundtrack|discography|single|remix|pop|rock|jazz|hiphop|hip hop|rap|metal|breakcore|techno|electronic|orchestra|symphony|audio)\b/i.test(
+      q,
+    ) ||
+    /\b(video|movie|film|trailer|clip|gameplay|speedrun|animation|anime|fight|broadcast|speech|interview|documentary|mrbeast|youtube)\b/i.test(
+      q,
+    ) ||
+    /\b(how to|tutorial|recipe|cooking|origami|demonstration|assembly|experiment)\b/i.test(
+      q,
+    ) ||
+    /\b(radiohead|queen|painfinder|beatles|nirvana|daft punk|beethoven|mozart|bach|chopin|kendrick lamar|pink floyd|aphex twin|drake|taylor swift|eminem)\b/i.test(
+      q,
+    );
   if (isMusicOrVideo) return false;
 
   // If asking for multiple items, ensemble, characters, cast, members, branches, constellation -> NOT single!
   const isMultiItemOrEnsemble =
-    /\b(characters|cast|ensemble|members|types|kinds|examples|all of|list of|each|every|separate|multiple|several|constellation|branches|ecosystem|connections|compare|network|graph|cluster|explore)\b/i.test(q) ||
-    q.includes('each one for one node') ||
-    q.includes('one node each') ||
-    q.includes('each on a node') ||
-    q.includes('each for one node');
+    /\b(characters|cast|ensemble|members|types|kinds|examples|all of|list of|each|every|separate|multiple|several|constellation|branches|ecosystem|connections|compare|network|graph|cluster|explore)\b/i.test(
+      q,
+    ) ||
+    q.includes("each one for one node") ||
+    q.includes("one node each") ||
+    q.includes("each on a node") ||
+    q.includes("each for one node");
   if (isMultiItemOrEnsemble) return false;
 
   // Default to single node for any individual entity, name, concept, character, food, theorem, etc.
   return true;
 }
+export function isResearchQuery(query) {
+  const text = String(query || "")
+    .trim()
+    .toLowerCase();
+
+  if (/^(?:какой|какая|какое|какие|сколько|how much|how many)\s/i.test(text)) return false;
+
+  return /(?:^|\s)(?:почему|зачем|как|объясни|объясните|что такое|причины|анализ|why|how|explain|what is)(?=\s|[?!.,:]|$)/i.test(
+    text,
+  );
+}
+
+export function applyResearchIntent(node, query) {
+  if (!node || !isResearchQuery(query)) return node;
+  return {
+    ...node,
+    kind: "research",
+    metric: null,
+    priceQuote: null,
+    layout: {
+      ...(node.layout || {}),
+      structure: "text_dossier",
+    },
+  };
+}
+
+const ANSWER_FORMAT_INSTRUCTIONS = `
+ANSWER FORMAT RULES:
+These rules override conflicting financial-card formatting instructions.
+
+Choose a top-level "kind":
+- "metric": the user asks for one numeric fact, measurement, rate, or price.
+- "research": the user asks for an explanation, causes, analysis, or a definition.
+- null: explicit requests for websites, music, or videos.
+
+Classify the user's intent, not just keywords.
+"Current dollar exchange rate" is metric.
+"Why did the dollar rise?" is research.
+"What is inflation?" is research.
+
+For metric, return:
+"kind": "metric",
+"metric": {
+  "value": number or null,
+  "unit": string,
+  "source": string,
+  "asOf": ISO 8601 date with timezone or null
+}
+
+Use a JSON number for value, not a string.
+For current facts, use only supplied web retrieval evidence.
+If evidence does not establish the requested value, set value to null.
+Never invent a value, source, or date.
+asOf means the date of the measurement, not the current date.
+Keep title specific to the requested measurement.
+Set priceQuote to null.
+Set mediaType to "photo".
+Set visualSearchQuery to null.
+Set photos to [] and primaryPhoto to null.
+Set branchNodes to [].
+
+For research:
+Set kind to "research" and metric to null.
+Set priceQuote to null.
+Explain the topic using description and detailedSynthesis.
+Do not turn numbers mentioned in an explanation into a metric card.
+
+Preserve the other fields required by the existing JSON schema.
+`;
 
 const PSYCHIS_DIRECT_SYSTEM_PROMPT = `You are PSYCHIS, an advanced spatial knowledge atelier and research canvas for science, mathematics, creative engineering, and culture.
 
@@ -418,9 +533,9 @@ Return ONLY valid JSON. Note: For video queries, set "mediaType": "video", "layo
  * Robustly parses AI JSON output, automatically repairing unescaped LaTeX backslashes.
  */
 export function parseAiJsonResponse(rawText) {
-  let cleaned = (rawText || '').trim();
-  if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '');
+  let cleaned = (rawText || "").trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```[a-zA-Z]*\n?/, "").replace(/\n?```$/, "");
   }
 
   const match = cleaned.match(/\{[\s\S]*\}/);
@@ -431,12 +546,15 @@ export function parseAiJsonResponse(rawText) {
     parsed = JSON.parse(targetStr);
   } catch (err) {
     // Escape unescaped backslashes commonly emitted in LaTeX strings (e.g. \vec, \frac, \lim)
-    const fixed = targetStr.replace(/\\(?![/\\bfnrtu"0-9])/g, '\\\\');
+    const fixed = targetStr.replace(/\\(?![/\\bfnrtu"0-9])/g, "\\\\");
     parsed = JSON.parse(fixed);
   }
 
-  if (parsed && typeof parsed === 'object') {
-    if (!parsed.title && (parsed.nodeTitle || parsed.name || parsed.entityTitle)) {
+  if (parsed && typeof parsed === "object") {
+    if (
+      !parsed.title &&
+      (parsed.nodeTitle || parsed.name || parsed.entityTitle)
+    ) {
       parsed.title = parsed.nodeTitle || parsed.name || parsed.entityTitle;
     }
   }
@@ -450,38 +568,49 @@ export const CANVAS_STRUCTURE_ROTATION = {
 };
 
 export const MEDIA_CYCLE = [
-  'split_media_left',   // Photo on LEFT, text on RIGHT (wide 460px)
-  'media_top',          // Photo on TOP, text below (335px)
-  'split_media_right',  // Text on LEFT, photo on RIGHT (wide 460px)
-  'media_bottom',       // Text on TOP, photo below (335px)
+  "split_media_left", // Photo on LEFT, text on RIGHT (wide 460px)
+  "media_top", // Photo on TOP, text below (335px)
+  "split_media_right", // Text on LEFT, photo on RIGHT (wide 460px)
+  "media_bottom", // Text on TOP, photo below (335px)
 ];
 
 export const MATH_CYCLE = [
-  'split_formula',      // Formula on left, SVG diagram on right (wide 485px)
-  'formula_top',        // Formula on top, text & derivation below (340px)
+  "split_formula", // Formula on left, SVG diagram on right (wide 485px)
+  "formula_top", // Formula on top, text & derivation below (340px)
 ];
 
 /**
  * Enriches an AI-generated node and its branches with real, authentic media.
  * Automatically rotates structures across the canvas so no two nodes share the same format!
  */
-export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', existingNodes = []) {
-  if (!node || typeof node !== 'object') return node;
+export async function enrichNodeWithRealPhotos(
+  node,
+  query,
+  workspaceName = "",
+  existingNodes = [],
+) {
+  if (!node || typeof node !== "object") return node;
   if (node._isEnriched) return node;
   node._isEnriched = true;
 
   // Only format as price_hero if the card carries an explicit rate or is an explicit price inquiry
   const isExplicitRateCard =
-    Boolean(node.layout?.structure === 'price_hero') ||
-    Boolean(node.priceQuote?.rate && !/^(19\d\d|20[0-4]\d)$/.test(String(node.priceQuote.rate).trim())) ||
+    Boolean(node.layout?.structure === "price_hero") ||
+    Boolean(
+      node.priceQuote?.rate &&
+      !/^(19\d\d|20[0-4]\d)$/.test(String(node.priceQuote.rate).trim()),
+    ) ||
     /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|курсы|курса|курсов|валют|валюта|валюты|валютный|доллар|доллара|долларов|евро|рубл|рубль|рубля|рублей|юан|юань|юаня|юаней|биткоин|биткоина|биткоинов|криптовалют|акци|акции|акций|индекс|индексы|котировк|котировка|котировки|почем|сколько стоит|цена|цены|цене|стоимост|rate|rates|price|prices|exchange rate|cost of)/i.test(
-      query
+      query,
     ) ||
     /\b(usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|eth[\s/]?usd)\b/i.test(query);
 
-  if (isExplicitRateCard && (node.priceQuote?.rate || node.layout?.structure === 'price_hero')) {
+  if (
+    isExplicitRateCard &&
+    (node.priceQuote?.rate || node.layout?.structure === "price_hero")
+  ) {
     if (!node.layout) node.layout = {};
-    node.layout.structure = 'price_hero';
+    node.layout.structure = "price_hero";
     node.layout.width = 340;
     node.primaryPhoto = null;
     node.photos = [];
@@ -498,12 +627,14 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
 
   const seenClusterUrls = new Set([
     ...GLOBAL_CANVAS_SEEN_PHOTOS,
-    ...(existingNodes || []).flatMap((n) => (n.data?.photos || []).map((p) => p.url?.split('?')[0])).filter(Boolean),
+    ...(existingNodes || [])
+      .flatMap((n) => (n.data?.photos || []).map((p) => p.url?.split("?")[0]))
+      .filter(Boolean),
   ]);
 
   const extractPhotoId = (url) => {
-    if (!url) return '';
-    const clean = url.split('?')[0].toLowerCase();
+    if (!url) return "";
+    const clean = url.split("?")[0].toLowerCase();
     const flickrMatch = clean.match(/staticflickr\.com\/[^/]+\/(\d+)_/);
     if (flickrMatch) return `flickr-${flickrMatch[1]}`;
     const wikiMatch = clean.match(/\/commons\/[^/]+\/[^/]+\/([^/]+)/);
@@ -513,7 +644,7 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
 
   const trackPhoto = (p) => {
     if (p?.url) {
-      const clean = p.url.split('?')[0];
+      const clean = p.url.split("?")[0];
       const pid = extractPhotoId(clean);
       seenClusterUrls.add(clean);
       seenClusterUrls.add(pid);
@@ -530,67 +661,90 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
 
   const isDuplicate = (p) => {
     if (!p?.url) return true;
-    const clean = p.url.split('?')[0];
+    const clean = p.url.split("?")[0];
     const pid = extractPhotoId(clean);
     if (seenClusterUrls.has(clean) || seenClusterUrls.has(pid)) return true;
-    if (GLOBAL_CANVAS_SEEN_PHOTOS.has(clean) || GLOBAL_CANVAS_SEEN_PHOTOS.has(pid)) return true;
+    if (
+      GLOBAL_CANVAS_SEEN_PHOTOS.has(clean) ||
+      GLOBAL_CANVAS_SEEN_PHOTOS.has(pid)
+    )
+      return true;
     if (p.author) {
       const a = p.author.toLowerCase().trim();
-      if (a && !/openverse|wikimedia|wikipedia|unsplash|archive/i.test(a) && GLOBAL_CANVAS_SEEN_AUTHORS.has(a)) {
+      if (
+        a &&
+        !/openverse|wikimedia|wikipedia|unsplash|archive/i.test(a) &&
+        GLOBAL_CANVAS_SEEN_AUTHORS.has(a)
+      ) {
         return true;
       }
     }
     return false;
   };
 
-  const queryLower = (query || '').toLowerCase();
-  const combinedText = `${query} ${node.title || ''} ${node.category || ''} ${node.description || ''}`.toLowerCase();
+  const queryLower = (query || "").toLowerCase();
+  const combinedText =
+    `${query} ${node.title || ""} ${node.category || ""} ${node.description || ""}`.toLowerCase();
 
   // User explicitly asks for video footage, trailer, gameplay, or clip
   const isUserExplicitVideo =
-    /\b(watch video|video of|movie trailer|trailer|gameplay clip|speedrun clip|fight scene|anime fight|speech clip|historic footage|broadcast footage|клип|видео|посмотреть видео)\b/i.test(queryLower);
+    /\b(watch video|video of|movie trailer|trailer|gameplay clip|speedrun clip|fight scene|anime fight|speech clip|historic footage|broadcast footage|клип|видео|посмотреть видео)\b/i.test(
+      queryLower,
+    );
 
   // User explicitly asks for music track, song, spotify, audio, or musician
   const isUserExplicitMusic =
-    /\b(track|song|music|spotify|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|listen|audio|tune|playlist)\b/i.test(queryLower) ||
-    /\b(трек|песн|музык|песня|песню|песни|песен|спотифай|альбом|сингл|саундтрек|послушать|плейлист|группа|группы|музыкант)\b/i.test(queryLower) ||
-    /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(queryLower);
+    /\b(track|song|music|spotify|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|listen|audio|tune|playlist)\b/i.test(
+      queryLower,
+    ) ||
+    /\b(трек|песн|музык|песня|песню|песни|песен|спотифай|альбом|сингл|саундтрек|послушать|плейлист|группа|группы|музыкант)\b/i.test(
+      queryLower,
+    ) ||
+    /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(
+      queryLower,
+    );
 
   const hasMusicStructure =
-    node.mediaType === 'music' ||
+    node.mediaType === "music" ||
     Boolean(node.musicData) ||
-    node.layout?.structure === 'music_card' ||
+    node.layout?.structure === "music_card" ||
     Boolean(node.tracks);
 
   const hasExplicitVideoStructure =
-    node.mediaType === 'video' ||
+    node.mediaType === "video" ||
     Boolean(node.videoData?.videoId) ||
-    node.layout?.structure === 'video_top';
+    node.layout?.structure === "video_top";
 
   const isSemanticMusic =
-    /\b(track|song|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|genre|rock|jazz|breakcore|pop|metal|hiphop|hip hop|rap|electronic|techno|ambient|classical music|symphony|orchestra)\b/i.test(combinedText) ||
-    /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(combinedText);
+    /\b(track|song|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|genre|rock|jazz|breakcore|pop|metal|hiphop|hip hop|rap|electronic|techno|ambient|classical music|symphony|orchestra)\b/i.test(
+      combinedText,
+    ) ||
+    /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(
+      combinedText,
+    );
 
   const isSemanticVideo =
-    /\b(movie trailer|official trailer|gameplay clip|speedrun clip|anime fight scene|historic broadcast footage|tutorial video|video demonstration)\b/i.test(combinedText);
+    /\b(movie trailer|official trailer|gameplay clip|speedrun clip|anime fight scene|historic broadcast footage|tutorial video|video demonstration)\b/i.test(
+      combinedText,
+    );
 
   // 1. Music decision: Prioritized whenever music/track is explicitly requested or structured
   const isMusicExplicit =
     !isUserExplicitVideo &&
-    (isUserExplicitMusic || hasMusicStructure || (isSemanticMusic && !isSemanticVideo && !hasExplicitVideoStructure));
+    (isUserExplicitMusic ||
+      hasMusicStructure ||
+      (isSemanticMusic && !isSemanticVideo && !hasExplicitVideoStructure));
 
   // 2. Video decision: Active when explicit video intent exists OR when model specifically designated video structure
   const isVideoExplicit =
     !isMusicExplicit &&
-    (isUserExplicitVideo ||
-      hasExplicitVideoStructure ||
-      isSemanticVideo);
+    (isUserExplicitVideo || hasExplicitVideoStructure || isSemanticVideo);
 
   // 1A. Video Node Enrichment
   if (isVideoExplicit) {
-    node.mediaType = 'video';
+    node.mediaType = "video";
     if (!node.layout) node.layout = {};
-    node.layout.structure = 'video_top';
+    node.layout.structure = "video_top";
     node.layout.width = 420;
 
     try {
@@ -601,25 +755,32 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
         node.videos = vids;
       }
     } catch (vErr) {
-      console.warn('[Video enrichment error]:', vErr.message);
+      console.warn("[Video enrichment error]:", vErr.message);
     }
   } else if (isMusicExplicit) {
     // 1B. Music Node Enrichment
-    node.mediaType = 'music';
+    node.mediaType = "music";
     node.videoQuery = null; // Clear any stray video query on primary music card
     if (!node.layout) node.layout = {};
-    node.layout.structure = 'music_card';
+    node.layout.structure = "music_card";
     node.layout.width = 390;
 
     try {
-      const mQuery = node.musicData?.query || node.musicData?.trackTitle || (node.musicData?.artist ? `${node.musicData.artist} ${node.musicData.trackTitle || ''}` : '') || node.title || query;
+      const mQuery =
+        node.musicData?.query ||
+        node.musicData?.trackTitle ||
+        (node.musicData?.artist
+          ? `${node.musicData.artist} ${node.musicData.trackTitle || ""}`
+          : "") ||
+        node.title ||
+        query;
       const tracks = await searchMusicTracks(mQuery);
       if (Array.isArray(tracks) && tracks.length > 0) {
         node.musicData = { ...(node.musicData || {}), ...tracks[0] };
         node.tracks = tracks;
       }
     } catch (mErr) {
-      console.warn('[Music enrichment error]:', mErr.message);
+      console.warn("[Music enrichment error]:", mErr.message);
     }
   }
 
@@ -629,7 +790,10 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
   }
 
   // If this is a music topic, link a companion Video Node (live stage / music video)
-  if (isMusicExplicit && !node.branchNodes.some((b) => b.mediaType === 'video' || b.videoData)) {
+  if (
+    isMusicExplicit &&
+    !node.branchNodes.some((b) => b.mediaType === "video" || b.videoData)
+  ) {
     try {
       const liveQuery = `${node.musicData?.artist || node.title || query} live concert performance official video`;
       const companionVids = await searchWebVideos(liveQuery);
@@ -638,56 +802,71 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
         node.branchNodes.push({
           id: `branch-vid-${Date.now()}`,
           title: `${topVid.title || node.title} // Live Performance`,
-          category: 'audiovisual // live concert & stage',
+          category: "audiovisual // live concert & stage",
           description: `Live stage performance and official audiovisual footage for "${node.title}".`,
-          mediaType: 'video',
+          mediaType: "video",
           videoQuery: liveQuery,
           videoData: topVid,
           layout: {
-            structure: 'video_top',
+            structure: "video_top",
             width: 420,
           },
-          relationship: 'COUPLED_SYSTEM',
-          relationshipLabel: 'live concert // audiovisual',
-          edgeName: 'Audiovisual Masterclass Linkage',
-          edgeBadge: 'LIVE PERFORMANCE // CONCERT',
+          relationship: "COUPLED_SYSTEM",
+          relationshipLabel: "live concert // audiovisual",
+          edgeName: "Audiovisual Masterclass Linkage",
+          edgeBadge: "LIVE PERFORMANCE // CONCERT",
         });
       }
     } catch (_) {}
   }
 
   // If this is a video topic, link a companion Music Node if thematic audio exists
-  if (isVideoExplicit && !node.branchNodes.some((b) => b.mediaType === 'music' || b.musicData)) {
+  if (
+    isVideoExplicit &&
+    !node.branchNodes.some((b) => b.mediaType === "music" || b.musicData)
+  ) {
     try {
       const audioQuery = `${node.title || query} theme soundtrack`;
       const companionTracks = await searchMusicTracks(audioQuery);
-      if (Array.isArray(companionTracks) && companionTracks.length > 0 && companionTracks[0].previewUrl) {
+      if (
+        Array.isArray(companionTracks) &&
+        companionTracks.length > 0 &&
+        companionTracks[0].previewUrl
+      ) {
         const topTrack = companionTracks[0];
         node.branchNodes.push({
           id: `branch-music-${Date.now()}`,
           title: `${topTrack.trackTitle} // ${topTrack.artist}`,
           category: `acoustic synthesis // ${topTrack.genre.toLowerCase()}`,
           description: `Acoustic companion and sonic atmosphere associated with "${node.title}".`,
-          mediaType: 'music',
+          mediaType: "music",
           musicData: topTrack,
           layout: {
-            structure: 'music_card',
+            structure: "music_card",
             width: 390,
           },
-          relationship: 'COUPLED_SYSTEM',
-          relationshipLabel: 'acoustic companion // theme',
-          edgeName: 'Acoustic Theme Linkage',
-          edgeBadge: 'ACOUSTIC COMPANION',
+          relationship: "COUPLED_SYSTEM",
+          relationshipLabel: "acoustic companion // theme",
+          edgeName: "Acoustic Theme Linkage",
+          edgeBadge: "ACOUSTIC COMPANION",
         });
       }
     } catch (_) {}
   }
 
   // 1D. Fetch diverse photos for primary node (if not strictly video or music and photos not already present)
-  if (node.mediaType !== 'video' && node.mediaType !== 'music') {
-    const isMockPhoto = (p) => !p?.url || p.url.includes('images.unsplash.com') || String(p.id || '').startsWith('photo-gen-');
-    const hasGenuinePhotos = Array.isArray(node.photos) && node.photos.length > 0 && !node.photos.some(isMockPhoto);
-    const hasGenuinePrimary = Boolean(node.primaryPhoto && !isMockPhoto(node.primaryPhoto));
+  if (node.mediaType !== "video" && node.mediaType !== "music") {
+    const isMockPhoto = (p) =>
+      !p?.url ||
+      p.url.includes("images.unsplash.com") ||
+      String(p.id || "").startsWith("photo-gen-");
+    const hasGenuinePhotos =
+      Array.isArray(node.photos) &&
+      node.photos.length > 0 &&
+      !node.photos.some(isMockPhoto);
+    const hasGenuinePrimary = Boolean(
+      node.primaryPhoto && !isMockPhoto(node.primaryPhoto),
+    );
 
     if (!hasGenuinePhotos || !hasGenuinePrimary) {
       try {
@@ -698,15 +877,24 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
           nodeCategory: node.category,
           nodeDescription: node.description,
           count: 8,
-          contextHint: node.category || node.title || '',
+          contextHint: node.category || node.title || "",
           seenClusterUrls,
         });
         if (realPhotos && realPhotos.length > 0) {
           node.photos = realPhotos;
           node.primaryPhoto = realPhotos[0];
-          node.mediaType = 'photo';
-          if (!node.layout || !node.layout.structure || node.layout.structure === 'auto' || node.layout.structure === 'text_dossier') {
-            node.layout = { ...(node.layout || {}), structure: 'media_top', width: 340 };
+          node.mediaType = "photo";
+          if (
+            !node.layout ||
+            !node.layout.structure ||
+            node.layout.structure === "auto" ||
+            node.layout.structure === "text_dossier"
+          ) {
+            node.layout = {
+              ...(node.layout || {}),
+              structure: "media_top",
+              width: 340,
+            };
           }
           realPhotos.forEach((p) => trackPhoto(p));
         } else if (!hasGenuinePhotos) {
@@ -714,29 +902,38 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
           node.primaryPhoto = null;
         }
       } catch (err) {
-        console.warn('[Primary node photo enrichment error]:', err.message);
+        console.warn("[Primary node photo enrichment error]:", err.message);
       }
     }
   }
 
   // 2. Enrich each branch node with media IN PARALLEL (Enforcing Cluster Media Diversity)
   if (Array.isArray(node.branchNodes) && node.branchNodes.length > 0) {
-    const primaryIsVideo = node.mediaType === 'video' || Boolean(node.videoData?.videoId);
+    const primaryIsVideo =
+      node.mediaType === "video" || Boolean(node.videoData?.videoId);
     let videoSlotTaken = primaryIsVideo && !isUserExplicitVideo;
 
     await Promise.allSettled(
       node.branchNodes.map(async (bn) => {
         try {
           const isBrandOrPlatform =
-            /\b(twitch|youtube|discord|github|obs|blender|photoshop|steam|reddit|twitter|tiktok|spotify|netflix|vlc|ffmpeg)\b/i.test(bn.title || '') ||
-            /\b(platform|software|app|company|portal|engine|service|tool|broadcasting|streaming)\b/i.test(`${bn.title || ''} ${bn.category || ''}`);
+            /\b(twitch|youtube|discord|github|obs|blender|photoshop|steam|reddit|twitter|tiktok|spotify|netflix|vlc|ffmpeg)\b/i.test(
+              bn.title || "",
+            ) ||
+            /\b(platform|software|app|company|portal|engine|service|tool|broadcasting|streaming)\b/i.test(
+              `${bn.title || ""} ${bn.category || ""}`,
+            );
 
           const wantsVideo =
-            (bn.mediaType === 'video' || bn.layout?.structure === 'video_top' || Boolean(bn.videoQuery) || Boolean(bn.videoData)) &&
+            (bn.mediaType === "video" ||
+              bn.layout?.structure === "video_top" ||
+              Boolean(bn.videoQuery) ||
+              Boolean(bn.videoData)) &&
             !bn.musicData;
 
           // Only allow branch to be video if slot is open or user explicitly asked for multi-videos
-          const canBeVideo = wantsVideo && (!videoSlotTaken || isUserExplicitVideo);
+          const canBeVideo =
+            wantsVideo && (!videoSlotTaken || isUserExplicitVideo);
 
           if (canBeVideo) {
             videoSlotTaken = true;
@@ -745,40 +942,63 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
               const bVids = await searchWebVideos(vQ);
               if (Array.isArray(bVids) && bVids.length > 0) {
                 bn.videoData = bVids[0];
-                bn.mediaType = 'video';
+                bn.mediaType = "video";
                 if (!bn.layout) bn.layout = {};
-                bn.layout.structure = 'video_top';
+                bn.layout.structure = "video_top";
                 bn.layout.width = 420;
               }
             }
-          } else if (bn.mediaType === 'music' || bn.layout?.structure === 'music_card' || bn.musicData) {
+          } else if (
+            bn.mediaType === "music" ||
+            bn.layout?.structure === "music_card" ||
+            bn.musicData
+          ) {
             if (!bn.musicData?.previewUrl) {
-              const mQ = bn.musicData?.query || bn.musicData?.trackTitle || (bn.musicData?.artist ? `${bn.musicData.artist} ${bn.musicData.trackTitle || ''}` : '') || bn.title || query;
+              const mQ =
+                bn.musicData?.query ||
+                bn.musicData?.trackTitle ||
+                (bn.musicData?.artist
+                  ? `${bn.musicData.artist} ${bn.musicData.trackTitle || ""}`
+                  : "") ||
+                bn.title ||
+                query;
               const bTracks = await searchMusicTracks(mQ);
               if (Array.isArray(bTracks) && bTracks.length > 0) {
                 bn.musicData = { ...(bn.musicData || {}), ...bTracks[0] };
-                bn.mediaType = 'music';
+                bn.mediaType = "music";
                 if (!bn.layout) bn.layout = {};
-                bn.layout.structure = 'music_card';
+                bn.layout.structure = "music_card";
                 bn.layout.width = 390;
               }
             }
           } else {
             // Photo / Logo branch
-            bn.mediaType = 'photo';
+            bn.mediaType = "photo";
             bn.videoData = null;
             bn.videoQuery = null;
-            if (bn.layout?.structure === 'video_top') {
-              bn.layout.structure = 'auto';
+            if (bn.layout?.structure === "video_top") {
+              bn.layout.structure = "auto";
             }
 
-            const isMockBranch = (p) => !p?.url || p.url.includes('images.unsplash.com') || String(p.id || '').startsWith('photo-gen-');
-            const hasBranchPhotos = Array.isArray(bn.photos) && bn.photos.length > 0 && !bn.photos.some(isMockBranch);
-            const hasBranchPrimary = Boolean(bn.primaryPhoto && !isMockBranch(bn.primaryPhoto));
+            const isMockBranch = (p) =>
+              !p?.url ||
+              p.url.includes("images.unsplash.com") ||
+              String(p.id || "").startsWith("photo-gen-");
+            const hasBranchPhotos =
+              Array.isArray(bn.photos) &&
+              bn.photos.length > 0 &&
+              !bn.photos.some(isMockBranch);
+            const hasBranchPrimary = Boolean(
+              bn.primaryPhoto && !isMockBranch(bn.primaryPhoto),
+            );
             if (!hasBranchPhotos || !hasBranchPrimary) {
-              const branchTarget = bn.visualSearchQuery || (isBrandOrPlatform ? `${bn.title} logo official` : bn.title);
+              const branchTarget =
+                bn.visualSearchQuery ||
+                (isBrandOrPlatform ? `${bn.title} logo official` : bn.title);
               if (branchTarget) {
-                const branchContext = isBrandOrPlatform ? 'official logo vector icon' : (bn.category || bn.title || '');
+                const branchContext = isBrandOrPlatform
+                  ? "official logo vector icon"
+                  : bn.category || bn.title || "";
                 const bPhotos = await fetchAiCuratedPhotos({
                   query: branchTarget,
                   nodeTitle: bn.title,
@@ -801,7 +1021,7 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
             }
           }
         } catch (e) {}
-      })
+      }),
     );
   }
 
@@ -810,19 +1030,19 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
   const assignDiverseLayout = (n) => {
     if (!n.layout) n.layout = {};
 
-    if (n.priceQuote || n.layout?.structure === 'price_hero') {
-      n.layout.structure = 'price_hero';
+    if (n.priceQuote || n.layout?.structure === "price_hero") {
+      n.layout.structure = "price_hero";
       n.layout.width = 340;
       return;
     }
 
-    if (n.mediaType === 'video' || n.layout?.structure === 'video_top') {
-      n.layout.structure = 'video_top';
+    if (n.mediaType === "video" || n.layout?.structure === "video_top") {
+      n.layout.structure = "video_top";
       n.layout.width = 420;
       return;
     }
-    if (n.mediaType === 'music' || n.layout?.structure === 'music_card') {
-      n.layout.structure = 'music_card';
+    if (n.mediaType === "music" || n.layout?.structure === "music_card") {
+      n.layout.structure = "music_card";
       n.layout.width = 390;
       return;
     }
@@ -830,25 +1050,33 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
     const isMath = Boolean(n.formula);
     const hasPhotos = Array.isArray(n.photos) && n.photos.length > 0;
 
-    const isPortrait = /\b(person|who is|portrait|character|figure|actor|actress|author|detective|consultant|biography|protagonist|antagonist)\b/i.test(
-      `${n.title || ''} ${n.category || ''} ${n.description || ''}`
-    );
+    const isPortrait =
+      /\b(person|who is|portrait|character|figure|actor|actress|author|detective|consultant|biography|protagonist|antagonist)\b/i.test(
+        `${n.title || ""} ${n.category || ""} ${n.description || ""}`,
+      );
     if (isPortrait) {
-      n.layout.aspectRatio = 'portrait';
-      n.layout.mediaAspect = '3:4';
+      n.layout.aspectRatio = "portrait";
+      n.layout.mediaAspect = "3:4";
       n.layout.mediaMaxHeight = 220;
     }
 
     if (isMath) {
-      const chosen = MATH_CYCLE[CANVAS_STRUCTURE_ROTATION.mathIndex++ % MATH_CYCLE.length];
+      const chosen =
+        MATH_CYCLE[CANVAS_STRUCTURE_ROTATION.mathIndex++ % MATH_CYCLE.length];
       n.layout.structure = chosen;
-      n.layout.width = chosen === 'split_formula' ? 485 : 340;
+      n.layout.width = chosen === "split_formula" ? 485 : 340;
     } else if (hasPhotos) {
-      const chosen = MEDIA_CYCLE[CANVAS_STRUCTURE_ROTATION.mediaIndex++ % MEDIA_CYCLE.length];
+      const chosen =
+        MEDIA_CYCLE[
+          CANVAS_STRUCTURE_ROTATION.mediaIndex++ % MEDIA_CYCLE.length
+        ];
       n.layout.structure = chosen;
-      n.layout.width = (chosen === 'split_media_right' || chosen === 'split_media_left') ? 460 : 335;
+      n.layout.width =
+        chosen === "split_media_right" || chosen === "split_media_left"
+          ? 460
+          : 335;
     } else {
-      n.layout.structure = 'text_dossier';
+      n.layout.structure = "text_dossier";
       n.layout.width = 360;
     }
   };
@@ -865,28 +1093,28 @@ export async function enrichNodeWithRealPhotos(node, query, workspaceName = '', 
  * Builds the comprehensive prompt for PSYCHIS structured entity synthesis.
  */
 export function buildPsychisUserPrompt(rawArgs) {
-  const args = typeof rawArgs === 'string' ? { query: rawArgs } : (rawArgs || {});
-  const query = String(args.query || '').trim();
-  const workspaceName = args.workspaceName || '';
+  const args = typeof rawArgs === "string" ? { query: rawArgs } : rawArgs || {};
+  const query = String(args.query || "").trim();
+  const workspaceName = args.workspaceName || "";
   const activeNodeContext = args.activeNodeContext || null;
   const existingNodes = args.existingNodes || [];
   const tavilyData = args.tavilyData || null;
-  const isFinancial = Boolean(args.isFinancial);
+  const isFinancial = Boolean(args.isFinancial) && !isResearchQuery(query);
   const isSingle = args.isSingle !== false;
   const isUrlTarget = /^https?:\/\//i.test(query) || Boolean(args.isUrl);
 
   let userContent = `PRIMARY RESEARCH TARGET: "${query}"`;
-  if (workspaceName && workspaceName !== 'Applied Kinematics' && !isUrlTarget) {
+  if (workspaceName && workspaceName !== "Applied Kinematics" && !isUrlTarget) {
     userContent += `\nWorkspace Context: "${workspaceName}"`;
   }
   if (activeNodeContext) {
-    userContent += `\nConnected Entity Context: "${activeNodeContext.title || ''}" (${activeNodeContext.category || ''})`;
+    userContent += `\nConnected Entity Context: "${activeNodeContext.title || ""}" (${activeNodeContext.category || ""})`;
   }
 
   if (isUrlTarget) {
     let domainName = query;
     try {
-      domainName = new URL(query).hostname.replace(/^www\./, '');
+      domainName = new URL(query).hostname.replace(/^www\./, "");
     } catch (_) {}
 
     userContent += `\n\nCRITICAL LIVE WEB PAGE ANALYSIS DIRECTIVE:
@@ -901,27 +1129,34 @@ The primary target is a live web page / URL: "${query}" (Domain: "${domainName}"
   if (Array.isArray(existingNodes) && existingNodes.length > 0) {
     const existingList = existingNodes
       .slice(0, 15)
-      .map((n) => `Node [ID: "${n.id}"]: "${n.data?.title || n.title || 'Untitled'}" (${n.data?.category || ''})`)
-      .join('; ');
+      .map(
+        (n) =>
+          `Node [ID: "${n.id}"]: "${n.data?.title || n.title || "Untitled"}" (${n.data?.category || ""})`,
+      )
+      .join("; ");
     userContent += `\n\nEXISTING CANVAS NODES FOR POTENTIAL LINKAGE: [${existingList}]`;
     userContent += `\nRELATIONAL LINKAGE MANDATE: Check existing canvas nodes above. Does "${query}" have a GENUINE direct relationship, derivation, or causal link to one or more of them? The model can automatically connect to MORE THAN ONE node and connect nodes to each other! Populate the "connections" array with all genuine links (specifying "nodeId", "connectionExplanation", "connectionLabel", and "connectionFormula" only if mathematical derivation). If no genuine connection exists, return "connections": []. DO NOT FORCE UNRELATED CONNECTIONS.`;
   }
 
   // Inject Tavily web context if available
-  if (tavilyData && Array.isArray(tavilyData.results) && tavilyData.results.length > 0) {
+  if (
+    tavilyData &&
+    Array.isArray(tavilyData.results) &&
+    tavilyData.results.length > 0
+  ) {
     userContent += `\n\n=== VERIFIED REAL-TIME LIVE WEB RETRIEVAL (TAVILY SEARCH) ===\n`;
     if (tavilyData.answer) {
       userContent += `TAVILY FACTUAL SYNTHESIS: "${tavilyData.answer}"\n\n`;
     }
     userContent += `TOP AUTHENTIC WEB SOURCES FOUND:\n`;
     tavilyData.results.slice(0, 3).forEach((r, idx) => {
-      userContent += `[Source ${idx + 1}] Title: ${r.title}\nURL: ${r.url}\nExcerpt: ${(r.content || '').slice(0, 300)}\n\n`;
+      userContent += `[Source ${idx + 1}] Title: ${r.title}\nURL: ${r.url}\nExcerpt: ${(r.content || "").slice(0, 300)}\n\n`;
     });
     userContent += `=== END TAVILY RETRIEVAL ===\n`;
     userContent += `\nCRITICAL PARSING & EXTRACTION DIRECTIVES FOR AI PARSER:
 1. Ground the card strictly in the authentic facts, dates, and details retrieved above by Tavily. Do NOT fabricate or hallucinate.
-2. Set the primary node's "url" property to the authentic primary source URL from Tavily (specifically "${tavilyData.results[0]?.url || ''}"). This URL is loaded in the card's interactive browser!
-3. Set "source" and "institution" to the authentic domain/organization (e.g. "${tavilyData.results[0]?.title || ''}").
+2. Set the primary node's "url" property to the authentic primary source URL from Tavily (specifically "${tavilyData.results[0]?.url || ""}"). This URL is loaded in the card's interactive browser!
+3. Set "source" and "institution" to the authentic domain/organization (e.g. "${tavilyData.results[0]?.title || ""}").
 4. Formulate 3-4 insightful follow-up contextual questions in "targetedInquiries" directly based on the key points in Tavily results.`;
   }
 
@@ -943,10 +1178,18 @@ The user is specifically asking for a financial market quote, stock price, index
   }
 
   const isMusicQuery =
-    !/\b(watch video|video of|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|клип|видео)\b/i.test(query) &&
-    (/\b(track|song|music|spotify|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|listen|audio|tune|playlist)\b/i.test(query) ||
-      /\b(трек|песн|музык|песня|песню|песни|песен|спотифай|альбом|сингл|саундтрек|послушать|плейлист|группа|группы|музыкант)\b/i.test(query) ||
-      /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(query));
+    !/\b(watch video|video of|movie trailer|trailer|gameplay|speedrun|fight scene|anime fight|speech|historic footage|broadcast|mrbeast|клип|видео)\b/i.test(
+      query,
+    ) &&
+    (/\b(track|song|music|spotify|album|band|artist|discography|musician|vocalist|singer|composer|record|single|remix|soundtrack|listen|audio|tune|playlist)\b/i.test(
+      query,
+    ) ||
+      /\b(трек|песн|музык|песня|песню|песни|песен|спотифай|альбом|сингл|саундтрек|послушать|плейлист|группа|группы|музыкант)\b/i.test(
+        query,
+      ) ||
+      /\b(painfinder|radiohead|queen|beethoven|mozart|bach|chopin|daft punk|pink floyd|aphex twin|kendrick lamar|beatles|nirvana)\b/i.test(
+        query,
+      ));
 
   if (isMusicQuery) {
     userContent += `\n\nCRITICAL MUSIC & AUDIO SYNTHESIS MANDATE:
@@ -970,13 +1213,16 @@ The user is specifically asking for a music track, song, musician, band, or musi
   userContent += `\n\nCRITICAL MANDATE: The generated node title, category, description, detailedSynthesis, and visualSearchQuery MUST FOCUS EXCLUSIVELY ON THE PRIMARY TARGET "${query}". Do NOT return the workspace name or another character as the title.`;
 
   const isMultiItemOrEnsemble =
-    /\b(characters|cast|ensemble|members|types|kinds|examples|all of|list of|each|every|separate|multiple|several|constellation|branches|ecosystem)\b/i.test(query) ||
-    query.includes('each one for one node') ||
-    query.includes('one node each') ||
-    query.includes('each on a node');
+    /\b(characters|cast|ensemble|members|types|kinds|examples|all of|list of|each|every|separate|multiple|several|constellation|branches|ecosystem)\b/i.test(
+      query,
+    ) ||
+    query.includes("each one for one node") ||
+    query.includes("one node each") ||
+    query.includes("each on a node");
 
   if (isSingle) {
-    userContent += '\n\nThis is a direct entity or concept inquiry. Answer it fully on the primary node. You MUST return "branchNodes": [] (empty array).';
+    userContent +=
+      '\n\nThis is a direct entity or concept inquiry. Answer it fully on the primary node. You MUST return "branchNodes": [] (empty array).';
   } else if (isMultiItemOrEnsemble) {
     userContent += `\n\nENSEMBLE MANDATE: The user explicitly requested multiple entities or individual member nodes ("each one for one node").
 Generate:
@@ -999,26 +1245,52 @@ For EACH branch node:
  */
 export function attachTavilyMetadata(rawNode, tavilyData, query) {
   if (!rawNode) return rawNode;
-  if (tavilyData && Array.isArray(tavilyData.results) && tavilyData.results.length > 0) {
+  if (
+    tavilyData &&
+    Array.isArray(tavilyData.results) &&
+    tavilyData.results.length > 0
+  ) {
     const topResult = tavilyData.results[0];
-    if (!rawNode.url || rawNode.url.includes('wikipedia.org') || rawNode.url.includes('Special:Search') || rawNode.url.includes('example.com')) {
+    if (
+      !rawNode.url ||
+      rawNode.url.includes("wikipedia.org") ||
+      rawNode.url.includes("Special:Search") ||
+      rawNode.url.includes("example.com")
+    ) {
       rawNode.url = topResult.url;
     }
     rawNode.sourceUrl = rawNode.url || topResult.url;
-    if (!rawNode.source || rawNode.source.toLowerCase().includes('wikipedia') || rawNode.source.includes('AI Synthesis') || rawNode.source.includes('Research Dossier') || rawNode.source.includes('Knowledge Dossier')) {
+    if (
+      !rawNode.source ||
+      rawNode.source.toLowerCase().includes("wikipedia") ||
+      rawNode.source.includes("AI Synthesis") ||
+      rawNode.source.includes("Research Dossier") ||
+      rawNode.source.includes("Knowledge Dossier")
+    ) {
       rawNode.source = topResult.title || cleanDomainFromUrl(topResult.url);
     }
-    if (tavilyData.answer && (!rawNode.detailedSynthesis || rawNode.detailedSynthesis.includes('spatial dossier'))) {
-      rawNode.detailedSynthesis = `${tavilyData.answer}\n\n${rawNode.detailedSynthesis || ''}`.trim();
+    if (
+      tavilyData.answer &&
+      (!rawNode.detailedSynthesis ||
+        rawNode.detailedSynthesis.includes("spatial dossier"))
+    ) {
+      rawNode.detailedSynthesis =
+        `${tavilyData.answer}\n\n${rawNode.detailedSynthesis || ""}`.trim();
     }
-    if (Array.isArray(tavilyData.images) && tavilyData.images.length > 0 && !rawNode.photoGallery?.length) {
-      rawNode.photoGallery = tavilyData.images.slice(0, 5).map((imgUrl, idx) => ({
-        url: imgUrl,
-        thumbnail: imgUrl,
-        title: rawNode.title || query,
-        source: rawNode.source || 'Tavily Web',
-        caption: `${rawNode.title || query} (Web Source ${idx + 1})`,
-      }));
+    if (
+      Array.isArray(tavilyData.images) &&
+      tavilyData.images.length > 0 &&
+      !rawNode.photoGallery?.length
+    ) {
+      rawNode.photoGallery = tavilyData.images
+        .slice(0, 5)
+        .map((imgUrl, idx) => ({
+          url: imgUrl,
+          thumbnail: imgUrl,
+          title: rawNode.title || query,
+          source: rawNode.source || "Tavily Web",
+          caption: `${rawNode.title || query} (Web Source ${idx + 1})`,
+        }));
       if (!rawNode.photoUrl) {
         rawNode.photoUrl = tavilyData.images[0];
       }
@@ -1032,52 +1304,79 @@ export function attachTavilyMetadata(rawNode, tavilyData, query) {
  * directly from Tavily live search results, AI syntheses, and financial extracts.
  */
 export function extractStructuredPriceQuote(query, tavilyData, rawNode) {
+  if (isResearchQuery(query) || rawNode?.kind === "research") return null;
   const corpus = [
-    tavilyData?.answer || '',
+    tavilyData?.answer || "",
     ...(tavilyData?.results || []).map((r) => `${r.title} ${r.content}`),
-    rawNode?.description || '',
-    rawNode?.detailedSynthesis || '',
-  ].join(' ');
+    rawNode?.description || "",
+    rawNode?.detailedSynthesis || "",
+  ].join(" ");
 
   if (!corpus.trim()) return null;
 
-  const qLower = (query || '').toLowerCase();
-  const titleLower = (rawNode?.title || '').toLowerCase();
-  const isRub = /(?:руб|rub|₽|цб|рубл)/i.test(corpus) || /(?:rub|руб|к рублю)/i.test(qLower);
-  const isEur = /(?:eur|евро|€)/i.test(qLower) || /(?:eur|евро|€)/i.test(corpus);
+  const qLower = (query || "").toLowerCase();
+  const titleLower = (rawNode?.title || "").toLowerCase();
+  const isRub =
+    /(?:руб|rub|₽|цб|рубл)/i.test(corpus) ||
+    /(?:rub|руб|к рублю)/i.test(qLower);
+  const isEur =
+    /(?:eur|евро|€)/i.test(qLower) || /(?:eur|евро|€)/i.test(corpus);
   const isCrypto =
-    /(?:crypto|token|coin|pepe|btc|eth|sol|ton|shib|doge|биткоин|мемкоин|эфириум)/i.test(qLower) ||
-    /(?:crypto|token|coin|cryptocurrency)/i.test(corpus);
-  const isIndex = /(?:index|индекс|s&p|sp500|spx|nasdaq|dow|djia|moex|ртс)/i.test(qLower) || /(?:index|индекс)/i.test(titleLower);
+    /(?:crypto|token|coin|pepe|btc|eth|sol|ton|shib|doge|биткоин|мемкоин|эфириум)/i.test(
+      qLower,
+    ) || /(?:crypto|token|coin|cryptocurrency)/i.test(corpus);
+  const isIndex =
+    /(?:index|индекс|s&p|sp500|spx|nasdaq|dow|djia|moex|ртс)/i.test(qLower) ||
+    /(?:index|индекс)/i.test(titleLower);
 
-  let unit = isIndex ? 'pts' : (isRub ? '₽' : (isEur ? '€' : '$'));
+  let unit = isIndex ? "pts" : isRub ? "₽" : isEur ? "€" : "$";
   let base = rawNode?.title || query;
-  let source = 'Tavily Live Spot';
+  let source = "Tavily Live Spot";
 
-  if (qLower.includes('pepe') || titleLower.includes('pepe')) base = 'Pepe (PEPE)';
-  else if (qLower.includes('btc') || qLower.includes('биткоин') || titleLower.includes('bitcoin')) base = 'Bitcoin (BTC)';
-  else if (qLower.includes('eth') || qLower.includes('эфириум') || titleLower.includes('ethereum')) base = 'Ethereum (ETH)';
-  else if (qLower.includes('sol') || titleLower.includes('solana')) base = 'Solana (SOL)';
-  else if (qLower.includes('usd') && qLower.includes('rub')) base = '1 USD';
-  else if (qLower.includes('eur') && qLower.includes('rub')) base = '1 EUR';
-  else if (qLower.includes('usd') || qLower.includes('доллар')) base = '1 USD';
-  else if (qLower.includes('eur') || qLower.includes('евро')) base = '1 EUR';
+  if (qLower.includes("pepe") || titleLower.includes("pepe"))
+    base = "Pepe (PEPE)";
+  else if (
+    qLower.includes("btc") ||
+    qLower.includes("биткоин") ||
+    titleLower.includes("bitcoin")
+  )
+    base = "Bitcoin (BTC)";
+  else if (
+    qLower.includes("eth") ||
+    qLower.includes("эфириум") ||
+    titleLower.includes("ethereum")
+  )
+    base = "Ethereum (ETH)";
+  else if (qLower.includes("sol") || titleLower.includes("solana"))
+    base = "Solana (SOL)";
+  else if (qLower.includes("usd") && qLower.includes("rub")) base = "1 USD";
+  else if (qLower.includes("eur") && qLower.includes("rub")) base = "1 EUR";
+  else if (qLower.includes("usd") || qLower.includes("доллар")) base = "1 USD";
+  else if (qLower.includes("eur") || qLower.includes("евро")) base = "1 EUR";
 
   // 24h Percentage Change Extraction
   let change24h = null;
   const changeMatch =
-    corpus.match(/([+-]?\s*\d+(?:[.,]\d+)?\s*%\s*(?:in the last 24 hours|за (?:последние )?24 час[а-я]*|24h)?)/i) ||
-    corpus.match(/(?:risen by|up by|gain of|рост[а-я]* на)\s*([+]?\d+(?:[.,]\d+)?\s*%)/i) ||
-    corpus.match(/(?:fallen by|down by|loss of|падени[а-я]* на|снижени[а-я]* на)\s*([-]?\d+(?:[.,]\d+)?\s*%)/i);
+    corpus.match(
+      /([+-]?\s*\d+(?:[.,]\d+)?\s*%\s*(?:in the last 24 hours|за (?:последние )?24 час[а-я]*|24h)?)/i,
+    ) ||
+    corpus.match(
+      /(?:risen by|up by|gain of|рост[а-я]* на)\s*([+]?\d+(?:[.,]\d+)?\s*%)/i,
+    ) ||
+    corpus.match(
+      /(?:fallen by|down by|loss of|падени[а-я]* на|снижени[а-я]* на)\s*([-]?\d+(?:[.,]\d+)?\s*%)/i,
+    );
 
   if (changeMatch) {
-    const rawVal = (changeMatch[1] || '').trim().replace(/\s+/g, '');
+    const rawVal = (changeMatch[1] || "").trim().replace(/\s+/g, "");
     const numOnly = rawVal.match(/([+-]?\d+(?:[.,]\d+)?%)/);
     if (numOnly) {
       let finalVal = numOnly[1];
-      if (!finalVal.startsWith('+') && !finalVal.startsWith('-')) {
-        if (/risen|up|gain|рост|прирост/i.test(corpus)) finalVal = `+${finalVal}`;
-        else if (/fallen|down|loss|паден|снижен/i.test(corpus)) finalVal = `-${finalVal}`;
+      if (!finalVal.startsWith("+") && !finalVal.startsWith("-")) {
+        if (/risen|up|gain|рост|прирост/i.test(corpus))
+          finalVal = `+${finalVal}`;
+        else if (/fallen|down|loss|паден|снижен/i.test(corpus))
+          finalVal = `-${finalVal}`;
       }
       change24h = finalVal;
     }
@@ -1088,20 +1387,28 @@ export function extractStructuredPriceQuote(query, tavilyData, rawNode) {
 
   // 1. Clean out years and percentage changes from search text
   const cleanCorpus = corpus
-    .replace(/[+-]?\s*\d+(?:[.,]\d+)?\s*%/g, '')
-    .replace(/\b(19\d\d|20[0-4]\d)\b/g, '')
-    .replace(/\b1\s*(?:USD|EUR|RUB|BTC|ETH|USDT)\b/gi, '');
+    .replace(/[+-]?\s*\d+(?:[.,]\d+)?\s*%/g, "")
+    .replace(/\b(19\d\d|20[0-4]\d)\b/g, "")
+    .replace(/\b1\s*(?:USD|EUR|RUB|BTC|ETH|USDT)\b/gi, "");
 
   const rateMatch =
     cleanCorpus.match(/(?:\$|€|₽)\s*([0-9]+(?:[.,][0-9]+)?)/i) ||
-    cleanCorpus.match(/(?:price is|is at|trading at|worth|at|составляет|курс[а-я]*|цена[а-я]*|на отметке|уровн[а-я]*)\s*[:\s]*[\$€₽]?\s*([0-9]+(?:[.,][0-9]+)?)/i) ||
+    cleanCorpus.match(
+      /(?:price is|is at|trading at|worth|at|составляет|курс[а-я]*|цена[а-я]*|на отметке|уровн[а-я]*)\s*[:\s]*[\$€₽]?\s*([0-9]+(?:[.,][0-9]+)?)/i,
+    ) ||
     cleanCorpus.match(/=\s*([0-9]+(?:[.,][0-9]+)?)\s*(?:RUB|USD|EUR|руб|₽)/i) ||
-    cleanCorpus.match(/([0-9]+(?:[.,][0-9]+)?)\s*(?:RUB|руб|₽|USD|USDT|EUR|евро|pts)(?=[^\wа-яА-ЯёЁ]|$)/i) ||
+    cleanCorpus.match(
+      /([0-9]+(?:[.,][0-9]+)?)\s*(?:RUB|руб|₽|USD|USDT|EUR|евро|pts)(?=[^\wа-яА-ЯёЁ]|$)/i,
+    ) ||
     cleanCorpus.match(/\b(0\.0{3,10}\d+)\b/);
 
   if (rateMatch) {
-    const cand = (rateMatch[1] || '').trim();
-    if (cand && !/^(19\d\d|20[0-4]\d|20|721|1155|10|100)$/.test(cand) && /\d/.test(cand)) {
+    const cand = (rateMatch[1] || "").trim();
+    if (
+      cand &&
+      !/^(19\d\d|20[0-4]\d|20|721|1155|10|100)$/.test(cand) &&
+      /\d/.test(cand)
+    ) {
       extractedRate = cand;
     }
   }
@@ -1111,10 +1418,21 @@ export function extractStructuredPriceQuote(query, tavilyData, rawNode) {
       rate: extractedRate,
       unit,
       base,
-      source: isRub && corpus.includes('ЦБ') ? 'ЦБ РФ' : (isCrypto ? 'CoinMarketCap / Live Spot' : source),
+      source:
+        isRub && corpus.includes("ЦБ")
+          ? "ЦБ РФ"
+          : isCrypto
+            ? "CoinMarketCap / Live Spot"
+            : source,
       change24h,
       secondary: null,
-      badge: isIndex ? 'Stock Index' : (isCrypto ? 'Crypto Spot' : (isRub ? 'Official Rate' : 'Live Quote')),
+      badge: isIndex
+        ? "Stock Index"
+        : isCrypto
+          ? "Crypto Spot"
+          : isRub
+            ? "Official Rate"
+            : "Live Quote",
     };
   }
 
@@ -1126,10 +1444,11 @@ export function extractStructuredPriceQuote(query, tavilyData, rawNode) {
  * Ultra-fast inference with 14,400 free requests/day.
  */
 export async function queryGroqDirect(rawParams) {
-  const params = typeof rawParams === 'string' ? { query: rawParams } : (rawParams || {});
-  const query = String(params.query || '').trim();
+  const params =
+    typeof rawParams === "string" ? { query: rawParams } : rawParams || {};
+  const query = String(params.query || "").trim();
   const activeNodeContext = params.activeNodeContext || null;
-  const workspaceName = params.workspaceName || '';
+  const workspaceName = params.workspaceName || "";
   const existingNodes = params.existingNodes || [];
   const isUrl = Boolean(params.isUrl || /^https?:\/\//i.test(query));
 
@@ -1137,26 +1456,34 @@ export async function queryGroqDirect(rawParams) {
   const model = getStoredGroqModel();
 
   if (!apiKey) {
-    throw new Error('No Groq API Key found. Please enter your Groq API key (starts with gsk_...) in AI Settings.');
+    throw new Error(
+      "No Groq API Key found. Please enter your Groq API key (starts with gsk_...) in AI Settings.",
+    );
   }
 
-  const isFinancial =
+  const isFinancialTopic =
     /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|курсы|курса|курсов|валют|валюта|валюты|валютный|доллар|доллара|долларов|евро|рубл|рубль|рубля|рублей|юан|юань|юаня|юаней|биткоин|биткоина|биткоинов|криптовалют|акци|акции|акций|индекс|индексы|котировк|котировка|котировки|почем|сколько стоит|цена|цены|цене|стоимост|rate|rates|price|prices|exchange rate|cost of)/i.test(
-      query
+      query,
     ) ||
-    /\b(usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|eth[\s/]?usd|1\s*usd|1\s*eur)\b/i.test(query);
+    /\b(usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|eth[\s/]?usd|1\s*usd|1\s*eur)\b/i.test(
+      query,
+    );
+  const researchIntent = isResearchQuery(query);
 
+  const isFinancial = isFinancialTopic && !researchIntent;
   // Tavily web retrieval
   const tavilyKey = getStoredTavilyKey();
   let tavilyData = null;
   if (tavilyKey && query.length > 2) {
     try {
-      const searchTarget = isFinancial ? `${query} актуальный курс котировка уровень цена сегодня` : query;
+      const searchTarget = isFinancial
+        ? `${query} актуальный курс котировка уровень цена сегодня`
+        : query;
       const tRes = await searchTavily({
         query: searchTarget,
         apiKey: tavilyKey,
         maxResults: 5,
-        searchDepth: 'advanced',
+        searchDepth: "advanced",
         includeAnswer: true,
         includeImages: !isFinancial,
       });
@@ -1179,65 +1506,123 @@ export async function queryGroqDirect(rawParams) {
   });
 
   const now = Date.now();
-  const allCandidateModels = [model, 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b', 'groq/compound', 'openai/gpt-oss-120b'].filter((m, i, arr) => arr.indexOf(m) === i && Boolean(m));
+  const allCandidateModels = [
+    model,
+    "qwen/qwen3.8-27b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.6-27b",
+    "groq/compound",
+    "openai/gpt-oss-120b",
+  ].filter((m, i, arr) => arr.indexOf(m) === i && Boolean(m));
   const availableCandidates = allCandidateModels.filter((m) => {
     const cooldownUntil = MODEL_429_COOLDOWN.get(m);
     return !cooldownUntil || now > cooldownUntil;
   });
-  const candidateModels = availableCandidates.length > 0 ? availableCandidates : allCandidateModels;
+  const candidateModels =
+    availableCandidates.length > 0 ? availableCandidates : allCandidateModels;
   let lastError = null;
 
   for (const currentModel of candidateModels) {
     try {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+      const res = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: currentModel,
+            messages: [
+              {
+                role: "system",
+                content:
+                  PSYCHIS_DIRECT_SYSTEM_PROMPT +
+                  "\n" +
+                  ANSWER_FORMAT_INSTRUCTIONS +
+                  "\nIMPORTANT: Return valid JSON only.",
+              },
+              ,
+              { role: "user", content: userContent },
+            ],
+            temperature: 0.6,
+            max_tokens: 10000,
+            response_format: { type: "json_object" },
+          }),
         },
-        body: JSON.stringify({
-          model: currentModel,
-          messages: [
-            { role: 'system', content: PSYCHIS_DIRECT_SYSTEM_PROMPT + '\nIMPORTANT: You must return valid JSON matching the schema.' },
-            { role: 'user', content: userContent },
-          ],
-          temperature: 0.6,
-          max_tokens: 4000,
-          response_format: { type: 'json_object' },
-        }),
-      });
+      );
 
       if (!res.ok) {
         if (res.status === 429) {
           MODEL_429_COOLDOWN.set(currentModel, Date.now() + 5 * 60 * 1000);
         }
         const errText = await res.text();
-        console.warn(`[Groq error (${res.status}) on ${currentModel} - failing over to next model]: ${errText}`);
-        lastError = new Error(`Groq API error (${res.status}) on ${currentModel}: ${errText}`);
+        console.warn(
+          `[Groq error (${res.status}) on ${currentModel} - failing over to next model]: ${errText}`,
+        );
+        lastError = new Error(
+          `Groq API error (${res.status}) on ${currentModel}: ${errText}`,
+        );
         continue;
       }
 
       const data = await res.json();
       const content = data.choices?.[0]?.message?.content;
       if (!content) {
-        lastError = new Error(`Groq model ${currentModel} returned an empty response.`);
+        lastError = new Error(
+          `Groq model ${currentModel} returned an empty response.`,
+        );
         continue;
       }
 
       const rawNode = parseAiJsonResponse(content);
+      if (researchIntent) {
+        rawNode.kind = "research";
+        rawNode.metric = null;
+        rawNode.priceQuote = null;
+        rawNode.layout = {
+          ...(rawNode.layout || {}),
+          structure: "text_dossier",
+        };
+      }
       attachTavilyMetadata(rawNode, tavilyData, query);
 
       let node;
-      const hasValidPriceQuote = rawNode.priceQuote && !/^(19\d\d|20[0-4]\d)$/.test(String(rawNode.priceQuote.rate || '').trim());
-      if (isFinancial) {
+      const hasValidPriceQuote =
+        rawNode.priceQuote &&
+        !/^(19\d\d|20[0-4]\d)$/.test(
+          String(rawNode.priceQuote.rate || "").trim(),
+        );
+      if (rawNode.kind === "metric") {
+        rawNode.priceQuote = null;
+        rawNode.mediaType = "photo";
+        rawNode.layout = {
+          ...(rawNode.layout || {}),
+          structure: "text_dossier",
+          width: 340,
+        };
+        rawNode.primaryPhoto = null;
+        rawNode.photos = [];
+        rawNode.branchNodes = [];
+        node = rawNode;
+      } else if (isFinancial && rawNode.kind !== "research") {
         if (!hasValidPriceQuote) {
-          const extracted = extractStructuredPriceQuote(query, tavilyData, rawNode);
+          const extracted = extractStructuredPriceQuote(
+            query,
+            tavilyData,
+            rawNode,
+          );
           if (extracted) {
             rawNode.priceQuote = extracted;
           }
         }
         if (rawNode.priceQuote?.rate) {
-          rawNode.layout = { ...(rawNode.layout || {}), structure: 'price_hero', width: 340 };
+          rawNode.layout = {
+            ...(rawNode.layout || {}),
+            structure: "price_hero",
+            width: 340,
+          };
           rawNode.primaryPhoto = null;
           rawNode.photos = [];
           rawNode.photoGallery = [];
@@ -1247,14 +1632,24 @@ export async function queryGroqDirect(rawParams) {
           node = rawNode;
         } else {
           try {
-            node = await enrichNodeWithRealPhotos(rawNode, query, workspaceName, existingNodes);
+            node = await enrichNodeWithRealPhotos(
+              rawNode,
+              query,
+              workspaceName,
+              existingNodes,
+            );
           } catch (_) {
             node = rawNode;
           }
         }
       } else {
         try {
-          node = await enrichNodeWithRealPhotos(rawNode, query, workspaceName, existingNodes);
+          node = await enrichNodeWithRealPhotos(
+            rawNode,
+            query,
+            workspaceName,
+            existingNodes,
+          );
         } catch (_) {
           node = rawNode;
         }
@@ -1263,82 +1658,123 @@ export async function queryGroqDirect(rawParams) {
       return {
         success: true,
         node,
-        source: tavilyData ? `tavily+groq-${currentModel}` : `groq-${currentModel}`,
+        source: tavilyData
+          ? `tavily+groq-${currentModel}`
+          : `groq-${currentModel}`,
       };
     } catch (err) {
       lastError = err;
-      console.warn(`[Groq attempt on ${currentModel} failed, trying next candidate]:`, err.message);
+      console.warn(
+        `[Groq attempt on ${currentModel} failed, trying next candidate]:`,
+        err.message,
+      );
       continue;
     }
   }
 
   // If all Groq models failed, but Tavily returned live web data, synthesize a verified node directly from Tavily
   if (tavilyData && (tavilyData.results?.length > 0 || tavilyData.answer)) {
-    console.log('[Synthesizing verified web node directly from live Tavily search results]');
+    console.log(
+      "[Synthesizing verified web node directly from live Tavily search results]",
+    );
     const topResult = tavilyData.results?.[0];
     const directTavilyNode = {
+      kind: researchIntent ? "research" : null,
+      metric: null,
       title: topResult?.title || query,
-      category: isFinancial ? 'financial quotes // live market' : 'verified web intelligence // tavily',
-      status: 'live web retrieval',
-      source: topResult?.title || cleanDomainFromUrl(topResult?.url || '') || 'Tavily Search Engine',
-      url: topResult?.url || `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-      sourceUrl: topResult?.url || `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-      description: tavilyData.answer || topResult?.content || `Verified real-time web intelligence on "${query}".`,
+      category: isFinancial
+        ? "financial quotes // live market"
+        : "verified web intelligence // tavily",
+      status: "live web retrieval",
+      source:
+        topResult?.title ||
+        cleanDomainFromUrl(topResult?.url || "") ||
+        "Tavily Search Engine",
+      url:
+        topResult?.url ||
+        `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+      sourceUrl:
+        topResult?.url ||
+        `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+      description:
+        tavilyData.answer ||
+        topResult?.content ||
+        `Verified real-time web intelligence on "${query}".`,
       detailedSynthesis: [
         tavilyData.answer ? `### Web Synthesis\n${tavilyData.answer}` : null,
-        '### Verified Web Sources',
-        ...(tavilyData.results || []).map((r, i) => `**[${i + 1}] [${r.title}](${r.url})**\n${r.content}`),
-      ].filter(Boolean).join('\n\n'),
-      layout: isFinancial ? { structure: 'price_hero', width: 340 } : { width: 350, density: 'comfortable' },
-      targetedInquiries: (tavilyData.results || []).slice(1, 4).map((r) => r.title).filter(Boolean),
+        "### Verified Web Sources",
+        ...(tavilyData.results || []).map(
+          (r, i) => `**[${i + 1}] [${r.title}](${r.url})**\n${r.content}`,
+        ),
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+      layout: isFinancial
+        ? { structure: "price_hero", width: 340 }
+        : { width: 350, density: "comfortable" },
+      targetedInquiries: (tavilyData.results || [])
+        .slice(1, 4)
+        .map((r) => r.title)
+        .filter(Boolean),
       branchNodes: (tavilyData.results || []).slice(1, 3).map((r, idx) => ({
         id: `branch-tavily-${idx + 1}-${Date.now()}`,
         title: r.title,
-        category: 'web source // context',
-        description: r.content?.substring(0, 200) + '...',
+        category: "web source // context",
+        description: r.content?.substring(0, 200) + "...",
         url: r.url,
         sourceUrl: r.url,
         source: cleanDomainFromUrl(r.url),
-        mediaType: 'photo',
-        relationship: 'COUPLED_SYSTEM',
-        relationshipLabel: 'verified source',
+        mediaType: "photo",
+        relationship: "COUPLED_SYSTEM",
+        relationshipLabel: "verified source",
       })),
     };
 
     if (isFinancial) {
-      const extracted = extractStructuredPriceQuote(query, tavilyData, directTavilyNode);
+      const extracted = extractStructuredPriceQuote(
+        query,
+        tavilyData,
+        directTavilyNode,
+      );
       if (extracted) {
         directTavilyNode.priceQuote = extracted;
-        directTavilyNode.layout = { structure: 'price_hero', width: 340 };
+        directTavilyNode.layout = { structure: "price_hero", width: 340 };
       }
     }
 
-    if (Array.isArray(tavilyData.images) && tavilyData.images.length > 0 && !isFinancial) {
-      directTavilyNode.photos = tavilyData.images.slice(0, 5).map((imgUrl, idx) => ({
-        url: imgUrl,
-        thumbnail: imgUrl,
-        title: directTavilyNode.title,
-        source: 'Tavily Web',
-        caption: `${directTavilyNode.title} (Source ${idx + 1})`,
-      }));
+    if (
+      Array.isArray(tavilyData.images) &&
+      tavilyData.images.length > 0 &&
+      !isFinancial
+    ) {
+      directTavilyNode.photos = tavilyData.images
+        .slice(0, 5)
+        .map((imgUrl, idx) => ({
+          url: imgUrl,
+          thumbnail: imgUrl,
+          title: directTavilyNode.title,
+          source: "Tavily Web",
+          caption: `${directTavilyNode.title} (Source ${idx + 1})`,
+        }));
       directTavilyNode.primaryPhoto = directTavilyNode.photos[0];
     }
 
     return {
       success: true,
       node: directTavilyNode,
-      source: 'tavily-direct-fallback',
+      source: "tavily-direct-fallback",
     };
   }
 
-  throw lastError || new Error('All Groq candidate models failed.');
+  throw lastError || new Error("All Groq candidate models failed.");
 }
 
 /**
  * Direct AI query dispatcher: utilizes Groq Cloud high-speed models with Tavily real-time RAG.
  */
 export async function queryDirectAi(rawParams) {
-  const params = typeof rawParams === 'string' ? { query: rawParams } : (rawParams || {});
+  const params =
+    typeof rawParams === "string" ? { query: rawParams } : rawParams || {};
   return await queryGroqDirect(params);
 }
 
@@ -1346,24 +1782,28 @@ export async function queryDirectAi(rawParams) {
  * Tests Groq connectivity and returns roundtrip latency in milliseconds.
  */
 export async function testGroqConnection(apiKey, modelName) {
-  const keyToTest = (apiKey || getStoredGroqKey() || '').trim();
+  const keyToTest = (apiKey || getStoredGroqKey() || "").trim();
   const modelToTest = modelName || getStoredGroqModel();
 
   if (!keyToTest) {
-    return { success: false, message: 'Groq API Key is empty (starts with gsk_...).', latencyMs: 0 };
+    return {
+      success: false,
+      message: "Groq API Key is empty (starts with gsk_...).",
+      latencyMs: 0,
+    };
   }
 
   const startTime = performance.now();
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${keyToTest}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${keyToTest}`,
       },
       body: JSON.stringify({
         model: modelToTest,
-        messages: [{ role: 'user', content: 'Ping' }],
+        messages: [{ role: "user", content: "Ping" }],
         max_tokens: 10,
       }),
       signal: AbortSignal.timeout(4000),
@@ -1382,7 +1822,10 @@ export async function testGroqConnection(apiKey, modelName) {
       if (res.status === 404) {
         const liveModels = await fetchGroqLiveModels(keyToTest);
         if (liveModels.length > 0) {
-          const sampleNames = liveModels.slice(0, 3).map((m) => m.id).join(', ');
+          const sampleNames = liveModels
+            .slice(0, 3)
+            .map((m) => m.id)
+            .join(", ");
           return {
             success: false,
             message: `Model "${modelToTest}" was deprecated by Groq. Live models: ${sampleNames}`,
@@ -1391,11 +1834,19 @@ export async function testGroqConnection(apiKey, modelName) {
           };
         }
       }
-      return { success: false, message: `Groq error (${res.status}): ${parsedErr}`, latencyMs };
+      return {
+        success: false,
+        message: `Groq error (${res.status}): ${parsedErr}`,
+        latencyMs,
+      };
     }
     return { success: true, message: `Connected to ${modelToTest}`, latencyMs };
   } catch (err) {
-    return { success: false, message: `Connection failed: ${err.message}`, latencyMs: Math.round(performance.now() - startTime) };
+    return {
+      success: false,
+      message: `Connection failed: ${err.message}`,
+      latencyMs: Math.round(performance.now() - startTime),
+    };
   }
 }
 
@@ -1403,28 +1854,35 @@ export async function testGroqConnection(apiKey, modelName) {
  * Tests Spotify Developer credentials (Client ID + Client Secret) using OAuth Client Credentials flow.
  */
 export async function testSpotifyConnection(clientId, clientSecret) {
-  const cId = (clientId || '').trim();
-  const cSec = (clientSecret || '').trim();
+  const cId = (clientId || "").trim();
+  const cSec = (clientSecret || "").trim();
   if (!cId || !cSec) {
-    return { success: false, message: 'Both Spotify Client ID and Client Secret are required.' };
+    return {
+      success: false,
+      message: "Both Spotify Client ID and Client Secret are required.",
+    };
   }
   const startTime = performance.now();
   try {
     const creds = btoa(`${cId}:${cSec}`);
-    const res = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
+    const res = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${creds}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${creds}`,
       },
-      body: 'grant_type=client_credentials',
+      body: "grant_type=client_credentials",
       signal: AbortSignal.timeout(3500),
     });
     const latencyMs = Math.round(performance.now() - startTime);
     if (res.ok) {
       const data = await res.json();
       if (data.access_token) {
-        return { success: true, message: `Connected to Spotify Web API (${latencyMs}ms)`, token: data.access_token };
+        return {
+          success: true,
+          message: `Connected to Spotify Web API (${latencyMs}ms)`,
+          token: data.access_token,
+        };
       }
     }
     const errText = await res.text();
@@ -1449,19 +1907,25 @@ export async function fetchAiCuratedPhotos({
   nodeCategory,
   nodeDescription,
   count = 4,
-  contextHint = '',
-  seenClusterUrls = new Set()
+  contextHint = "",
+  seenClusterUrls = new Set(),
 }) {
-  const searchTerm = (query || nodeTitle || '').trim();
+  const searchTerm = (query || nodeTitle || "").trim();
 
   try {
     const nodeContext = {
-      title: nodeTitle || '',
-      category: nodeCategory || '',
-      description: nodeDescription || '',
-      visualSearchQuery: query || '',
+      title: nodeTitle || "",
+      category: nodeCategory || "",
+      description: nodeDescription || "",
+      visualSearchQuery: query || "",
     };
-    const livePhotos = await fetchLiveArchivalPhotos(searchTerm, count, contextHint, seenClusterUrls, nodeContext);
+    const livePhotos = await fetchLiveArchivalPhotos(
+      searchTerm,
+      count,
+      contextHint,
+      seenClusterUrls,
+      nodeContext,
+    );
     if (livePhotos && livePhotos.length > 0) {
       try {
         recordTelemetryInteraction({
@@ -1469,13 +1933,13 @@ export async function fetchAiCuratedPhotos({
           input: { searchTerm, count, contextHint, nodeTitle, nodeCategory },
           output: livePhotos,
           structured_output: livePhotos,
-          action_type: 'visual_search',
+          action_type: "visual_search",
         });
       } catch (_) {}
       return livePhotos;
     }
   } catch (err) {
-    console.warn('[Live photo lookup error]:', err.message);
+    console.warn("[Live photo lookup error]:", err.message);
   }
 
   return [];
@@ -1490,44 +1954,54 @@ export async function recordTelemetryInteraction({
   input = null,
   output = null,
   structured_output = null,
-  action_type = 'spark_prompt',
+  action_type = "spark_prompt",
   workspace_name = null,
-  client_handle = 'Researcher'
+  client_handle = "Researcher",
 }) {
   if (!instruction && !structured_output) return false;
 
   const payload = {
-    instruction: typeof instruction === 'string' ? instruction : JSON.stringify(instruction),
+    instruction:
+      typeof instruction === "string"
+        ? instruction
+        : JSON.stringify(instruction),
     action_type,
     input: input || (workspace_name ? { workspace_name, client_handle } : null),
-    output: typeof output === 'string' ? output : (output ? JSON.stringify(output) : (structured_output ? JSON.stringify(structured_output) : '')),
+    output:
+      typeof output === "string"
+        ? output
+        : output
+          ? JSON.stringify(output)
+          : structured_output
+            ? JSON.stringify(structured_output)
+            : "",
     structured_output: structured_output || null,
-    client_handle: client_handle || 'Researcher',
-    workspace_name: workspace_name || 'Applied Kinematics',
-    timestamp: new Date().toISOString()
+    client_handle: client_handle || "Researcher",
+    workspace_name: workspace_name || "Applied Kinematics",
+    timestamp: new Date().toISOString(),
   };
 
   const configuredUrl = getStoredBackendUrl();
   const candidateUrls = [
     configuredUrl,
     OFFICIAL_REMOTE_BACKEND_URL,
-    'https://psychis.site',
-    'http://psychis.site'
+    "https://psychis.site",
+    "http://psychis.site",
   ].filter(Boolean);
 
   const uniqueUrls = Array.from(new Set(candidateUrls));
 
   for (const baseUrl of uniqueUrls) {
     try {
-      const cleanBase = baseUrl.replace(/\/+$/, '');
+      const cleanBase = baseUrl.replace(/\/+$/, "");
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
 
       const res = await fetch(`${cleanBase}/api/dataset/record`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        signal: controller.signal
+        signal: controller.signal,
       });
       clearTimeout(timeoutId);
 
@@ -1541,9 +2015,9 @@ export async function recordTelemetryInteraction({
 
   // If unreachable right now, save in pending queue in localStorage
   try {
-    if (typeof localStorage !== 'undefined') {
-      const PENDING_KEY = 'psychis_pending_dataset_records';
-      const existing = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+    if (typeof localStorage !== "undefined") {
+      const PENDING_KEY = "psychis_pending_dataset_records";
+      const existing = JSON.parse(localStorage.getItem(PENDING_KEY) || "[]");
       existing.push(payload);
       if (existing.length > 150) existing.shift();
       localStorage.setItem(PENDING_KEY, JSON.stringify(existing));
@@ -1554,8 +2028,8 @@ export async function recordTelemetryInteraction({
 }
 
 export async function flushPendingTelemetryRecords() {
-  if (typeof localStorage === 'undefined') return;
-  const PENDING_KEY = 'psychis_pending_dataset_records';
+  if (typeof localStorage === "undefined") return;
+  const PENDING_KEY = "psychis_pending_dataset_records";
   try {
     const raw = localStorage.getItem(PENDING_KEY);
     if (!raw) return;
@@ -1563,17 +2037,19 @@ export async function flushPendingTelemetryRecords() {
     if (!Array.isArray(queue) || queue.length === 0) return;
 
     const configuredUrl = getStoredBackendUrl();
-    const candidateUrls = Array.from(new Set([
-      configuredUrl,
-      OFFICIAL_REMOTE_BACKEND_URL,
-      'https://psychis.site',
-      'http://psychis.site'
-    ])).filter(Boolean);
+    const candidateUrls = Array.from(
+      new Set([
+        configuredUrl,
+        OFFICIAL_REMOTE_BACKEND_URL,
+        "https://psychis.site",
+        "http://psychis.site",
+      ]),
+    ).filter(Boolean);
 
     let activeEndpoint = null;
     for (const url of candidateUrls) {
       try {
-        const clean = url.replace(/\/+$/, '');
+        const clean = url.replace(/\/+$/, "");
         const c = new AbortController();
         const t = setTimeout(() => c.abort(), 2000);
         const r = await fetch(`${clean}/api/health`, { signal: c.signal });
@@ -1591,9 +2067,9 @@ export async function flushPendingTelemetryRecords() {
     for (const item of queue) {
       try {
         const res = await fetch(`${activeEndpoint}/api/dataset/record`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item)
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item),
         });
         if (!res.ok) remaining.push(item);
       } catch (_) {
@@ -1608,12 +2084,11 @@ export async function flushPendingTelemetryRecords() {
   } catch (_) {}
 }
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => {
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
     flushPendingTelemetryRecords();
   });
   setTimeout(() => {
     flushPendingTelemetryRecords();
   }, 3000);
 }
-

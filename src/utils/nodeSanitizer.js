@@ -167,6 +167,54 @@ export function isLeakedTemplateFormula(formulaStr, title = '', category = '') {
   if (isKinematicsTopic) return false;
   return formulaStr.includes('0.042') || formulaStr.includes('2307.12008') || formulaStr.includes('Euler-Savary');
 }
+export function sanitizeAnswerFormat(rawData) {
+  const kind = rawData.kind;
+
+  if (kind === 'research') {
+    return {
+      kind: 'research',
+      metric: null,
+    };
+  }
+
+  if (kind !== 'metric') {
+    return {};
+  }
+
+  const input = rawData.metric || {};
+
+  const value =
+    typeof input.value === 'number' &&
+    Number.isFinite(input.value)
+      ? input.value
+      : null;
+
+  const unit =
+    typeof input.unit === 'string'
+      ? input.unit.trim()
+      : '';
+
+  const source =
+    typeof input.source === 'string'
+      ? input.source.trim()
+      : '';
+
+  const asOf =
+    typeof input.asOf === 'string' &&
+    Number.isFinite(Date.parse(input.asOf))
+      ? input.asOf
+      : null;
+
+  return {
+    kind: 'metric',
+    metric: {
+      value,
+      unit,
+      source,
+      asOf,
+    },
+  };
+}
 
 export function sanitizeNodeData(rawData) {
   if (!rawData || typeof rawData !== 'object') {
@@ -338,6 +386,7 @@ export function sanitizeNodeData(rawData) {
   }
 
   return {
+    ...sanitizeAnswerFormat(rawData),
     title,
     category,
     status,
