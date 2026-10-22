@@ -17,8 +17,11 @@ coverage/
 release/
 dist-electron/
 /study-guide/
+/project-harness/
 
 # Environment
+.env.*
+!.env.example
 .env
 .env.local
 .env.development.local

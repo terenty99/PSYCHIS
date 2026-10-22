@@ -1,3 +1,4 @@
+import { researchStatusLabel } from '../../utils/researchStatus.js';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
@@ -834,7 +835,7 @@ export const NodeInspector = ({
                 {data.title || 'Untitled Knowledge Node'}
               </h1>
               <p className="font-mono text-[11px] text-text-muted mt-0.5">
-                {typeConfig.label} &bull; {data.status || 'Verified State'}
+                {typeConfig.label} &bull; {researchStatusLabel(data.status)}
               </p>
             </div>
 

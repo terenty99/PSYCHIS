@@ -5,25 +5,30 @@
  */
 
 export function sanitizeString(val, fallback = '') {
-  if (val == null) return fallback;
-  if (typeof val === 'string') return val.trim();
-  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
-  if (Array.isArray(val)) {
-    return val.map((v) => sanitizeString(v)).filter(Boolean).join(', ');
-  }
-  if (typeof val === 'object') {
-    return (
-      val.title ||
-      val.name ||
-      val.text ||
-      val.description ||
-      val.summary ||
-      val.label ||
-      val.value ||
-      fallback
-    );
-  }
-  return fallback;
+  // Some optional media/formula fields deliberately use null as their sentinel.
+  const safeFallback = fallback === null ? null
+    : ['string', 'number', 'boolean'].includes(typeof fallback) ? String(fallback) : '';
+  const seen = new WeakSet();
+  const read = (value, depth = 0) => {
+    if (value == null || depth > 20) return '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (typeof value !== 'object' || seen.has(value)) return '';
+    seen.add(value);
+    if (Array.isArray(value)) {
+      return value.map((item) => read(item, depth + 1)).filter(Boolean).join(', ');
+    }
+    for (const key of ['title', 'name', 'text', 'description', 'summary', 'label', 'value']) {
+      if (value[key]) {
+        const text = read(value[key], depth + 1);
+        if (text) return text;
+      }
+    }
+    return '';
+  };
+  // Preserve direct empty strings and empty arrays, including optional fields.
+  const result = read(val);
+  return result || (typeof val === 'string' || Array.isArray(val) ? '' : safeFallback);
 }
 
 export function sanitizeFormula(formula) {

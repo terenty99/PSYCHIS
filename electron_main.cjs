@@ -214,7 +214,10 @@ app.whenReady().then(async () => {
   });
 
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
-    const allowed = ['media', 'fullscreen', 'autoplay', 'display-capture', 'clipboard-read', 'clipboard-write'];
+    // Playback/fullscreen and explicit copy actions are used by the current UI.
+    // No PSYCHIS workflow records camera/microphone, captures the screen, or reads
+    // the clipboard. External source pages must not receive those grants silently.
+    const allowed = ['fullscreen', 'autoplay', 'clipboard-write'];
     callback(allowed.includes(permission));
   });
 

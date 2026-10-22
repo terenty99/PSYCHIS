@@ -1,3 +1,4 @@
+import { researchStatusLabel } from '../../utils/researchStatus.js';
 import React from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
 import { MathFormula } from '../../utils/mathRenderer';
@@ -46,7 +47,7 @@ export const ContradictionNode = ({
           <span className="truncate">{node.data.relationshipLabel || node.data.category || 'CONTRAST / DIVERGENCE'}</span>
         </div>
         <span className="font-mono text-[8px] bg-white/15 text-white/90 px-2 py-0.5 rounded font-medium uppercase shrink-0 whitespace-nowrap">
-          {node.data.status || 'PERSPECTIVE'}
+          {researchStatusLabel(node.data.status, 'PERSPECTIVE')}
         </span>
       </div>
 

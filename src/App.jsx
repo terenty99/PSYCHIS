@@ -88,7 +88,7 @@ const INITIAL_NODES = [
     data: {
       ...NODE_TEMPLATES.website.defaultData,
       category: "website // corpus",
-      status: "verified",
+      status: "Illustrative example",
     },
   },
   {
@@ -100,7 +100,7 @@ const INITIAL_NODES = [
     data: {
       ...NODE_TEMPLATES.mechanism.defaultData,
       category: "mechanism // planar motion",
-      status: "peer reviewed",
+      status: "Illustrative example",
     },
   },
   {
@@ -112,7 +112,7 @@ const INITIAL_NODES = [
     data: {
       ...NODE_TEMPLATES.transport.defaultData,
       category: "transport // solid state",
-      status: "99.1% confidence",
+      status: "Illustrative example",
     },
   },
   {
@@ -124,7 +124,7 @@ const INITIAL_NODES = [
     data: {
       ...NODE_TEMPLATES.topological.defaultData,
       category: "topological geometry",
-      status: "verified",
+      status: "Illustrative example",
     },
   },
   {
@@ -136,7 +136,7 @@ const INITIAL_NODES = [
     data: {
       ...NODE_TEMPLATES.contradiction.defaultData,
       category: "refutation // counter-thesis",
-      status: "empirically proven",
+      status: "Illustrative example",
     },
   },
   {
@@ -149,7 +149,7 @@ const INITIAL_NODES = [
     data: {
       ...NODE_TEMPLATES.spawned.defaultData,
       category: "ai discovery // 2026",
-      status: "crawled live",
+      status: "Illustrative example",
     },
   },
 ];
@@ -276,7 +276,7 @@ export function App() {
           color: "stone",
           isCollapsed: false,
           category: "Domain: Kinematics // Invariants",
-          epistemicStatus: "peer reviewed",
+          epistemicStatus: "Illustrative example",
           coherenceScore: 0.96,
           aiSynthesizedSummary:
             "Synthesis of planar kinematic translation, dynamic coupler curves, and topological invariant mappings across constrained manifolds.",
@@ -1669,7 +1669,7 @@ export function App() {
       if ((aiMode === "auto" || aiMode === "backend") && !signal.aborted) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 6000);
+          const timeoutId = setTimeout(() => controller.abort(), 120000);
 
           const response = await fetch(`${backendUrl}/api/spark`, {
             method: "POST",

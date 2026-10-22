@@ -30,15 +30,8 @@ export {
   testTavilyConnection,
 };
 
-export const DEFAULT_GROQ_KEY = (() => {
-  const codes = [
-    103, 115, 107, 95, 79, 88, 53, 73, 50, 102, 83, 75, 53, 77, 77, 113, 107,
-    103, 121, 87, 114, 101, 82, 65, 87, 71, 100, 121, 98, 51, 70, 89, 56, 106,
-    54, 77, 117, 121, 71, 71, 84, 99, 117, 77, 51, 83, 52, 107, 106, 75, 56,
-    118, 109, 75, 66, 109,
-  ];
-  return codes.map((c) => String.fromCharCode(c ^ 1 ^ 1)).join("");
-})();
+import { DEFAULT_GROQ_KEY, DEFAULT_YOUTUBE_API_KEY, DEFAULT_SPOTIFY_CLIENT_ID, DEFAULT_SPOTIFY_CLIENT_SECRET } from "./providerConfig.js";
+export { DEFAULT_GROQ_KEY, DEFAULT_YOUTUBE_API_KEY, DEFAULT_SPOTIFY_CLIENT_ID, DEFAULT_SPOTIFY_CLIENT_SECRET };
 export const STORAGE_KEY_BACKEND_URL = "psychis_backend_url";
 export const STORAGE_KEY_AI_MODE = "psychis_ai_mode";
 
@@ -79,10 +72,7 @@ export function setStoredAiProvider(_provider) {
 }
 
 export function getStoredAiMode() {
-  if (typeof localStorage !== "undefined") {
-    return localStorage.getItem(STORAGE_KEY_AI_MODE) || "auto";
-  }
-  return "auto";
+  return "backend";
 }
 
 export function setStoredAiMode(mode) {
@@ -91,16 +81,11 @@ export function setStoredAiMode(mode) {
   }
 }
 
-export const OFFICIAL_REMOTE_BACKEND_URL = "http://psychis.site:8000";
+export const OFFICIAL_REMOTE_BACKEND_URL = "http://89.22.226.68:8000";
 export const OFFICIAL_SERVER_DOMAIN = "psychis.site";
 
 export function getStoredBackendUrl() {
-  if (typeof localStorage !== "undefined") {
-    return (
-      localStorage.getItem(STORAGE_KEY_BACKEND_URL) || "http://localhost:8000"
-    );
-  }
-  return "http://localhost:8000";
+  return OFFICIAL_REMOTE_BACKEND_URL;
 }
 
 export function setStoredBackendUrl(url) {
@@ -190,21 +175,18 @@ export async function fetchGroqLiveModels(apiKey) {
 }
 
 export const STORAGE_KEY_YOUTUBE_KEY = "psychis_youtube_api_key";
-export const DEFAULT_YOUTUBE_API_KEY =
-  "AIzaSyBm9mDhXzr8ygzCU4wTH4C3HKSTlckWTMQ";
+
 export const STORAGE_KEY_SPOTIFY_CLIENT_ID = "psychis_spotify_client_id";
 export const STORAGE_KEY_SPOTIFY_CLIENT_SECRET =
   "psychis_spotify_client_secret";
-export const DEFAULT_SPOTIFY_CLIENT_ID = "1d15702e09ae4b8783abf14368295a9b";
-export const DEFAULT_SPOTIFY_CLIENT_SECRET = "ad1aba9a4f034b0f9fde8dee87b041ec";
+
+
 
 export function getStoredYouTubeKey() {
   if (typeof localStorage !== "undefined") {
     const val = localStorage.getItem(STORAGE_KEY_YOUTUBE_KEY);
     if (
-      val &&
-      val.trim() &&
-      val.trim() !== "AIzaSyCjdgdzuQV0x8eTdugTiAv4qvJwZgjVEbs"
+      val && val.trim()
     ) {
       return val.trim();
     }

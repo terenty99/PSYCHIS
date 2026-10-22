@@ -254,7 +254,6 @@ const MacroNodeCard = ({
     });
   }, [clusterNodes]);
 
-  const coherence = Math.round((cluster.coherenceScore || 0.96) * 100);
 
   return (
     <div
@@ -333,7 +332,7 @@ const MacroNodeCard = ({
           {cluster.category || 'Spatial Constellation'}
         </span>
         <span className="px-2 py-0.5 rounded-full bg-grey-soft text-text-secondary border border-grey-medium/60 font-semibold shrink-0">
-          {coherence}% Coherence
+          {cluster.isGhost ? 'Suggested cluster' : 'Research group'}
         </span>
       </div>
 
@@ -503,7 +502,6 @@ const SingleClusterHull = ({
 
   const { outerPath, innerPath, headerPos } = hullData;
   const isGhost = Boolean(cluster.isGhost);
-  const coherence = Math.round((cluster.coherenceScore || 0.94) * 100);
   const colorConfig = getClusterColor(cluster.color);
 
   const handleSaveTitle = (e) => {
@@ -661,9 +659,9 @@ const SingleClusterHull = ({
             </span>
           )}
 
-          {/* Coherence Badge */}
+          {/* Group label; legacy scores are not measured confidence. */}
           <span className="font-mono text-[9.5px] px-1.5 py-0.5 rounded bg-white/70 text-text-secondary border border-grey-medium/50 font-medium">
-            {coherence}%
+            {isGhost ? 'Suggested cluster' : 'Research group'}
           </span>
 
           {/* Controls: Collapse, Color, Auto-Tidy, Dissolve */}

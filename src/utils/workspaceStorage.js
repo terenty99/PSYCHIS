@@ -35,7 +35,7 @@ export const DEFAULT_WORKSPACES = [
         nodeIds: ['0x01', '0x02', '0x03'],
         isCollapsed: false,
         category: 'Domain: Kinematics // Invariants',
-        epistemicStatus: 'peer reviewed',
+        epistemicStatus: 'Illustrative example',
         coherenceScore: 0.96,
         aiSynthesizedSummary:
           'Synthesis of planar kinematic translation, dynamic coupler curves, and topological invariant mappings across constrained manifolds.',
@@ -58,7 +58,7 @@ export const DEFAULT_WORKSPACES = [
         position: { x: 420, y: 220 },
         data: {
           category: 'ai discovery // 2026',
-          status: 'crawled live',
+          status: 'Illustrative example',
           year: '2026',
           title: 'Cryogenic Flexure Stability',
           source: 'IEEE Trans. Robotics (2026)',
@@ -204,11 +204,52 @@ export function parsePsychisFile(fileText) {
     const edges = Array.isArray(parsed.edges) ? parsed.edges : [];
     const clusters = Array.isArray(parsed.clusters) ? parsed.clusters : [];
 
+    const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+    const validId = (id) => typeof id === 'string' && id.trim().length > 0;
+    const validPosition = (position) => isRecord(position)
+      && Number.isFinite(position.x) && Number.isFinite(position.y);
+    const reject = (message) => { throw new Error(`Invalid .psychis file: ${message}`); };
+    const ids = new Set();
+    for (const node of nodes) {
+      if (!isRecord(node) || !validId(node.id)) reject('each node needs a non-empty string ID');
+      if (ids.has(node.id)) reject(`duplicate node ID: ${node.id}`);
+      ids.add(node.id);
+      if (!validPosition(node.position)) reject(`node ${node.id} needs finite x/y coordinates`);
+      if (node.data !== undefined && !isRecord(node.data)) reject(`node ${node.id} has invalid data`);
+    }
+    if (parsed.edges != null && !Array.isArray(parsed.edges)) reject('edges must be an array');
+    const edgeIds = new Set();
+    for (const edge of edges) {
+      if (!isRecord(edge) || !ids.has(edge.source) || !ids.has(edge.target)) {
+        reject('each edge must reference existing source and target node IDs');
+      }
+      if (edge.id !== undefined) {
+        if (!validId(edge.id) || edgeIds.has(edge.id)) reject('edge IDs must be non-empty and unique');
+        edgeIds.add(edge.id);
+      }
+    }
+    if (parsed.clusters != null && !Array.isArray(parsed.clusters)) reject('clusters must be an array');
+    const clusterIds = new Set();
+    for (const cluster of clusters) {
+      if (!isRecord(cluster) || !validId(cluster.id) || clusterIds.has(cluster.id)) {
+        reject('cluster IDs must be non-empty and unique');
+      }
+      clusterIds.add(cluster.id);
+      if (!Array.isArray(cluster.nodeIds) || cluster.nodeIds.some((id) => !ids.has(id))) {
+        reject(`cluster ${cluster.id} must reference existing nodes`);
+      }
+    }
+    if (!isRecord(viewport)) reject('viewport must be an object');
+    // Older files may omit viewport fields; supplied values must be usable.
+    const pan = viewport.pan === undefined ? { x: 0, y: 0 } : viewport.pan;
+    const zoom = viewport.zoom === undefined ? 1 : viewport.zoom;
+    if (!validPosition(pan) || !Number.isFinite(zoom) || zoom <= 0) reject('invalid viewport pan or zoom');
+
     return {
       success: true,
       workspaceName,
       clientHandle,
-      viewport,
+      viewport: { ...viewport, pan, zoom },
       nodes,
       edges,
       clusters,

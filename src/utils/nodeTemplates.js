@@ -4,7 +4,7 @@ export const NODE_TEMPLATES = {
   website: {
     type: 'website',
     category: 'website // corpus',
-    status: 'verified',
+    status: "Illustrative example",
     width: 270,
     height: 210,
     defaultData: {
@@ -82,7 +82,7 @@ export const NODE_TEMPLATES = {
   mechanism: {
     type: 'mechanism',
     category: 'mechanism // planar motion',
-    status: 'peer reviewed',
+    status: 'Illustrative example',
     width: 280,
     height: 330,
     defaultData: {
@@ -200,7 +200,7 @@ export const NODE_TEMPLATES = {
   transport: {
     type: 'transport',
     category: 'transport // solid state',
-    status: '99.1% confidence',
+    status: "Illustrative example",
     width: 270,
     height: 290,
     defaultData: {
@@ -290,7 +290,7 @@ export const NODE_TEMPLATES = {
   topological: {
     type: 'topological',
     category: 'topological geometry',
-    status: 'verified',
+    status: "Illustrative example",
     width: 250,
     height: 210,
     defaultData: {
@@ -372,7 +372,7 @@ export const NODE_TEMPLATES = {
   contradiction: {
     type: 'contradiction',
     category: 'refutation // counter-thesis',
-    status: 'empirically proven',
+    status: "Illustrative example",
     width: 280,
     height: 270,
     defaultData: {
@@ -456,7 +456,7 @@ export const NODE_TEMPLATES = {
   spawned: {
     type: 'spawned',
     category: 'ai discovery // 2026',
-    status: 'crawled live',
+    status: 'Illustrative example',
     width: 270,
     height: 240,
     defaultData: {

@@ -702,7 +702,7 @@ async def analyze_clusters(req: ClusterAnalyzeRequest, background_tasks: Backgro
     """
     Autonomous Semantic Loom: Continuous background cluster partition analysis.
     Identifies high-density semantic islands across canvas nodes, proposing cohesive
-    knowledge constellations with coherence scores and emergent theses.
+    suggested groups and generated summaries, without measured confidence scores.
     Shadow-logs every candidate evaluation to training_dataset.jsonl.
     """
     nodes = req.nodes
@@ -725,7 +725,7 @@ async def analyze_clusters(req: ClusterAnalyzeRequest, background_tasks: Backgro
                 "id": f"cluster-loom-{int(time.time())}",
                 "title": f"Emergent Constellation: {sample_titles[0]}",
                 "domain": unclustered_nodes[0].get("category", "Theoretical Physics // Synthesis"),
-                "coherence": 0.88,
+                "suggestionType": "heuristic",
                 "nodeIds": sample_ids,
                 "summary": f"Parametric conceptual convergence across {len(sample_ids)} unclustered knowledge nodes."
             })
@@ -755,8 +755,8 @@ async def analyze_clusters(req: ClusterAnalyzeRequest, background_tasks: Backgro
         system_prompt = (
             "You are the PSYCHIS Autonomous Semantic Loom, a high-dimensional epistemic clustering engine. "
             "Analyze the spatial canvas nodes provided and identify natural semantic clusters (groups of >= 2 nodes sharing conceptual, mathematical, or causal affinity). "
-            "Return ONLY a JSON object: {\"clusters\": [{\"title\": \"Academic Title\", \"domain\": \"Domain // Field\", \"coherence\": 0.94, \"nodeIds\": [\"id1\", \"id2\"], \"summary\": \"2-3 sentence unifying thesis\"}]}. "
-            "Coherence must be a float between 0.70 and 0.99 reflecting topological and semantic coherence."
+            "Return ONLY a JSON object: {\"clusters\": [{\"title\": \"Academic Title\", \"domain\": \"Domain // Field\", \"nodeIds\": [\"id1\", \"id2\"], \"summary\": \"2-3 sentence unifying thesis\"}]}. "
+            "These are unverified suggestions. Do not invent confidence or coherence scores."
         )
 
         user_content = f"Existing clustered node IDs: {list(clustered_ids)}\n\nCanvas nodes to evaluate:\n{json.dumps(nodes_brief, ensure_ascii=False)}"
@@ -811,7 +811,7 @@ async def synthesize_cluster(req: ClusterSynthesizeRequest, background_tasks: Ba
         return {
             "title": title,
             "domain": cluster_nodes[0].get("category", "General Mechanics") if cluster_nodes else "Theoretical Physics",
-            "coherence": 0.94,
+            "suggestionType": "heuristic",
             "summaryBullets": [
                 "Constitutes a unified invariant manifold across constrained coordinate transformations.",
                 "Integrates empirical observations with continuous analytical conservation laws.",
@@ -850,7 +850,6 @@ async def synthesize_cluster(req: ClusterSynthesizeRequest, background_tasks: Ba
             "Return ONLY a JSON object: {\n"
             "  \"title\": \"Rigorous Academic Title\",\n"
             "  \"domain\": \"Domain // Subfield\",\n"
-            "  \"coherence\": 0.96,\n"
             "  \"summaryBullets\": [\"Bullet 1\", \"Bullet 2\", \"Bullet 3\"],\n"
             "  \"emergentThesis\": \"2-3 sentence unified thesis statement\",\n"
             "  \"dialecticalTension\": \"Internal contradiction or dialectical tension between concepts\",\n"

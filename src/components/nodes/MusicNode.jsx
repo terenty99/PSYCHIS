@@ -1,3 +1,4 @@
+import { researchStatusLabel } from '../../utils/researchStatus.js';
 import React, { useState, useMemo, useEffect } from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
 import { useGlobalAudio } from '../../hooks/useGlobalAudio';
@@ -457,7 +458,7 @@ export const MusicNode = ({
           </span>
         </div>
         <span className="font-mono text-[8px] bg-grey-soft text-text-secondary px-1.5 py-0.5 rounded border border-grey-medium/70 shrink-0">
-          {data.status || 'acoustic artifact'}
+          {researchStatusLabel(data.status, 'acoustic artifact')}
         </span>
       </div>
 

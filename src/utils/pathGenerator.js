@@ -1,5 +1,5 @@
 /**
- * Generates natural, flowing organic Bézier curves between two nodes matching the mock site.
+ * Generates natural, flowing organic Bezier curves between two nodes matching the mock site.
  * When isArrowed is true, trims the path to the target card's perimeter so the arrowhead
  * is clearly visible outside the opaque card instead of being hidden underneath.
  */

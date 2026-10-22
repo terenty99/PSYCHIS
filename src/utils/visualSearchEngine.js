@@ -774,12 +774,12 @@ export async function searchLiveVideos(queryText) {
     try {
       ytKey = typeof getStoredYouTubeKey === 'function' ? getStoredYouTubeKey() : '';
     } catch (_) {}
-    if (!ytKey || ytKey === 'AIzaSyCjdgdzuQV0x8eTdugTiAv4qvJwZgjVEbs') {
+    if (!ytKey) {
       const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('psychis_youtube_api_key') : '';
-      if (stored && stored.trim() && stored.trim() !== 'AIzaSyCjdgdzuQV0x8eTdugTiAv4qvJwZgjVEbs') {
+      if (stored && stored.trim()) {
         ytKey = stored.trim();
       } else {
-        ytKey = 'AIzaSyBm9mDhXzr8ygzCU4wTH4C3HKSTlckWTMQ';
+        ytKey = '';
       }
     }
     if (ytKey && ytKey.trim()) {
@@ -954,13 +954,13 @@ async function getSpotifyAccessToken(clientId, clientSecret) {
   return null;
 }
 
-export const DEFAULT_SPOTIFY_CLIENT_ID = '1d15702e09ae4b8783abf14368295a9b';
-export const DEFAULT_SPOTIFY_CLIENT_SECRET = 'ad1aba9a4f034b0f9fde8dee87b041ec';
+import { DEFAULT_SPOTIFY_CLIENT_ID, DEFAULT_SPOTIFY_CLIENT_SECRET } from './providerConfig.js';
+export { DEFAULT_SPOTIFY_CLIENT_ID, DEFAULT_SPOTIFY_CLIENT_SECRET };
 
 /**
  * Searches and fetches audio tracks exclusively from Spotify Web API.
- * Uses built-in official Spotify Client ID & Client Secret credentials.
- * Zero Apple Music / iTunes calls.
+ * Uses personal Spotify credentials from Settings or optional build configuration.
+ * Falls back to other catalog/preview services when available.
  */
 export async function searchMusicTracks(queryText) {
   if (!queryText || typeof queryText !== 'string' || !queryText.trim()) return [];
@@ -1366,7 +1366,7 @@ export async function resolveFullTrackYouTubeId(trackOrQuery, targetSeconds = 18
   if (!q) return null;
 
   try {
-    let ytKey = 'AIzaSyBm9mDhXzr8ygzCU4wTH4C3HKSTlckWTMQ';
+    let ytKey = getStoredYouTubeKey();
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem('psychis_youtube_api_key');
       if (stored && stored.trim()) ytKey = stored.trim();

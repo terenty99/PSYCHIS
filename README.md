@@ -22,7 +22,7 @@ The aim is to let research grow into **an evolving structure**. AI can suggest a
 
 Try an investigation into mechanical motion:
 
-1. **Start a workspace.** Choose **New Investigation**, name it “Linkage motion,” and leave automatic seeding unchecked for a blank canvas.
+1. **Start a workspace.** Choose **New Investigation** and name it “Linkage motion.” The current dialog creates a blank workspace; ask Spark to populate it.
 2. **Ask Spark:** “How does a four-bar linkage work? Compare crank-rocker and double-crank mechanisms.” Spark creates research cards; their contents and number depend on the response and available services.
 3. **Investigate a card.** Open **view +** to inspect its explanation, source, and formulas. In **Deep Probe**, choose a suggested inquiry—or ask a follow-up from the selected node—to create a connected discovery. A question about transmission angle can become a branch of the original investigation.
 4. **Bring another representation alongside it.** Use **Kinetic Visuals & GIFs** on an applicable physics card to attach an animated diagram. Ask Spark for a video demonstration, or open a web source in the built-in browser and use **Map** to create a canvas card. Check the source against the generated explanation.
@@ -57,6 +57,32 @@ Switch between separate investigations from the workspace menu. Nodes, connectio
 
 This is local persistence, with no implemented account-based sync or simultaneous collaboration. Clearing browser storage can remove saved work; export investigations you want to keep. External pages and media remain dependent on their hosts.
 
+## Feature Status
+
+### Implemented
+
+- JavaScript/JSX and React DOM/SVG spatial workspace with pan, zoom, research cards, and editable node connections.
+- Manual groups/clusters, local browser persistence, and JSON-based `.psychis` import/export.
+- External search/model integrations and local template fallbacks.
+- Collision-aware placement and arrangement heuristics; these do not guarantee an optimal or overlap-free layout.
+
+### Experimental
+
+- Model-generated graph relationships and follow-up branches.
+- Model-assisted cluster suggestions and automatic grouping, with proximity-based fallback behavior.
+- Generated explanations and suggested relationships require source checking; no validated coherence/confidence metric is displayed.
+
+### Planned / Future Direction
+
+- Local semantic/vector indexing and semantic retrieval over saved research.
+- Deeper entity/relation extraction with evaluation.
+- More advanced graph-layout algorithms.
+
+PSYCHIS currently implements a node-and-edge research workspace, not a formal
+graph reasoning engine. External services provide model inference and web results;
+PSYCHIS code manages the workspace interaction, routing, card preparation, links,
+placement, and persistence. Example/template cards are illustrative content.
+
 ## Run locally
 
 Use **Node.js 22** with npm, matching the repository's release workflow. For the optional Python service, **Python 3.11** is the version used by the backend Dockerfile. A desktop-sized browser is the most practical way to use the canvas.
@@ -83,7 +109,9 @@ Open the workspace menu → **AI Engine & API Settings**, or click the status/se
 | YouTube | Optional API-backed video search | YouTube API key in AI Settings. Other search paths also exist. |
 | Spotify | Optional music catalog search | Spotify client ID and client secret in AI Settings. iTunes/Deezer search and preview fallbacks are also implemented. |
 
-Use your own credentials; bundled defaults may be unavailable or exhausted. Settings entered in the frontend are stored in the browser profile. The frontend uses Groq. The Python service accepts an OpenAI-compatible base URL, although its model fallbacks are also written for Groq.
+Use your own credentials; no provider credentials are bundled in maintained source. Settings entered in the frontend are stored in the browser profile. Missing credentials leave the existing retrieval/template/media fallbacks available where supported; they cannot provide authenticated provider responses. The frontend uses Groq. The Python service accepts an OpenAI-compatible base URL, although its model fallbacks are also written for Groq.
+
+The optional root [`.env.example`](.env.example) lists frontend configuration variables. `VITE_*` values are embedded in browser builds, so do not distribute builds containing personal credentials. Prefer AI Settings for personal local use and `backend/.env` for server-side Groq/Tavily keys. Local `.env` variants are ignored by Git; example files are safe to track. See [Security and prototype limitations](SECURITY.md) before distributing a desktop build or exposing the backend.
 
 Choose the routing mode deliberately:
 
@@ -168,6 +196,21 @@ To package the desktop app, use `npm run dist:win` on Windows or `npm run dist:m
 | [`public/`](public/) and [`docs/media/`](docs/media/) | Application branding and README demonstration assets. |
 
 The frontend uses React 18, Vite, Tailwind CSS, and KaTeX. The backend uses FastAPI/Uvicorn, the OpenAI Python client, and web retrieval/parsing libraries. Workspace storage lives in the client; the backend's dataset is a separate record of research interactions.
+
+## Verification
+
+Run the offline regression suite and production build from the repository root:
+
+```sh
+node --test tests/*.test.mjs
+npm run build
+```
+
+Tests cover research/quote intent handling, malformed string payloads, and
+workspace import/export validation. They do not establish live provider availability
+or packaged desktop behavior. `backend/test_connection.py` is an optional live
+provider probe, not an offline regression test; it requires your own configuration.
+The production build currently reports a large-chunk warning.
 
 
 PSYCHIS is licensed under the [MIT License](LICENSE), copyright © 2026 terenty99.

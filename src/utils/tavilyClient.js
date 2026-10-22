@@ -9,7 +9,8 @@
 export const STORAGE_KEY_TAVILY_KEY = 'psychis_tavily_api_key';
 export const STORAGE_KEY_TAVILY_DEPTH = 'psychis_tavily_search_depth';
 
-export const DEFAULT_TAVILY_KEY = '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';
+import { DEFAULT_TAVILY_KEY } from './providerConfig.js';
+export { DEFAULT_TAVILY_KEY };
 
 /**
  * Retrieve stored Tavily API Key from localStorage or environment

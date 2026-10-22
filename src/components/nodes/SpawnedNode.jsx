@@ -1,3 +1,4 @@
+import { researchStatusLabel } from '../../utils/researchStatus.js';
 import React, { useState, useEffect } from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
 import { MathFormula } from '../../utils/mathRenderer';
@@ -411,7 +412,7 @@ export const SpawnedNode = ({
         </span>
       </div>
       <span className="font-mono text-[7.5px] font-semibold text-text-primary bg-grey-soft border border-grey-medium px-1.5 py-0.5 rounded uppercase shrink-0 whitespace-nowrap mt-0.5">
-        {node.data.status || 'ARTIFACT'}
+        {researchStatusLabel(node.data.status, 'ARTIFACT')}
       </span>
     </div>
   );

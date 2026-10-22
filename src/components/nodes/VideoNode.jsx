@@ -1,3 +1,4 @@
+import { researchStatusLabel } from '../../utils/researchStatus.js';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SmartGlassPanel } from '../ui/SmartGlassPanel';
 import {
@@ -281,7 +282,7 @@ export const VideoNode = ({
           </span>
         </div>
         <span className="font-mono text-[8px] bg-grey-soft text-text-secondary px-1.5 py-0.5 rounded border border-grey-medium/70 shrink-0">
-          {data.status || 'video dossier'}
+          {researchStatusLabel(data.status, 'video dossier')}
         </span>
       </div>
 
