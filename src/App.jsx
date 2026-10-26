@@ -22,7 +22,7 @@ import { NodeTemplateModal } from "./components/ui/NodeTemplateModal";
 import { DeleteNodeConfirmModal } from "./components/ui/DeleteNodeConfirmModal";
 import { OffScreenRadar } from "./components/ui/OffScreenRadar";
 import { CanvasMinimap } from "./components/ui/CanvasMinimap";
-import { synthesizeKnowledgeCluster } from "./utils/intelligentSynthesizer";
+
 import { useNodeInspector } from "./hooks/useNodeInspector";
 import { RELATIONSHIP_TYPES } from "./utils/colorTokens";
 import { createNodeFromTemplate, NODE_TEMPLATES } from "./utils/nodeTemplates";
@@ -513,251 +513,10 @@ export function App() {
   };
 
   // Create New Investigation (From Scratch / Topic Seed)
-  const handleCreateInvestigation = async ({ name, seedTopic }) => {
+  const handleCreateInvestigation = ({ name }) => {
     const newId = `ws-${Date.now()}`;
     let initialNodes = [];
     let initialEdges = [];
-
-    if (seedTopic) {
-      const cluster = synthesizeKnowledgeCluster(seedTopic);
-      const rootId = "0x01";
-      const branchList = cluster.branchNodes || [];
-      const primaryDims = getNodeDimensions(cluster.primaryNode);
-
-      // Calculate collision-free coordinates for the investigation cluster
-      const { primaryPos, branchPositions } = findClusterPositions({
-        centerPos: { x: 380, y: 160 },
-        primaryWidth: primaryDims.width,
-        primaryHeight: primaryDims.height,
-        branchNodes: branchList,
-        existingNodes: [],
-      });
-
-      const isRootMusic =
-        cluster.primaryNode?.mediaType === "music" ||
-        cluster.primaryNode?.layout?.structure === "music_card" ||
-        Boolean(cluster.primaryNode?.musicData) ||
-        Boolean(cluster.primaryNode?.tracks);
-      const isRootVideo =
-        !isRootMusic &&
-        (cluster.primaryNode?.mediaType === "video" ||
-          cluster.primaryNode?.layout?.structure === "video_top" ||
-          Boolean(cluster.primaryNode?.videoData?.videoId));
-
-      const rootNode = {
-        id: rootId,
-        type: isRootMusic ? "music" : isRootVideo ? "video" : "spawned",
-        width: primaryDims.width,
-        height: primaryDims.height,
-        position: primaryPos,
-        data: {
-          ...cluster.primaryNode,
-          mediaType: isRootMusic
-            ? "music"
-            : isRootVideo
-              ? "video"
-              : cluster.primaryNode.mediaType || "photo",
-          status: cluster.primaryNode.status || "synthesized root",
-        },
-      };
-
-      initialNodes = [rootNode];
-
-      // Add connected branch nodes from the knowledge cluster
-      if (branchList.length > 0) {
-        branchList.forEach((bn, idx) => {
-          const branchId = `0x0${idx + 2}`;
-          const branchPos = branchPositions[idx] || {
-            x: primaryPos.x + 380,
-            y: primaryPos.y + idx * 260,
-          };
-          const bDims = getNodeDimensions(bn);
-
-          const branchRel =
-            RELATIONSHIP_TYPES[bn.relationship] ||
-            (bn.relationship === "CONTRADICTS"
-              ? RELATIONSHIP_TYPES.CONTRADICTS
-              : RELATIONSHIP_TYPES.COUPLED_SYSTEM);
-          const branchEdge = {
-            id: `edge-${rootId}-${branchId}`,
-            source: rootId,
-            target: branchId,
-            relationshipType: branchRel,
-            label:
-              bn.relationshipLabel ||
-              (branchRel === RELATIONSHIP_TYPES.CONTRADICTS
-                ? "contradicts"
-                : "coupled dynamic"),
-          };
-
-          const bIsMusic =
-            bn.mediaType === "music" ||
-            bn.layout?.structure === "music_card" ||
-            Boolean(bn.musicData) ||
-            Boolean(bn.tracks);
-          const bIsVideo =
-            !bIsMusic &&
-            (bn.mediaType === "video" ||
-              bn.layout?.structure === "video_top" ||
-              Boolean(bn.videoData?.videoId));
-
-          initialNodes.push({
-            id: branchId,
-            type:
-              bn.relationship === "CONTRADICTS"
-                ? "contradiction"
-                : bIsMusic
-                  ? "music"
-                  : bIsVideo
-                    ? "video"
-                    : "spawned",
-            width: bDims.width,
-            height: bDims.height,
-            position: branchPos,
-            data: {
-              ...bn,
-              mediaType: bIsMusic
-                ? "music"
-                : bIsVideo
-                  ? "video"
-                  : bn.mediaType || "photo",
-              title: bn.title,
-              category: bn.category || "dialectical counterpart",
-              status: "derived relation",
-            },
-          });
-          initialEdges.push(branchEdge);
-        });
-      }
-
-      // Live AI enrichment (tries local backend server first, then direct Groq API)
-      const enrichWithLiveAi = async () => {
-        try {
-          const aiMode = getStoredAiMode();
-          const backendUrl = getStoredBackendUrl();
-          let liveNode = null;
-
-          if (aiMode === "auto" || aiMode === "backend") {
-            try {
-              const res = await fetch(`${backendUrl}/api/spark`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  query: `Synthesize comprehensive spatial knowledge graph and historical/scientific dossier for: ${seedTopic}`,
-                  workspace_name: name,
-                }),
-              });
-              if (res.ok) {
-                const result = await res.json();
-                if (result.node) liveNode = result.node;
-              }
-            } catch (err) {}
-          }
-
-          if (!liveNode && (aiMode === "auto" || aiMode === "direct")) {
-            try {
-              const directRes = await queryDirectAi({
-                query: `Synthesize comprehensive spatial knowledge graph and historical/scientific dossier for: ${seedTopic}`,
-                workspaceName: name,
-                existingNodes: initialNodes,
-              });
-              if (directRes.node) liveNode = directRes.node;
-            } catch (err) {}
-          }
-
-          if (liveNode) {
-            // If backend returned a node without live media enrichment, enrich it
-            if (
-              !liveNode.videoData &&
-              !liveNode.musicData &&
-              (liveNode.mediaType === "video" ||
-                liveNode.mediaType === "music" ||
-                liveNode.videoQuery ||
-                liveNode.musicData)
-            ) {
-              try {
-                liveNode = await enrichNodeWithRealPhotos(
-                  liveNode,
-                  seedTopic,
-                  name,
-                  initialNodes,
-                );
-              } catch (_) {}
-            }
-
-            const isMus =
-              liveNode.mediaType === "music" ||
-              Boolean(liveNode.musicData) ||
-              Boolean(liveNode.tracks) ||
-              liveNode.layout?.structure === "music_card";
-            const isVid =
-              !isMus &&
-              (liveNode.mediaType === "video" ||
-                Boolean(liveNode.videoData?.videoId) ||
-                liveNode.layout?.structure === "video_top");
-
-            setNodes((prev) =>
-              prev.map((n) =>
-                n.id === rootId
-                  ? {
-                      ...n,
-                      type: isMus ? "music" : isVid ? "video" : n.type,
-                      data: {
-                        ...n.data,
-                        ...liveNode,
-                        mediaType: isMus
-                          ? "music"
-                          : isVid
-                            ? "video"
-                            : liveNode.mediaType || n.data.mediaType,
-                        title: liveNode.title || n.data.title,
-                      },
-                    }
-                  : n,
-              ),
-            );
-            if (liveNode) {
-              try {
-                recordTelemetryInteraction({
-                  instruction: seedTopic,
-                  input: {
-                    workspace_name: name,
-                    type: "investigation_seed_live",
-                  },
-                  output: liveNode,
-                  structured_output: liveNode,
-                  action_type: "investigation_seed",
-                  workspace_name: name,
-                  client_handle: clientAuth?.handle || "Researcher 01",
-                });
-              } catch (_) {}
-            }
-          }
-        } catch (e) {}
-      };
-
-      enrichWithLiveAi();
-
-      if (initialNodes.length > 0) {
-        try {
-          recordTelemetryInteraction({
-            instruction: seedTopic,
-            input: {
-              workspace_name: name,
-              initial_node_count: initialNodes.length,
-            },
-            output: initialNodes[0].data,
-            structured_output: {
-              initialNodes: initialNodes.map((n) => n.data),
-              initialEdges,
-            },
-            action_type: "investigation_seed",
-            workspace_name: name,
-            client_handle: clientAuth?.handle || "Researcher 01",
-          });
-        } catch (_) {}
-      }
-    }
 
     const newWs = {
       id: newId,
@@ -768,21 +527,7 @@ export function App() {
       zoom: 1,
       nodes: initialNodes,
       edges: initialEdges,
-      clusters:
-        initialNodes.length >= 2
-          ? [
-              {
-                id: `cluster-${Date.now()}`,
-                title: `${name || "Investigation"} — Constellation`,
-                nodeIds: initialNodes.map((n) => n.id),
-                isCollapsed: false,
-                category: "Investigation Cluster",
-                epistemicStatus: "synthesized root",
-                coherenceScore: 0.95,
-                aiSynthesizedSummary: `Primary investigation cluster seeded from topic: ${seedTopic || name || "New Topic"}`,
-              },
-            ]
-          : [],
+      clusters: [],
     };
 
     setWorkspaces((prev) => {
@@ -1662,7 +1407,7 @@ export function App() {
       }
 
       let synthesizedData = null;
-      const aiMode = getStoredAiMode(); // 'auto' | 'backend' | 'direct' | 'offline'
+      const aiMode = getStoredAiMode(); // 'auto' | 'backend' | 'direct'
       const backendUrl = getStoredBackendUrl();
 
       // 1. Try local backend server if permitted
@@ -1699,7 +1444,7 @@ export function App() {
           }
         } catch (err) {
           console.log(
-            "[PSYCHIS Backend offline, attempting direct Groq or synthesizer]:",
+            "[PSYCHIS Backend unavailable]:",
             err.message,
           );
         }
@@ -1723,7 +1468,7 @@ export function App() {
           }
         } catch (err) {
           console.warn(
-            "[Direct AI query failed, falling back to Tavily or synthesizer]:",
+            "[Direct AI query failed, attempting Tavily]:",
             err.message,
           );
         }
@@ -1835,32 +1580,8 @@ export function App() {
 
       if (signal.aborted) return;
 
-      // 3. Fall back to offline intelligent synthesizer if nothing synthesized
       if (!synthesizedData) {
-        const cluster = synthesizeKnowledgeCluster(text, nodes);
-        synthesizedData = {
-          ...cluster.primaryNode,
-          branchNodes: cluster.branchNodes || [],
-        };
-        const isFinancialTopic =
-          /(?:^|[^a-zA-Zа-яА-ЯёЁ0-9_])(курс|курсы|курса|курсов|валют|валюта|валюты|валютный|доллар|доллара|долларов|евро|рубл|рубль|рубля|рублей|юан|юань|юаня|юаней|биткоин|биткоина|биткоинов|криптовалют|акци|акции|акций|индекс|индексы|котировк|котировка|котировки|почем|сколько стоит|цена|цены|цене|стоимост|rate|rates|price|prices|exchange rate|cost of)/i.test(
-            text,
-          ) ||
-          /\b(usd[\s/]?rub|eur[\s/]?rub|btc[\s/]?usd|eth[\s/]?usd|1\s*usd|1\s*eur)\b/i.test(
-            text,
-          );
-        const isFinancial = isFinancialTopic && !researchIntent;
-        if (isFinancial) {
-          const q = extractStructuredPriceQuote(text, null, synthesizedData);
-          if (q) {
-            synthesizedData.priceQuote = q;
-            synthesizedData.layout = {
-              ...(synthesizedData.layout || {}),
-              structure: "price_hero",
-              width: 340,
-            };
-          }
-        }
+        throw new Error("Search is unavailable. Check the server connection and provider configuration.");
       }
 
       synthesizedData = applyResearchIntent(synthesizedData, text);
@@ -2327,86 +2048,9 @@ export function App() {
         "[Error spawning cluster in handleExecuteSparkQuery]:",
         clusterErr,
       );
-      try {
-        const fallbackCluster = synthesizeKnowledgeCluster(text, nodes);
-        const cleanData = sanitizeNodeData({
-          ...fallbackCluster.primaryNode,
-          justMaterialized: true,
-          title: fallbackCluster.primaryNode?.title || text,
-          status: fallbackCluster.primaryNode?.status || "synthesized node",
-          isGenerating: false,
-        });
-        const fallbackNode = {
-          id: newId,
-          type: "spawned",
-          width: fallbackCluster.primaryNode?.layout?.width || 330,
-          height: 250,
-          position: safePreviewPos,
-          data: cleanData,
-        };
-        setNodes((prev) => {
-          const filtered = prev.filter((n) => n.id !== newId);
-          return [...filtered, fallbackNode];
-        });
-        if (tempEdgeId) {
-          setEdges((prev) =>
-            prev.filter(
-              (e) =>
-                e.id !== tempEdgeId &&
-                !e.id?.startsWith("preview-edge-") &&
-                !e.data?.isConstructing,
-            ),
-          );
-        }
-        // Background photo enrichment on fallback node
-        enrichNodeWithRealPhotos(
-          fallbackCluster.primaryNode,
-          text,
-          currentWorkspace?.name || "",
-          nodes,
-        )
-          .then((enriched) => {
-            if (
-              enriched &&
-              (enriched.photos?.length > 0 || enriched.primaryPhoto)
-            ) {
-              setNodes((latest) =>
-                latest.map((n) =>
-                  n.id === newId
-                    ? {
-                        ...n,
-                        data: sanitizeNodeData({
-                          ...n.data,
-                          photos: enriched.photos,
-                          primaryPhoto: enriched.primaryPhoto,
-                          layout: {
-                            ...(n.data?.layout || {}),
-                            structure:
-                              enriched.layout?.structure ||
-                              (enriched.photos?.length > 0
-                                ? "media_top"
-                                : n.data?.layout?.structure),
-                          },
-                        }),
-                      }
-                    : n,
-                ),
-              );
-            }
-          })
-          .catch(() => {});
-      } catch (_) {
-        setNodes((prev) =>
-          prev.filter((n) => n.id !== newId && n.type !== "generating_preview"),
-        );
-        if (tempEdgeId) {
-          setEdges((prev) =>
-            prev.filter(
-              (e) => e.id !== tempEdgeId && !e.id?.startsWith("preview-edge-"),
-            ),
-          );
-        }
-      }
+      setNodes((prev) => prev.filter((n) => n.id !== newId));
+      setEdges((prev) => prev.filter((e) => e.id !== tempEdgeId && !e.id?.startsWith('preview-edge-')));
+      alert('Search failed. Check the server connection and provider configuration, then try again.');
     } finally {
       if (activeSparkNodeIdRef.current === newId) {
         activeSparkNodeIdRef.current = null;
