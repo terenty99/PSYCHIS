@@ -102,12 +102,12 @@ Open the address printed by Vite, normally [http://localhost:3000](http://localh
 
 Open the workspace menu → **AI Engine & API Settings**, or click the status/settings control in Spark.
 
-| Service | Purpose | Configuration |
-| --- | --- | --- |
-| Groq | Generate explanations and structured research cards | Your Groq API key and a model available to your account in AI Settings; use **Test Groq Connection**. |
-| Tavily | Retrieve web results and source context | Your Tavily API key in AI Settings; use **Test Tavily**. The Python route has its own environment setting below. |
-| YouTube | Optional API-backed video search | YouTube API key in AI Settings. Other search paths also exist. |
-| Spotify | Optional music catalog search | Spotify client ID and client secret in AI Settings. iTunes/Deezer search and preview fallbacks are also implemented. |
+| Service | Purpose                                             | Configuration                                                                                                        |
+| ------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Groq    | Generate explanations and structured research cards | Your Groq API key and a model available to your account in AI Settings; use **Test Groq Connection**.                |
+| Tavily  | Retrieve web results and source context             | Your Tavily API key in AI Settings; use **Test Tavily**. The Python route has its own environment setting below.     |
+| YouTube | Optional API-backed video search                    | YouTube API key in AI Settings. Other search paths also exist.                                                       |
+| Spotify | Optional music catalog search                       | Spotify client ID and client secret in AI Settings. iTunes/Deezer search and preview fallbacks are also implemented. |
 
 Use your own credentials; no provider credentials are bundled in maintained source. Settings entered in the frontend are stored in the browser profile. Missing credentials leave the existing retrieval/template/media fallbacks available where supported; they cannot provide authenticated provider responses. The frontend uses Groq. The Python service accepts an OpenAI-compatible base URL, although its model fallbacks are also written for Groq.
 
@@ -152,12 +152,12 @@ python -m pip install -r backend/requirements.txt
 
 Copy [`backend/.env.example`](backend/.env.example) to `backend/.env` without overwriting an existing configuration. Replace its placeholders:
 
-| Variable | Meaning |
-| --- | --- |
-| `GROQ_API_KEY` | Your server-side Groq key. The backend also accepts `OPENAI_API_KEY` as a fallback name. |
-| `OPENAI_BASE_URL` | API base URL; the supplied example uses `https://api.groq.com/openai/v1`. |
-| `MODEL_NAME` | A model available to your provider account. The example names `openai/gpt-oss-120b`; availability is service-dependent. |
-| `TAVILY_API_KEY` | Your server-side Tavily key for web retrieval. |
+| Variable          | Meaning                                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `GROQ_API_KEY`    | Your server-side Groq key. The backend also accepts `OPENAI_API_KEY` as a fallback name.                                |
+| `OPENAI_BASE_URL` | API base URL; the supplied example uses `https://api.groq.com/openai/v1`.                                               |
+| `MODEL_NAME`      | A model available to your provider account. The example names `openai/gpt-oss-120b`; availability is service-dependent. |
+| `TAVILY_API_KEY`  | Your server-side Tavily key for web retrieval.                                                                          |
 
 Frontend settings do not populate `backend/.env`, and editing that file does not configure direct browser requests. Keep the file private; `.env` is ignored by Git.
 
@@ -179,21 +179,21 @@ npm run build
 npm run app
 ```
 
-Keep the Python backend running separately if you use it; it is not bundled into the desktop package. `npm run preview` serves the frontend build for inspection. The image-search middleware in `vite.config.js` belongs to the development server and is not a production API server.
+Keep the Python backend running separately if you use it; it is not bundled into the desktop package. `npm run preview` serves the frontend build for inspection. The media-search middleware in `config/mediaSearchPlugin.js` runs only in the Vite development server.
 
 To package the desktop app, use `npm run dist:win` on Windows or `npm run dist:mac` on macOS. The release workflow builds these two targets. Prefer the explicit startup commands above to the older launch wrappers, which differ in how they start the backend and report the frontend port.
 
 ## Inside the repository
 
-| Area | Responsibility |
-| --- | --- |
-| [`src/App.jsx`](src/App.jsx) | Workspace state, research actions, node creation, and integration of the main UI. |
-| [`src/layout/SpatialCanvas.jsx`](src/layout/SpatialCanvas.jsx) | Canvas interaction, selection, dragging, links, and cluster rendering. |
-| [`src/components/`](src/components/) | Research and media cards, inspector, browser, Spark, and workspace controls. |
-| [`src/utils/`](src/utils/) and [`src/hooks/`](src/hooks/) | AI/search clients, template synthesis, media retrieval, math and kinetic visuals, geometry, persistence, and audio state. |
-| [`backend/server.py`](backend/server.py) | FastAPI endpoints, model requests, retrieval, cluster operations, and JSONL interaction recording. |
-| [`electron_main.cjs`](electron_main.cjs) | Desktop window, navigation, and embedded browser handling. |
-| [`public/`](public/) and [`docs/media/`](docs/media/) | Application branding and README demonstration assets. |
+| Area                                                           | Responsibility                                                                                                            |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [`src/App.jsx`](src/App.jsx)                                   | Workspace state, research actions, node creation, and integration of the main UI.                                         |
+| [`src/layout/SpatialCanvas.jsx`](src/layout/SpatialCanvas.jsx) | Canvas interaction, selection, dragging, links, and cluster rendering.                                                    |
+| [`src/components/`](src/components/)                           | Research and media cards, inspector, browser, Spark, and workspace controls.                                              |
+| [`src/utils/`](src/utils/) and [`src/hooks/`](src/hooks/)      | AI/search clients, template synthesis, media retrieval, math and kinetic visuals, geometry, persistence, and audio state. |
+| [`backend/server.py`](backend/server.py)                       | FastAPI endpoints, model requests, retrieval, cluster operations, and JSONL interaction recording.                        |
+| [`electron_main.cjs`](electron_main.cjs)                       | Desktop window, navigation, and embedded browser handling.                                                                |
+| [`public/`](public/) and [`docs/media/`](docs/media/)          | Application branding and README demonstration assets.                                                                     |
 
 The frontend uses React 18, Vite, Tailwind CSS, and KaTeX. The backend uses FastAPI/Uvicorn, the OpenAI Python client, and web retrieval/parsing libraries. Workspace storage lives in the client; the backend's dataset is a separate record of research interactions.
 
@@ -202,7 +202,7 @@ The frontend uses React 18, Vite, Tailwind CSS, and KaTeX. The backend uses Fast
 Run the offline regression suite and production build from the repository root:
 
 ```sh
-node --test tests/*.test.mjs
+npm test
 npm run build
 ```
 
@@ -211,6 +211,5 @@ workspace import/export validation. They do not establish live provider availabi
 or packaged desktop behavior. `backend/test_connection.py` is an optional live
 provider probe, not an offline regression test; it requires your own configuration.
 The production build currently reports a large-chunk warning.
-
 
 PSYCHIS is licensed under the [MIT License](LICENSE), copyright © 2026 terenty99.

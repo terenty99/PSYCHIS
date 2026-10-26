@@ -1,10 +1,9 @@
 @echo off
-title PSYCHIS AI Backend ^& Shadow Dataset Server
-cd /d %~dp0
-echo ========================================================
-echo   PSYCHIS AI Engine ^& Shadow Dataset Server (v2026.1)
-echo   Connected to Groq Cloud API (GPT OSS 120B Flagship)
-echo   Listening on http://localhost:8000
-echo ========================================================
+title PSYCHIS Backend
+cd /d "%~dp0"
+
 python server.py
-pause
+set "server_exit_code=%errorlevel%"
+
+if not "%server_exit_code%"=="0" pause
+exit /b %server_exit_code%

@@ -1,4 +1,2 @@
 @echo off
-title PSYCHIS AI Backend ^& Shadow Dataset Server
-cd /d %~dp0\backend
-python server.py
+call "%~dp0backend\start_server.bat"
